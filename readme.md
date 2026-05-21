@@ -1,3 +1,41 @@
+# Navigate to project
+cd /Users/shantanu/Downloads/CodeProjects/AGENTIC_AI_PROJECTS/trader-daily-india
+# Create and activate virtual environment
+python3 -m venv .venv
+
+# Activate it
+source .venv/bin/activate
+
+pip install --upgrade pip
+
+# Install all requirements (including CDK)
+pip install -r requirements.txt
+
+# If requirements.txt is missing some packages, install these:
+pip install aws-cdk-lib constructs boto3
+
+Now , cdk deploy created the supporting infrastructure like IAM roles and databases. To actually deploy   agent code to Bedrock AgentCore, need a separate, dedicated tool: the AgentCore CLI . AWS distributes this tool exclusively as a Node.js package named @aws/agentcore on the npm registry. So, run 
+
+npm install -g @aws/agentcore
+
+# Verify installation
+agentcore --version
+
+# Navigate to your agent directory
+cd /Users/shantanu/Downloads/CodeProjects/AGENTIC_AI_PROJECTS/trader-daily-india/agent
+
+# Configure the agent (this packages and uploads your code)
+agentcore create
+
+# Deploy the agent
+agentcore launch \
+  --runtime-name svc-trd-strands-agent \
+  --region eu-west-1
+
+
+
+
+
                     ┌─────────────────────────────────────┐
                     │     COORDINATOR AGENT (Orchestrator)│
                     │     "Analyze RELIANCE for today"    │
@@ -19,7 +57,7 @@
 
 
 ## Directory structure 
-trading-agent-python/
+trader-daily-india/
 ├── app.py                     # CDK entry point
 ├── stacks/                    # CDK stacks (from above)
 │   ├── auth_stack.py

@@ -1,24 +1,25 @@
 from aws_cdk import (
-    Stack, RemovalPolicy, Duration, CfnOutput,
+    Stack, RemovalPolicy, CfnOutput,
     aws_s3 as s3,
     aws_dynamodb as dynamodb
 )
 from constructs import Construct
 
-# S3 + DynamoDB)
-
 class TradingStorageStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        # S3 Bucket for agent code and data
+        # ❌ DON'T create a new bucket - import existing one instead
+        # self.code_bucket = s3.Bucket(...)  # REMOVE THIS
+        
+        # ✅ Import existing S3 bucket
         self.code_bucket = s3.Bucket.from_bucket_name(
             self, 
             "ExistingCodeBucket",
             bucket_name="svc-s3-dev-632943041262-modelartifact"  # Your existing bucket
         )
 
-        # DynamoDB Table for session memory (Strands AgentCore)
+        # ✅ Keep DynamoDB tables (these are new)
         self.session_table = dynamodb.Table(
             self, "TradingSessionTable",
             partition_key=dynamodb.Attribute(name="sessionId", type=dynamodb.AttributeType.STRING),
@@ -28,7 +29,6 @@ class TradingStorageStack(Stack):
             time_to_live_attribute="ttl",
         )
 
-        # DynamoDB Table for trade history
         self.trades_table = dynamodb.Table(
             self, "TradesTable",
             partition_key=dynamodb.Attribute(name="tradeId", type=dynamodb.AttributeType.STRING),

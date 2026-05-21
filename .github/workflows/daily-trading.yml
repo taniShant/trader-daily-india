@@ -9,8 +9,13 @@ on:
     branches: [ main ]
 
 env:
-  AWS_REGION: us-east-1
-  PYTHON_VERSION: '3.11'
+  AWS_REGION: eu-west-1
+  PYTHON_VERSION: '3.12'
+  SESSIONS_TABLE: TradingSessionTable
+
+  # env:
+  # AWS_REGION: ${{ vars.AWS_REGION }}        # ✅ Correct reference for Repository Variables
+  # PYTHON_VERSION: ${{ vars.PYTHON_VERSION }}
 
 jobs:
   multi-agent-analysis:
@@ -37,12 +42,14 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          # role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
       
       - name: Set environment variables
         run: |
-          echo "SESSIONS_TABLE=${{ secrets.SESSIONS_TABLE }}" >> $GITHUB_ENV
+          echo "SESSIONS_TABLE=${{ env.SESSIONS_TABLE }}" >> $GITHUB_ENV
           echo "ICICI_API_KEY=${{ secrets.ICICI_API_KEY }}" >> $GITHUB_ENV
           echo "ICICI_SECRET_KEY=${{ secrets.ICICI_SECRET_KEY }}" >> $GITHUB_ENV
           echo "ICICI_SESSION_TOKEN=${{ secrets.ICICI_SESSION_TOKEN }}" >> $GITHUB_ENV

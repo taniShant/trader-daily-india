@@ -9,25 +9,25 @@ class TradingAuthStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        # User Pool
+        # User Pool - RENAMED
         self.user_pool = cognito.UserPool(
-            self, "TradingUserPool",
+            self, "svc-trd-user-pool",  # ← Changed
             self_sign_up_enabled=False,
             sign_in_aliases=cognito.SignInAliases(email=True),
             removal_policy=RemovalPolicy.DESTROY,
         )
 
-        # User Pool Client
+        # User Pool Client - RENAMED
         self.user_pool_client = cognito.UserPoolClient(
-            self, "TradingUserPoolClient",
+            self, "svc-trd-user-pool-client",  # ← Changed
             user_pool=self.user_pool,
             generate_secret=True,
             auth_flows=cognito.AuthFlow(user_password=True),
         )
 
-        # Identity Pool
+        # Identity Pool - RENAMED
         self.identity_pool = cognito.CfnIdentityPool(
-            self, "TradingIdentityPool",
+            self, "svc-trd-identity-pool",  # ← Changed
             allow_unauthenticated_identities=False,
             cognito_identity_providers=[{
                 "clientId": self.user_pool_client.user_pool_client_id,
@@ -35,9 +35,9 @@ class TradingAuthStack(Stack):
             }]
         )
 
-        # IAM Role for authenticated users
+        # IAM Role for authenticated users - RENAMED
         self.authenticated_role = iam.Role(
-            self, "AuthenticatedRole",
+            self, "svc-trd-auth-role",  # ← Changed
             assumed_by=iam.FederatedPrincipal(
                 "cognito-identity.amazonaws.com",
                 {
@@ -54,7 +54,7 @@ class TradingAuthStack(Stack):
 
         # Attach role to identity pool
         cognito.CfnIdentityPoolRoleAttachment(
-            self, "IdentityPoolRoleAttachment",
+            self, "svc-trd-identity-pool-attachment",  # ← Changed
             identity_pool_id=self.identity_pool.ref,
             roles={"authenticated": self.authenticated_role.role_arn}
         )

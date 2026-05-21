@@ -4,33 +4,32 @@ from stacks.auth_stack import TradingAuthStack
 from stacks.storage_stack import TradingStorageStack
 from stacks.agent_runtime_stack import TradingAgentRuntimeStack
 
-# ============================================================
-# YOUR ACTUAL AWS ACCOUNT AND REGION
-# ============================================================
-ACCOUNT_ID = "632943041262"  # ← Updated with your actual account ID
-REGION = "eu-west-1"          # ← Updated to eu-west-1 (Ireland) where Bedrock is available
+# Define AWS account and region
+# Replace with your actual account ID and region
+ACCOUNT_ID = "YOUR_ACCOUNT_ID"  # Get from `aws sts get-caller-identity`
+REGION = "us-east-1"
 
 app = App()
 
 # Stack 1: Authentication (Cognito)
 auth_stack = TradingAuthStack(
     app, 
-    "svc-trd-AuthStack",
+    "TradingAuthStack",
     env=Environment(account=ACCOUNT_ID, region=REGION)
 )
 
-# Stack 2: Storage (Existing S3 + New DynamoDB)
+# Stack 2: Storage (S3 + DynamoDB)
 storage_stack = TradingStorageStack(
     app, 
-    "svc-trd-StorageStack",
+    "TradingStorageStack",
     env=Environment(account=ACCOUNT_ID, region=REGION)
 )
 
 # Stack 3: Agent Runtime (Bedrock AgentCore)
 agent_stack = TradingAgentRuntimeStack(
     app, 
-    "svc-trd-AgentRuntimeStack",
-    code_bucket=storage_stack.code_bucket,      # This now references your existing S3 bucket
+    "TradingAgentRuntimeStack",
+    code_bucket=storage_stack.code_bucket,
     session_table=storage_stack.session_table,
     trades_table=storage_stack.trades_table,
     env=Environment(account=ACCOUNT_ID, region=REGION)
