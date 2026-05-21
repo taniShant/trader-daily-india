@@ -1,0 +1,72 @@
+name: Daily Multi-Agent Trading
+
+on:
+  schedule:
+    # Runs at 8:30 AM UTC (2:00 PM IST) Monday-Friday
+    - cron: '30 8 * * 1-5'
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+env:
+  AWS_REGION: us-east-1
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  multi-agent-analysis:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install strands-agents boto3 pandas pandas-ta yfinance transformers torch
+          pip install breeze-connect  # ← ADD THIS if not in requirements.txt
+      
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Set environment variables
+        run: |
+          echo "SESSIONS_TABLE=${{ secrets.SESSIONS_TABLE }}" >> $GITHUB_ENV
+          echo "ICICI_API_KEY=${{ secrets.ICICI_API_KEY }}" >> $GITHUB_ENV
+          echo "ICICI_SECRET_KEY=${{ secrets.ICICI_SECRET_KEY }}" >> $GITHUB_ENV
+          echo "ICICI_SESSION_TOKEN=${{ secrets.ICICI_SESSION_TOKEN }}" >> $GITHUB_ENV
+          echo "NEWS_API_KEY=${{ secrets.NEWS_API_KEY }}" >> $GITHUB_ENV
+      
+      - name: Generate fresh session token (if needed)
+        run: |
+          # Optional: Script to generate fresh token from refresh token
+          python scripts/generate_session_token.py
+      
+      - name: Run multi-agent trading analysis
+        run: python agent/main.py
+      
+      - name: Upload trading signals as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: trading-signals-$(date +'%Y%m%d')
+          path: |
+            trading_signals_*.json
+            trade_log_*.csv
+      
+      - name: Send notification
+        if: always()
+        run: |
+          echo "Trading analysis completed at $(date)"
+          # Optional: Add webhook to Slack/Discord/Telegram
+          # curl -X POST -H "Content-Type: application/json" -d '{"text":"Trading analysis complete"}' ${{ secrets.SLACK_WEBHOOK }}

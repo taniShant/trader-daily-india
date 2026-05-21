@@ -1,0 +1,44 @@
+name: Daily Trading Analysis
+
+on:
+  schedule:
+    - cron: '0 8 * * 1-5'  # 8 AM UTC = 1:30 PM IST, Monday-Friday
+  workflow_dispatch:        # Manual trigger
+
+env:
+  AWS_REGION: us-east-1
+  AGENT_RUNTIME_NAME: trading-orchestrator
+
+jobs:
+  analyze-and-trade:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials using OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Invoke AgentCore Runtime
+        run: |
+          aws bedrock-agentcore invoke-runtime \
+            --runtime-arn ${{ secrets.AGENT_RUNTIME_ARN }} \
+            --request '{"prompt": "Analyze RELIANCE, TCS, HDFCBANK, INFY, ICICIBANK for intraday trading"}' \
+            --region ${{ env.AWS_REGION }}
+      
+      - name: Log results to DynamoDB
+        run: |
+          aws dynamodb put-item \
+            --table-name ${{ secrets.TRADES_TABLE }} \
+            --item '{
+              "tradeId": {"S": "'$(date +%Y%m%d-%H%M%S)'"},
+              "date": {"S": "'$(date +%Y-%m-%d)'"},
+              "status": {"S": "completed"}
+            }'

@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+ENV/
+
+# Environment variables (CRITICAL - contains secrets)
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Trading data (contains history, might be large)
+trading_data/
+*.csv
+*.json
+!requirements.txt
+!cdk.json
+
+# AWS CDK
+cdk.out/
+cdk.context.json
+
+# Logs
+*.log
+logs/
+
+# Session tokens (never commit these!)
+*_session_token*
+*_session_key*
+
+# MCP server temp files
+*.pid
