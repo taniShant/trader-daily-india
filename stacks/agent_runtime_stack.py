@@ -36,9 +36,13 @@ class TradingAgentRuntimeStack(Stack):
         learning_table: dynamodb.Table,
         market_state_table: dynamodb.Table,
         config: dict,
+        role: iam.Role,  
         **kwargs
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
+
+        self.task_role = role
+        self.execution_role = role
 
         # ============================================================
         # LOAD CONFIGURATION

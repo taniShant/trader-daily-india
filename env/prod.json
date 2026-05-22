@@ -20,11 +20,11 @@
     "target_group_name": "dashboard-tg"
   },
   "iam": {
-    "task_role_arn": "arn:aws:iam::891377366970:role/svc-trd-ecs-task-role",
-    "execution_role_arn": "arn:aws:iam::891377366970:role/ecsTaskExecutionRole"
+    "task_role_arn": "arn:aws:iam::632943041262:role/svc-trd-ecs-task-role",
+    "execution_role_arn": "arn:aws:iam::632943041262:role/ecsTaskExecutionRole"
   },
   "s3": {
-    "code_bucket": "svc-s3-dev-891377366970-modelartifact"
+    "code_bucket": "svc-s3-dev-632943041262-modelartifact"
   },
   "icici": {
     "api_key": "O6731z39in79bV=1U53K615238Q47GX7",

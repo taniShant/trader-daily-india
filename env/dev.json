@@ -1,7 +1,7 @@
 {
   "environment": "prod",
   "aws": {
-    "account_id": "891377366970",
+    "account_id": "632943041262",
     "region": "eu-west-2",
     "profile": "tiiqu"
   },
@@ -14,17 +14,17 @@
     "dashboard_service": "DashboardService"
   },
   "load_balancer": {
-    "arn": "arn:aws:elasticloadbalancing:eu-west-2:891377366970:loadbalancer/app/trading-lb/xxxxxxxx",
+    "arn": "arn:aws:elasticloadbalancing:eu-west-2:632943041262:loadbalancer/app/trading-lb/xxxxxxxx",
     "dns_name": "trading-lb-1234567890.elb.amazonaws.com",
-    "listener_arn": "arn:aws:elasticloadbalancing:eu-west-2:891377366970:listener/app/trading-lb/xxxxxxxx/yyyyyyyy",
+    "listener_arn": "arn:aws:elasticloadbalancing:eu-west-2:632943041262:listener/app/trading-lb/xxxxxxxx/yyyyyyyy",
     "target_group_name": "dashboard-tg"
   },
   "iam": {
-    "task_role_arn": "arn:aws:iam::891377366970:role/svc-trd-ecs-task-role",
-    "execution_role_arn": "arn:aws:iam::891377366970:role/ecsTaskExecutionRole"
+    "task_role_arn": "arn:aws:iam::632943041262:role/svc-trd-ecs-taskexecute-role",
+    "execution_role_arn": "arn:aws:iam::632943041262:role/svc-trd-ecs-taskexecute-role"
   },
   "s3": {
-    "code_bucket": "svc-s3-891377366970-dev"
+    "code_bucket": "svc-s3-632943041262-dev"
   },
   "icici": {
     "api_key": "O6731z39in79bV=1U53K615238Q47GX7",

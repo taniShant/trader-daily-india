@@ -3,7 +3,8 @@
 AWS CDK Application for Multi-Agent Trading System
 
 Stacks in order of deployment:
-1. NetworkStack - VPC, subnets, security groups, NAT Gateway (imports existing resources)
+0. IAMStack - ECS Execution Role and Task Role
+1. NetworkStack - VPC, subnets, security groups, NAT Gateway
 2. TradingAuthStack - Cognito user pool and identity pool
 3. TradingStorageStack - DynamoDB tables (Trades, Sessions, Learning, MarketState)
 4. TradingAgentRuntimeStack - ECS Fargate cluster, tasks, and load balancer
@@ -16,6 +17,7 @@ Usage:
 import os
 import json
 from aws_cdk import App, Environment
+from stacks.iam_stack import IAMStack
 from stacks.network_stack import NetworkStack
 from stacks.auth_stack import TradingAuthStack
 from stacks.storage_stack import TradingStorageStack
@@ -58,10 +60,8 @@ def load_config():
 CONFIG, ENVIRONMENT = load_config()
 
 # ============================================================
-# AWS ACCOUNT AND REGION CONFIGURATION
+# AWS ACCOUNT AND REGION FROM CONFIG
 # ============================================================
-# IMPORTANT: Values come from env/dev.json or env/prod.json
-# The working account ID from your successful Breeze test is: 891377366970
 
 ACCOUNT_ID = CONFIG["aws"]["account_id"]
 REGION = CONFIG["aws"]["region"]
@@ -69,10 +69,18 @@ REGION = CONFIG["aws"]["region"]
 app = App()
 
 # ============================================================
+# STACK 0: IAM ROLES (Execution Role + Task Role)
+# ============================================================
+
+iam_stack = IAMStack(
+    app,
+    "svc-trd-IamStack",
+    env=Environment(account=ACCOUNT_ID, region=REGION)
+)
+
+# ============================================================
 # STACK 1: NETWORK (Imports existing VPC, subnets, NAT Gateway)
 # ============================================================
-# This stack uses your existing VPC from config
-# with private subnet and NAT Gateway
 
 network_stack = NetworkStack(
     app, 
@@ -84,8 +92,6 @@ network_stack = NetworkStack(
 # ============================================================
 # STACK 2: AUTHENTICATION (Cognito for Dashboard)
 # ============================================================
-# Creates User Pool and Identity Pool for dashboard authentication
-# No config needed - uses account/region only
 
 auth_stack = TradingAuthStack(
     app, 
@@ -96,13 +102,6 @@ auth_stack = TradingAuthStack(
 # ============================================================
 # STACK 3: STORAGE (DynamoDB Tables + Import S3 Bucket)
 # ============================================================
-# Creates four DynamoDB tables:
-# - TradesTable: Stores all executed trades and signals
-# - SessionTable: Agent memory and conversation history
-# - LearningTable: Pattern analysis and confidence adjustments
-# - MarketStateTable: Overnight analysis, global cues, pre-market watchlist
-# 
-# S3 bucket is imported from config (not created)
 
 storage_stack = TradingStorageStack(
     app, 
@@ -114,8 +113,7 @@ storage_stack = TradingStorageStack(
 # ============================================================
 # STACK 4: AGENT RUNTIME (ECS Fargate)
 # ============================================================
-# Deploys the trading bot and dashboard as ECS Fargate services
-# Uses resources from NetworkStack and StorageStack
+# Note: Depends on IAM stack for roles
 
 agent_stack = TradingAgentRuntimeStack(
     app, 
@@ -130,12 +128,9 @@ agent_stack = TradingAgentRuntimeStack(
     trades_table=storage_stack.trades_table,
     learning_table=storage_stack.learning_table,
     market_state_table=storage_stack.market_state_table,
+    role=iam_stack.role,
     config=CONFIG,
     env=Environment(account=ACCOUNT_ID, region=REGION)
 )
-
-# ============================================================
-# SYNTHESIZE THE CDK APPLICATION
-# ============================================================
 
 app.synth()
