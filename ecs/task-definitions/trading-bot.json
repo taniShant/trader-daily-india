@@ -27,13 +27,11 @@
         {"name": "TRADES_TABLE", "value": "PLACEHOLDER_TRADES_TABLE"},
         {"name": "LEARNING_TABLE", "value": "PLACEHOLDER_LEARNING_TABLE"},
         {"name": "MARKET_STATE_TABLE", "value": "PLACEHOLDER_MARKET_STATE_TABLE"},
-        {"name": "CODE_BUCKET", "value": "PLACEHOLDER_CODE_BUCKET"}
-      ],
-      "secrets": [
-        {"name": "ICICI_API_KEY", "valueFrom": "PLACEHOLDER_ICICI_API_KEY"},
-        {"name": "ICICI_SECRET_KEY", "valueFrom": "PLACEHOLDER_ICICI_SECRET_KEY"},
-        {"name": "ICICI_SESSION_TOKEN", "valueFrom": "PLACEHOLDER_ICICI_SESSION_TOKEN"},
-        {"name": "NEWS_API_KEY", "valueFrom": "PLACEHOLDER_NEWS_API_KEY"}
+        {"name": "CODE_BUCKET", "value": "PLACEHOLDER_CODE_BUCKET"},
+        {"name": "ICICI_API_KEY", "value": "PLACEHOLDER_ICICI_API_KEY"},
+        {"name": "ICICI_SECRET_KEY", "value": "PLACEHOLDER_ICICI_SECRET_KEY"},
+        {"name": "ICICI_SESSION_TOKEN", "value": "PLACEHOLDER_ICICI_SESSION_TOKEN"},
+        {"name": "NEWS_API_KEY", "value": "PLACEHOLDER_NEWS_API_KEY"}
       ],
       "logConfiguration": {
         "logDriver": "awslogs",

@@ -17,10 +17,8 @@
         {"name": "TRADES_TABLE", "value": "PLACEHOLDER_TRADES_TABLE"},
         {"name": "LEARNING_TABLE", "value": "PLACEHOLDER_LEARNING_TABLE"},
         {"name": "MARKET_STATE_TABLE", "value": "PLACEHOLDER_MARKET_STATE_TABLE"},
-        {"name": "CODE_BUCKET", "value": "PLACEHOLDER_CODE_BUCKET"}
-      ],
-      "secrets": [
-        {"name": "NEWS_API_KEY", "valueFrom": "PLACEHOLDER_NEWS_API_KEY"}
+        {"name": "CODE_BUCKET", "value": "PLACEHOLDER_CODE_BUCKET"},
+        {"name": "NEWS_API_KEY", "value": "PLACEHOLDER_NEWS_API_KEY"}
       ],
       "logConfiguration": {
         "logDriver": "awslogs",
