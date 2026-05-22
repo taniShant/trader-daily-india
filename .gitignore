@@ -30,7 +30,7 @@ trading_data/
 *.csv
 
 # Ignore JSON globally
-*.json
+# *.json
 
 # BUT allow env folder + json files inside it
 !env/
