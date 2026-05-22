@@ -1,21 +1,21 @@
 {
-  "environment": "prod",
+  "environment": "dev",
   "aws": {
-    "account_id": "891377366970",
+    "account_id": "632943041262",
     "region": "eu-west-2",
-    "profile": "tiiqu"
+    "profile": "cgaws"
   },
   "ecr": {
-    "repository_name": "trading-system"
+    "repository_name": "trending-resolver-agent"
   },
   "ecs": {
-    "cluster_name": "trading-cluster",
+    "cluster_name": "svc-genaimaissueres-dev-cluster",
     "trading_service": "TradingBotService",
     "dashboard_service": "DashboardService"
   },
   "load_balancer": {
-    "arn": "arn:aws:elasticloadbalancing:eu-west-2:891377366970:loadbalancer/app/trading-lb/xxxxxxxx",
-    "dns_name": "trading-lb-1234567890.elb.amazonaws.com",
+    "arn": "arn:aws:elasticloadbalancing:eu-west-2:632943041262:loadbalancer/app/svc-genaimaissueres-dev-alb/fe98570c6ed76f0c",
+    "dns_name": "internal-svc-genaimaissueres-dev-alb-434368021.eu-west-2.elb.amazonaws.com",
     "listener_arn": "arn:aws:elasticloadbalancing:eu-west-2:891377366970:listener/app/trading-lb/xxxxxxxx/yyyyyyyy",
     "target_group_name": "dashboard-tg"
   },
@@ -24,7 +24,7 @@
     "execution_role_arn": "arn:aws:iam::891377366970:role/ecsTaskExecutionRole"
   },
   "s3": {
-    "code_bucket": "svc-s3-891377366970-dev"
+    "code_bucket": "svc-s3-dev-891377366970-modelartifact"
   },
   "icici": {
     "api_key": "O6731z39in79bV=1U53K615238Q47GX7",
@@ -48,17 +48,17 @@
     "paper_trading": true
   },
   "vpc": {
-    "vpc_id": "vpc-0c0d1ef6959c98efb",
-    "public_subnet_id": "subnet-0b9f615a647c429f2",
-    "private_subnet_id": "subnet-062de1c6aeea8e70d",
+    "vpc_id": "vpc-0ecad7f1c28500a36",
+    "public_subnet_id": "subnet-08928d37ce056370e",
+    "private_subnet_id": "subnet-07f56117b5db520aa",
     "has_nat_gateway": true,
     "nat_gateway_id": "nat-xxxxxxxxx",
     "nat_eip_allocation_id": "eipalloc-xxxxxxxxx",
     "nat_gateway_ip": "3.8.245.57"
   },
   "security_groups": {
-    "ecs_sg_id": "sg-0a22923ef2939f200",
-    "load_balancer_sg_id": "sg-078b92eccb2b5603c",
+    "ecs_sg_id": "sg-0eca41b9bd96319a4",
+    "load_balancer_sg_id": "sg-0f6cd02342daef78b",
     "bastion_sg_id": "sg-0baa0107448513e64"
   },
   "dynamodb": {

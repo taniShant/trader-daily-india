@@ -1,5 +1,5 @@
 {
-  "environment": "dev",
+  "environment": "prod",
   "aws": {
     "account_id": "891377366970",
     "region": "eu-west-2",
