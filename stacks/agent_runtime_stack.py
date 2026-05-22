@@ -120,20 +120,16 @@ class TradingAgentRuntimeStack(Stack):
         )
 
         # ============================================================
-        # ECR REPOSITORIES
+        # ECR REPOSITORIES- Reuse (name from dev.json)
         # ============================================================
-        
-        trading_bot_repo = ecr.Repository(
-            self, "TradingBotRepository",
-            repository_name=f"trading-bot-{environment}",
-            removal_policy=RemovalPolicy.DESTROY
+        ecr_repo_name = config.get("ecr", {}).get("repository_name", "trading-system")
+        ecr_repo = ecr.Repository.from_repository_name(
+            self,
+            "ExistingTradingSystemRepository",
+            repository_name=ecr_repo_name
         )
 
-        dashboard_repo = ecr.Repository(
-            self, "DashboardRepository",
-            repository_name=f"trading-dashboard-{environment}",
-            removal_policy=RemovalPolicy.DESTROY
-        )
+        print(f"📦 Using existing ECR repository: {ecr_repo_name}")
 
         # ============================================================
         # ECS CLUSTER
@@ -180,7 +176,7 @@ class TradingAgentRuntimeStack(Stack):
 
         trading_task.add_container(
             "TradingBotContainer",
-            image=ecs.ContainerImage.from_ecr_repository(trading_bot_repo, "latest"),
+            image=ecs.ContainerImage.from_ecr_repository(ecr_repo, "trading-bot-latest"),
             logging=ecs.LogDriver.aws_logs(
                 stream_prefix="trading-bot",
                 log_group=logs.LogGroup(self, "TradingBotLogs", log_group_name=f"/ecs/trading-bot-{environment}")
@@ -228,7 +224,7 @@ class TradingAgentRuntimeStack(Stack):
 
         dashboard_task.add_container(
             "DashboardContainer",
-            image=ecs.ContainerImage.from_ecr_repository(dashboard_repo, "latest"),
+            image=ecs.ContainerImage.from_ecr_repository(ecr_repo, "dashboard-latest"),
             logging=ecs.LogDriver.aws_logs(
                 stream_prefix="dashboard",
                 log_group=logs.LogGroup(self, "DashboardLogs", log_group_name=f"/ecs/dashboard-{environment}")
@@ -273,8 +269,8 @@ class TradingAgentRuntimeStack(Stack):
         # ============================================================
         
         CfnOutput(self, "DashboardUrl", value=f"http://{lb.load_balancer_dns_name}")
-        CfnOutput(self, "TradingBotRepoUri", value=trading_bot_repo.repository_uri)
-        CfnOutput(self, "DashboardRepoUri", value=dashboard_repo.repository_uri)
+        CfnOutput(self, "EcrRepoUri", value=ecr_repo.repository_uri)
+        CfnOutput(self, "EcrRepoName", value=ecr_repo.repository_name)
         CfnOutput(self, "TradingBotServiceName", value=trading_service.service_name)
         CfnOutput(self, "DashboardServiceName", value=dashboard_service.service_name)
         CfnOutput(self, "EcsClusterName", value=cluster.cluster_name)
