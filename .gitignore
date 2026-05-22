@@ -25,12 +25,18 @@ ENV/
 *.swo
 .DS_Store
 
-# Trading data (contains history, might be large)
+# Trading data
 trading_data/
 *.csv
- 
-# Allow JSON files inside env/
+
+# Ignore JSON globally
+*.json
+
+# BUT allow env folder + json files inside it
+!env/
 !env/**/*.json
+
+# Explicit allowed files
 !requirements.txt
 !cdk.json
 
@@ -42,9 +48,9 @@ cdk.context.json
 *.log
 logs/
 
-# Session tokens (never commit these!)
+# Session tokens
 *_session_token*
 *_session_key*
 
-# MCP server temp files
+# MCP temp
 *.pid

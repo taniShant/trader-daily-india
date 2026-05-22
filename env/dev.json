@@ -1,0 +1,74 @@
+{
+  "environment": "dev",
+  "aws": {
+    "account_id": "891377366970",
+    "region": "eu-west-2",
+    "profile": "tiiqu"
+  },
+  "ecr": {
+    "repository_name": "trading-system"
+  },
+  "ecs": {
+    "cluster_name": "trading-cluster",
+    "trading_service": "TradingBotService",
+    "dashboard_service": "DashboardService"
+  },
+  "load_balancer": {
+    "arn": "arn:aws:elasticloadbalancing:eu-west-2:891377366970:loadbalancer/app/trading-lb/xxxxxxxx",
+    "dns_name": "trading-lb-1234567890.elb.amazonaws.com",
+    "listener_arn": "arn:aws:elasticloadbalancing:eu-west-2:891377366970:listener/app/trading-lb/xxxxxxxx/yyyyyyyy",
+    "target_group_name": "dashboard-tg"
+  },
+  "iam": {
+    "task_role_arn": "arn:aws:iam::891377366970:role/svc-trd-ecs-task-role",
+    "execution_role_arn": "arn:aws:iam::891377366970:role/ecsTaskExecutionRole"
+  },
+  "s3": {
+    "code_bucket": "svc-s3-891377366970-dev"
+  },
+  "icici": {
+    "api_key": "O6731z39in79bV=1U53K615238Q47GX7",
+    "secret_key": "59040P16966s175171c&OZ2370138J32",
+    "session_token": "9db40266-0c9b-4ebb-a751-953e2c0d0d44",
+    "static_ip": "3.8.245.57"
+  },
+  "apis": {
+    "news_api_key": "your_newsapi_key",
+    "twitter_bearer_token": "your_twitter_bearer_token",
+    "reddit_client_id": "your_reddit_client_id",
+    "reddit_client_secret": "your_reddit_client_secret"
+  },
+  "trading": {
+    "capital": 100000,
+    "max_daily_loss_percent": 4,
+    "max_position_size_percent": 10,
+    "min_confidence_threshold": 70,
+    "analysis_interval_seconds": 180,
+    "watchlist_size": 10,
+    "paper_trading": true
+  },
+  "vpc": {
+    "vpc_id": "vpc-0c0d1ef6959c98efb",
+    "public_subnet_id": "subnet-0b9f615a647c429f2",
+    "private_subnet_id": "subnet-062de1c6aeea8e70d",
+    "has_nat_gateway": true,
+    "nat_gateway_id": "nat-xxxxxxxxx",
+    "nat_eip_allocation_id": "eipalloc-xxxxxxxxx",
+    "nat_gateway_ip": "3.8.245.57"
+  },
+  "security_groups": {
+    "ecs_sg_id": "sg-0a22923ef2939f200",
+    "load_balancer_sg_id": "sg-078b92eccb2b5603c",
+    "bastion_sg_id": "sg-0baa0107448513e64"
+  },
+  "dynamodb": {
+    "trades_table": "svc-trd-trades-dev",
+    "session_table": "svc-trd-sessions-dev",
+    "learning_table": "svc-trd-learning-dev",
+    "market_state_table": "svc-trd-market-state-dev"
+  },
+  "bedrock": {
+    "model_id": "anthropic.claude-3-haiku-20240307-v1:0",
+    "region": "eu-west-2"
+  }
+}
