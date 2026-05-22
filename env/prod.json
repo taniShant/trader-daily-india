@@ -1,5 +1,5 @@
 {
-  "environment": "dev",
+  "environment": "prod",
   "aws": {
     "account_id": "632943041262",
     "region": "eu-west-2",
@@ -16,7 +16,7 @@
   "load_balancer": {
     "arn": "arn:aws:elasticloadbalancing:eu-west-2:632943041262:loadbalancer/app/svc-genaimaissueres-dev-alb/fe98570c6ed76f0c",
     "dns_name": "internal-svc-genaimaissueres-dev-alb-434368021.eu-west-2.elb.amazonaws.com",
-    "listener_arn": "arn:aws:elasticloadbalancing:eu-west-2:891377366970:listener/app/trading-lb/xxxxxxxx/yyyyyyyy",
+    "listener_arn": "arn:aws:elasticloadbalancing:eu-west-2:632943041262:listener/app/svc-genaimaissueres-dev-alb/fe98570c6ed76f0c/f4102c858db5ffdf",
     "target_group_name": "dashboard-tg"
   },
   "iam": {
@@ -52,8 +52,8 @@
     "public_subnet_id": "subnet-08928d37ce056370e",
     "private_subnet_id": "subnet-07f56117b5db520aa",
     "has_nat_gateway": true,
-    "nat_gateway_id": "nat-xxxxxxxxx",
-    "nat_eip_allocation_id": "eipalloc-xxxxxxxxx",
+    "nat_gateway_id": "nat-43454567",
+    "nat_eip_allocation_id": "eipalloc-4343432",
     "nat_gateway_ip": "3.8.245.57"
   },
   "security_groups": {
