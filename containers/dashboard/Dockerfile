@@ -33,8 +33,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
 
 EXPOSE 8080
 
-CMD ["python", "-c", "
-import uvicorn
-from api_server import app
-uvicorn.run(app, host='0.0.0.0', port=8080)
-"]
+CMD ["sh", "-c", "python -c \"import uvicorn; from api_server import app; uvicorn.run(app, host='0.0.0.0', port=8080)\""]
