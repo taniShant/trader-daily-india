@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Bot Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 Trading Bot Dashboard</h1>
+            <button class="refresh-btn" onclick="fetchAllData()">⟳ Refresh</button>
+        </header>
+        
+        <!-- Stats Cards -->
+        <div class="stats-grid" id="stats">
+            <div class="card">
+                <div class="stat-value" id="positions">-</div>
+                <div class="stat-label">Active Positions</div>
+            </div>
+            <div class="card">
+                <div class="stat-value" id="pnl">-</div>
+                <div class="stat-label">Today's P&L</div>
+            </div>
+            <div class="card">
+                <div class="stat-value" id="winrate">-</div>
+                <div class="stat-label">Win Rate</div>
+            </div>
+            <div class="card">
+                <div class="stat-value" id="status">-</div>
+                <div class="stat-label">Bot Status</div>
+            </div>
+        </div>
+        
+        <!-- Tab Navigation -->
+        <div class="tab-bar">
+            <button class="tab-btn active" onclick="switchTab('trades')">📊 Trades</button>
+            <button class="tab-btn" onclick="switchTab('learning')">🧠 Learning Patterns</button>
+            <button class="tab-btn" onclick="switchTab('market')">🌍 Market State</button>
+        </div>
+        
+        <!-- Filters (shown only on Trades tab) -->
+        <div class="filter-bar" id="filters">
+            <div class="filter-group">
+                <label>Stock Symbol:</label>
+                <input type="text" id="stockFilter" placeholder="e.g., RELIANCE" onkeyup="fetchTrades()">
+            </div>
+            <div class="filter-group">
+                <label>Days:</label>
+                <select id="daysFilter" onchange="fetchPNL(); fetchTrades()">
+                    <option value="7">Last 7 days</option>
+                    <option value="30" selected>Last 30 days</option>
+                    <option value="90">Last 90 days</option>
+                </select>
+            </div>
+            <div class="last-updated" id="lastUpdated"></div>
+        </div>
+        
+        <!-- P&L Chart (shown on Trades tab) -->
+        <div class="chart-card" id="pnlChartCard">
+            <h3>📈 P&L Curve</h3>
+            <canvas id="pnlChart" height="80"></canvas>
+        </div>
+        
+        <!-- Trades Table (Trades tab) -->
+        <div class="chart-card" id="tradesCard">
+            <h3>📊 Recent Trades</h3>
+            <div class="table-container">
+                <table id="tradesTable">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Stock</th>
+                            <th>Action</th>
+                            <th>Price</th>
+                            <th>Quantity</th>
+                            <th>P&L</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="6" class="loading">Loading trades......</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Learning Patterns Table (Learning tab - hidden by default) -->
+        <div class="chart-card" id="learningCard" style="display: none;">
+            <h3>🧠 Learning Patterns</h3>
+            <div class="table-container">
+                <table id="learningTable">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Pattern Type</th>
+                            <th>RSI Range</th>
+                            <th>Sentiment Threshold</th>
+                            <th>Win Rate</th>
+                            <th>Sample Size</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="6" class="loading">Loading learning patterns...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Market State Table (Market tab - hidden by default) -->
+        <div class="chart-card" id="marketCard" style="display: none;">
+            <h3>🌍 Market State (Overnight Analysis)</h3>
+            <div class="table-container">
+                <table id="marketTable">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Global Sentiment</th>
+                            <th>India VIX</th>
+                            <th>Watchlist</th>
+                            <th>Key News</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="5" class="loading">Loading market state...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/static/script.js"></script>
+</body>
+</html>
