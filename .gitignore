@@ -28,7 +28,9 @@ ENV/
 # Trading data (contains history, might be large)
 trading_data/
 *.csv
-*.json
+ 
+# Allow JSON files inside env/
+!env/**/*.json
 !requirements.txt
 !cdk.json
 
