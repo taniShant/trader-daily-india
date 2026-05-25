@@ -272,14 +272,43 @@ jobs:
       # CREATE OR UPDATE TRADING BOT SERVICE
       # ============================================================
       
+      # - name: Create or Update Trading Bot Service
+      #   run: |
+      #     if aws ecs describe-services \
+      #       --cluster ${{ steps.config.outputs.ecs_cluster }} \
+      #       --services ${{ steps.config.outputs.trading_service }} \
+      #       --region ${{ steps.config.outputs.region }} \
+      #       --query "services[?serviceName=='${{ steps.config.outputs.trading_service }}']" \
+      #       --output text | grep -q "serviceName"; then
+      #       echo "Updating existing service: ${{ steps.config.outputs.trading_service }}"
+      #       aws ecs update-service \
+      #         --cluster ${{ steps.config.outputs.ecs_cluster }} \
+      #         --service ${{ steps.config.outputs.trading_service }} \
+      #         --task-definition ${{ steps.register-trading-task.outputs.task_arn }} \
+      #         --force-new-deployment \
+      #         --region ${{ steps.config.outputs.region }}
+      #     else
+      #       echo "Creating new service: ${{ steps.config.outputs.trading_service }}"
+      #       aws ecs create-service \
+      #         --cluster ${{ steps.config.outputs.ecs_cluster }} \
+      #         --service-name ${{ steps.config.outputs.trading_service }} \
+      #         --task-definition ${{ steps.register-trading-task.outputs.task_arn }} \
+      #         --desired-count 1 \
+      #         --launch-type FARGATE \
+      #         --network-configuration "awsvpcConfiguration={subnets=[${{ steps.config.outputs.private_subnet }}],securityGroups=[${{ steps.config.outputs.ecs_sg }}],assignPublicIp=DISABLED}" \
+      #         --region ${{ steps.config.outputs.region }}
+      #     fi
+
       - name: Create or Update Trading Bot Service
         run: |
+          # Check if service exists using describe-services
           if aws ecs describe-services \
             --cluster ${{ steps.config.outputs.ecs_cluster }} \
             --services ${{ steps.config.outputs.trading_service }} \
             --region ${{ steps.config.outputs.region }} \
-            --query "services[?serviceName=='${{ steps.config.outputs.trading_service }}']" \
-            --output text | grep -q "serviceName"; then
+            --query "services[?status=='ACTIVE' || status=='INACTIVE']" \
+            --output text | grep -q "${{ steps.config.outputs.trading_service }}"; then
+            
             echo "Updating existing service: ${{ steps.config.outputs.trading_service }}"
             aws ecs update-service \
               --cluster ${{ steps.config.outputs.ecs_cluster }} \
@@ -330,19 +359,49 @@ jobs:
       # CREATE OR UPDATE DASHBOARD SERVICE (with Load Balancer)
       # ============================================================
       
+      # - name: Create or Update Dashboard Service
+      #   run: |
+      #     if aws ecs describe-services \
+      #       --cluster ${{ steps.config.outputs.ecs_cluster }} \
+      #       --services ${{ steps.config.outputs.dashboard_service }} \
+      #       --region ${{ steps.config.outputs.region }} \
+      #       --query "services[?serviceName=='${{ steps.config.outputs.dashboard_service }}']" \
+      #       --output text | grep -q "serviceName"; then
+      #       echo "Updating existing service: ${{ steps.config.outputs.dashboard_service }}"
+      #       aws ecs update-service \
+      #         --cluster ${{ steps.config.outputs.ecs_cluster }} \
+      #         --service ${{ steps.config.outputs.dashboard_service }} \
+      #         --task-definition ${{ steps.register-dashboard-task.outputs.task_arn }} \
+      #         --force-new-deployment \
+      #         --region ${{ steps.config.outputs.region }}
+      #     else
+      #       echo "Creating new service: ${{ steps.config.outputs.dashboard_service }}"
+      #       aws ecs create-service \
+      #         --cluster ${{ steps.config.outputs.ecs_cluster }} \
+      #         --service-name ${{ steps.config.outputs.dashboard_service }} \
+      #         --task-definition ${{ steps.register-dashboard-task.outputs.task_arn }} \
+      #         --desired-count 1 \
+      #         --launch-type FARGATE \
+      #         --network-configuration "awsvpcConfiguration={subnets=[${{ steps.config.outputs.public_subnet }}],securityGroups=[${{ steps.config.outputs.lb_sg }}],assignPublicIp=ENABLED}" \
+      #         --load-balancers "targetGroupArn=${{ steps.target-group.outputs.tg_arn }},containerName=dashboard,containerPort=8080" \
+      #         --region ${{ steps.config.outputs.region }}
+      #     fi
+
       - name: Create or Update Dashboard Service
         run: |
+          # Check if service exists using describe-services
           if aws ecs describe-services \
             --cluster ${{ steps.config.outputs.ecs_cluster }} \
             --services ${{ steps.config.outputs.dashboard_service }} \
             --region ${{ steps.config.outputs.region }} \
-            --query "services[?serviceName=='${{ steps.config.outputs.dashboard_service }}']" \
-            --output text | grep -q "serviceName"; then
+            --query "services[?status=='ACTIVE' || status=='INACTIVE']" \
+            --output text | grep -q "${{ steps.config.outputs.dashboard_service }}"; then
+            
             echo "Updating existing service: ${{ steps.config.outputs.dashboard_service }}"
             aws ecs update-service \
               --cluster ${{ steps.config.outputs.ecs_cluster }} \
               --service ${{ steps.config.outputs.dashboard_service }} \
-              --task-definition ${{ steps.register-dashboard-task.outputs.task_arn }} \
+              --task-definition ${{ steps.register-trading-task.outputs.task_arn }} \
               --force-new-deployment \
               --region ${{ steps.config.outputs.region }}
           else
@@ -350,13 +409,13 @@ jobs:
             aws ecs create-service \
               --cluster ${{ steps.config.outputs.ecs_cluster }} \
               --service-name ${{ steps.config.outputs.dashboard_service }} \
-              --task-definition ${{ steps.register-dashboard-task.outputs.task_arn }} \
+              --task-definition ${{ steps.register-trading-task.outputs.task_arn }} \
               --desired-count 1 \
               --launch-type FARGATE \
-              --network-configuration "awsvpcConfiguration={subnets=[${{ steps.config.outputs.public_subnet }}],securityGroups=[${{ steps.config.outputs.lb_sg }}],assignPublicIp=ENABLED}" \
-              --load-balancers "targetGroupArn=${{ steps.target-group.outputs.tg_arn }},containerName=dashboard,containerPort=8080" \
+              --network-configuration "awsvpcConfiguration={subnets=[${{ steps.config.outputs.private_subnet }}],securityGroups=[${{ steps.config.outputs.ecs_sg }}],assignPublicIp=DISABLED}" \
               --region ${{ steps.config.outputs.region }}
           fi
+              
       
       # ============================================================
       # REGISTER OVERNIGHT ANALYSIS TASK (from JSON template)
