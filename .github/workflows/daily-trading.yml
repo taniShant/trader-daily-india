@@ -156,6 +156,7 @@ jobs:
               --protocol HTTP \
               --port 8080 \
               --vpc-id ${{ steps.config.outputs.vpc_id }} \
+              --target-type ip \
               --health-check-path /health \
               --health-check-interval-seconds 30 \
               --healthy-threshold-count 2 \
