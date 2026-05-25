@@ -298,7 +298,7 @@ jobs:
               -e "s|PLACEHOLDER_EXECUTION_ROLE_ARN|${{ needs.setup.outputs.execution_role_arn }}|g" \
               -e "s|PLACEHOLDER_TASK_ROLE_ARN|${{ needs.setup.outputs.task_role_arn }}|g" \
               ecs/task-definitions/trading-bot.json > trading-task-resolved.json
-          TASK_ARN=$(aws ecs register-task-definition --cli-input-json file://ecs/task-definitions/trading-task-resolved.json --query 'taskDefinition.taskDefinitionArn' --output text)
+          TASK_ARN=$(aws ecs register-task-definition --cli-input-json file://trading-task-resolved.json --query 'taskDefinition.taskDefinitionArn' --output text)
           echo "task_arn=$TASK_ARN" >> $GITHUB_OUTPUT
       
       - name: Register Dashboard Task Definition
