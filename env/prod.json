@@ -10,8 +10,8 @@
   },
   "ecs": {
     "cluster_name": "svc-genaimaissueres-dev-cluster",
-    "trading_service": "TradingBotService",
-    "dashboard_service": "DashboardService"
+    "trading_service": "trdBotService",
+    "dashboard_service": "trdDashboardService"
   },
   "load_balancer": {
     "arn": "arn:aws:elasticloadbalancing:eu-west-2:632943041262:loadbalancer/app/svc-genaimaissueres-dev-alb/fe98570c6ed76f0c",
