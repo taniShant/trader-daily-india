@@ -1,4 +1,4 @@
-name: Deploy to ECS Fargate
+name: Deploy to ECS Fargate 
 
 on:
   push:
