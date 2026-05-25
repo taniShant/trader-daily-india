@@ -1,18 +1,18 @@
 name: Deploy to ECS Fargate 
 
 on:
-  push:
-    branches: [ main, dev, feature/*, fix/* ]
-  workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Environment to deploy'
-        required: true
-        default: 'dev'
-        type: choice
-        options:
-          - dev
-          - prod
+  # push:
+  #   branches: [ main, dev, feature/*, fix/* ]
+  # workflow_dispatch:
+  #   inputs:
+  #     environment:
+  #       description: 'Environment to deploy'
+  #       required: true
+  #       default: 'dev'
+  #       type: choice
+  #       options:
+  #         - dev
+  #         - prod
 
 jobs:
   deploy:
