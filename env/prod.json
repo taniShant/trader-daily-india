@@ -19,6 +19,10 @@
     "listener_arn": "arn:aws:elasticloadbalancing:eu-west-2:632943041262:listener/app/svc-genaimaissueres-dev-alb/fe98570c6ed76f0c/f4102c858db5ffdf",
     "target_group_name": "dashboard-tg"
   },
+  "scheduled_tasks": {
+    "overnight_task_family": "overnight-analysis",
+    "schedule_expression": "cron(0 17 * * ? *)"
+  },
   "iam": {
     "task_role_arn": "arn:aws:iam::632943041262:role/svc-trd-ecs-taskexecute-role",
     "execution_role_arn": "arn:aws:iam::632943041262:role/svc-trd-ecs-taskexecute-role"
