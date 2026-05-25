@@ -25,7 +25,8 @@
   },
   "iam": {
     "task_role_arn": "arn:aws:iam::632943041262:role/svc-trd-ecs-taskexecute-role",
-    "execution_role_arn": "arn:aws:iam::632943041262:role/svc-trd-ecs-taskexecute-role"
+    "execution_role_arn": "arn:aws:iam::632943041262:role/svc-trd-ecs-taskexecute-role",
+    "eventbridge_role_arn": "arn:aws:iam::632943041262:role/eventbridge-ecs-role"
   },
   "s3": {
     "code_bucket": "svc-s3-dev-632943041262-modelartifact"

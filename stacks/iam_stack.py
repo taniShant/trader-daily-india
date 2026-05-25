@@ -183,6 +183,34 @@ class IAMStack(Stack):
             )
         )
 
+        # EventBridge Role (for scheduling overnight tasks)
+        self.eventbridge_role = iam.Role(
+            self,
+            "EventBridgeRole",
+            role_name="eventbridge-ecs-role",
+            assumed_by=iam.ServicePrincipal("events.amazonaws.com"),
+            description="Role for EventBridge to start ECS tasks",
+        )
+
+        self.eventbridge_role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=["ecs:RunTask"],
+                resources=["*"],
+            )
+        )
+
+        self.eventbridge_role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=["iam:PassRole"],
+                resources=[self.role.role_arn],
+            )
+        )
+
+        # Add output
+        CfnOutput(self, "EventBridgeRoleArn", value=self.eventbridge_role.role_arn)
+
         # ============================================================
         # OUTPUTS
         # ============================================================

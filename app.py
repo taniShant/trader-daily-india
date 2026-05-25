@@ -16,7 +16,7 @@ Usage:
 
 import os 
 import json
-from aws_cdk import App, Environment
+from aws_cdk import App, Environment, CfnOutput
 from stacks.iam_stack import IAMStack
 from stacks.network_stack import NetworkStack
 from stacks.auth_stack import TradingAuthStack
@@ -77,6 +77,7 @@ iam_stack = IAMStack(
     "svc-trd-IamStack",
     env=Environment(account=ACCOUNT_ID, region=REGION)
 )
+ 
 
 # ============================================================
 # STACK 1: NETWORK (Imports existing VPC, subnets, NAT Gateway)
