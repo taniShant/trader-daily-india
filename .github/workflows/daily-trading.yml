@@ -268,11 +268,19 @@ jobs:
       - name: Register Trading Bot Task Definition
         id: trading-task
         run: |
-          echo "Current working directory:"
-           pwd
+          echo "=== Current directory contents ==="
+          ls -la
           echo ""
-          echo "Contents of ecs/ folder:"
-          ls -la ecs/ || echo "ecs/ folder not found"
+          echo "=== ecs folder contents (if exists) ==="
+          ls -la ecs/ 2>/dev/null || echo "ecs folder not found"
+          echo ""
+          echo "=== ecs/task-definitions folder contents (if exists) ==="
+          ls -la ecs/task-definitions/ 2>/dev/null || echo "ecs/task-definitions folder not found"
+          echo ""
+          echo "=== Find any json files ==="
+          find . -name "*.json" -type f | head -20
+
+
           ECR_URI="${{ needs.aws-setup.outputs.ecr_uri }}"
           sed -e "s|PLACEHOLDER_IMAGE|${ECR_URI}:trading-bot-latest|g" \
               -e "s|PLACEHOLDER_REGION|${{ needs.setup.outputs.region }}|g" \
