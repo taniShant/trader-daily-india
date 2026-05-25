@@ -1,5 +1,5 @@
 {
-  "family": "dashboard",
+  "family": "trd-dashboard",
   "executionRoleArn": "PLACEHOLDER_EXECUTION_ROLE_ARN",
   "taskRoleArn": "PLACEHOLDER_EXECUTION_ROLE_ARN",
   "networkMode": "awsvpc",
