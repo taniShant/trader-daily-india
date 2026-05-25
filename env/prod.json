@@ -52,9 +52,9 @@
     "public_subnet_id": "subnet-08928d37ce056370e",
     "private_subnet_id": "subnet-07f56117b5db520aa",
     "has_nat_gateway": true,
-    "nat_gateway_id": "nat-43454567",
-    "nat_eip_allocation_id": "eipalloc-4343432",
-    "nat_gateway_ip": "3.8.245.57"
+    "nat_gateway_id": "nat-09397820abb975e89",
+    "nat_eip_allocation_id": "eipalloc-025acbfcd3c567e09",
+    "nat_gateway_ip": "35.177.116.82"
   },
   "security_groups": {
     "ecs_sg_id": "sg-0eca41b9bd96319a4",
