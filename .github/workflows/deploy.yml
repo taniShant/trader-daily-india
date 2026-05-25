@@ -1,5 +1,5 @@
 name: Daily Trading Analysis
-
+ 
 on:
   schedule:
     - cron: '0 8 * * 1-5'  # 8 AM UTC = 1:30 PM IST, Monday-Friday
