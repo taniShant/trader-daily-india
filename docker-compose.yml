@@ -1,11 +1,11 @@
 version: '3.8'
 
 services:
-  trading-bot:
+  trd-bot:
     build:
       context: .
       dockerfile: containers/trading-bot/Dockerfile
-    container_name: trading-bot
+    container_name: trd-bot
     restart: unless-stopped
     environment:
       - AWS_REGION=${AWS_REGION:-eu-west-2}
@@ -41,7 +41,7 @@ services:
     build:
       context: .
       dockerfile: containers/dashboard/Dockerfile
-    container_name: trading-dashboard
+    container_name: trd-dashboard
     restart: unless-stopped
     environment:
       - AWS_REGION=${AWS_REGION:-eu-west-2}
@@ -55,7 +55,7 @@ services:
     networks:
       - trading-network
     depends_on:
-      - trading-bot
+      - trd-bot
 
 networks:
   trading-network:

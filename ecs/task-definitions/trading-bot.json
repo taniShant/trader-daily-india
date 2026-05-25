@@ -8,7 +8,7 @@
   "memory": "2048",
   "containerDefinitions": [
     {
-      "name": "trading-bot",
+      "name": "trd-bot",
       "image": "PLACEHOLDER_IMAGE",
       "essential": true,
       "command": ["python", "-c", "from agent.main import TradingBot; TradingBot().run()"],

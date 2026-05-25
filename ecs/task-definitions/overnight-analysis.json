@@ -8,7 +8,7 @@
   "memory": "4096",
   "containerDefinitions": [
     {
-      "name": "overnight-analysis",
+      "name": "trd-overnight-analysis",
       "image": "PLACEHOLDER_IMAGE",
       "essential": true,
       "command": ["python", "-c", "from agent.overnight import OvernightAnalyzer; OvernightAnalyzer().run()"],
