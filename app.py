@@ -14,7 +14,7 @@ Usage:
     CDK_DEPLOY_ENV=prod cdk deploy --all
 """
 
-import os
+import os 
 import json
 from aws_cdk import App, Environment
 from stacks.iam_stack import IAMStack
@@ -31,7 +31,7 @@ def load_config():
     """Load configuration from env/{dev,prod}.json based on CDK_DEPLOY_ENV"""
     
     # Get environment from CDK_DEPLOY_ENV (default: dev)
-    env_name = os.environ.get("CDK_DEPLOY_ENV", "dev").lower()
+    env_name = os.environ.get("CDK_DEPLOY_ENV", "prod").lower()
     
     # Validate environment
     if env_name not in ["dev", "prod"]:
