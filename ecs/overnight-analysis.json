@@ -1,5 +1,5 @@
 {
-  "family": "overnight-analysis",
+  "family": "trd-overnight-analysis",
   "executionRoleArn": "PLACEHOLDER_EXECUTION_ROLE_ARN",
   "taskRoleArn": "PLACEHOLDER_EXECUTION_ROLE_ARN",
   "networkMode": "awsvpc",
@@ -8,7 +8,7 @@
   "memory": "4096",
   "containerDefinitions": [
     {
-      "name": "overnight-analysis",
+      "name": "trd-overnight-analysis",
       "image": "PLACEHOLDER_IMAGE",
       "essential": true,
       "command": ["python", "-c", "from agent.overnight import OvernightAnalyzer; OvernightAnalyzer().run()"],
