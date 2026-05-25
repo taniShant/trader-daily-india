@@ -1,0 +1,33 @@
+{
+  "family": "dashboard",
+  "executionRoleArn": "PLACEHOLDER_EXECUTION_ROLE_ARN",
+  "taskRoleArn": "PLACEHOLDER_EXECUTION_ROLE_ARN",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "containerDefinitions": [
+    {
+      "name": "dashboard",
+      "image": "PLACEHOLDER_IMAGE",
+      "essential": true,
+      "environment": [
+        {"name": "AWS_REGION", "value": "PLACEHOLDER_REGION"},
+        {"name": "ENVIRONMENT", "value": "PLACEHOLDER_ENV"},
+        {"name": "PORT", "value": "8080"},
+        {"name": "TRADES_TABLE", "value": "PLACEHOLDER_TRADES_TABLE"},
+        {"name": "LEARNING_TABLE", "value": "PLACEHOLDER_LEARNING_TABLE"},
+        {"name": "MARKET_STATE_TABLE", "value": "PLACEHOLDER_MARKET_STATE_TABLE"}
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/dashboard-PLACEHOLDER_ENV",
+          "awslogs-region": "PLACEHOLDER_REGION",
+          "awslogs-stream-prefix": "dashboard"
+        }
+      },
+      "portMappings": [{"containerPort": 8080, "protocol": "tcp"}]
+    }
+  ]
+}

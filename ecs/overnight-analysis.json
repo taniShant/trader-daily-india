@@ -1,0 +1,35 @@
+{
+  "family": "overnight-analysis",
+  "executionRoleArn": "PLACEHOLDER_EXECUTION_ROLE_ARN",
+  "taskRoleArn": "PLACEHOLDER_EXECUTION_ROLE_ARN",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "2048",
+  "memory": "4096",
+  "containerDefinitions": [
+    {
+      "name": "overnight-analysis",
+      "image": "PLACEHOLDER_IMAGE",
+      "essential": true,
+      "command": ["python", "-c", "from agent.overnight import OvernightAnalyzer; OvernightAnalyzer().run()"],
+      "environment": [
+        {"name": "AWS_REGION", "value": "PLACEHOLDER_REGION"},
+        {"name": "ENVIRONMENT", "value": "PLACEHOLDER_ENV"},
+        {"name": "SESSIONS_TABLE", "value": "PLACEHOLDER_SESSIONS_TABLE"},
+        {"name": "TRADES_TABLE", "value": "PLACEHOLDER_TRADES_TABLE"},
+        {"name": "LEARNING_TABLE", "value": "PLACEHOLDER_LEARNING_TABLE"},
+        {"name": "MARKET_STATE_TABLE", "value": "PLACEHOLDER_MARKET_STATE_TABLE"},
+        {"name": "CODE_BUCKET", "value": "PLACEHOLDER_CODE_BUCKET"},
+        {"name": "NEWS_API_KEY", "value": "PLACEHOLDER_NEWS_API_KEY"}
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/overnight-analysis-PLACEHOLDER_ENV",
+          "awslogs-region": "PLACEHOLDER_REGION",
+          "awslogs-stream-prefix": "overnight"
+        }
+      }
+    }
+  ]
+}

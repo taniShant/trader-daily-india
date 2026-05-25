@@ -54,3 +54,6 @@ logs/
 
 # MCP temp
 *.pid
+
+!ecs/task-definitions/*.json
+!env/*.json
