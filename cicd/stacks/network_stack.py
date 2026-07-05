@@ -95,16 +95,19 @@ class NetworkStack(Stack):
         self.ecs_security_group = ec2.SecurityGroup.from_security_group_id(
             self, "ExistingECSSG",
             security_group_id=ECS_SG_ID,
+            mutable=False,
         )
         
         self.load_balancer_security_group = ec2.SecurityGroup.from_security_group_id(
             self, "ExistingLBSG",
             security_group_id=LB_SG_ID,
+            mutable=False,
         )
         
         self.bastion_security_group = ec2.SecurityGroup.from_security_group_id(
             self, "ExistingBastionSG",
             security_group_id=BASTION_SG_ID,
+            mutable=False,
         )
         
         # ============================================================

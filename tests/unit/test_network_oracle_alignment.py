@@ -1,8 +1,10 @@
 import json
+import subprocess
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
+NETWORK_TEMPLATE = ROOT / "cdk.out" / "svc-trd-NetworkStack.template.json"
 
 
 def test_prod_config_separates_aws_nat_ip_from_oracle_static_ip():
@@ -24,6 +26,23 @@ def test_network_stack_exports_distinct_aws_nat_and_oracle_static_outputs():
     assert "self.oracle_static_ip_address = ORACLE_STATIC_IP" in source
     assert 'CfnOutput(self, "ElasticIpAddress"' not in source
     assert "icici_config" not in source
+
+
+def test_network_stack_does_not_mutate_existing_security_groups():
+    result = subprocess.run(
+        ["bash", "scripts/verify_cdk_synth.sh"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr or result.stdout
+
+    template = json.loads(NETWORK_TEMPLATE.read_text())
+    resource_types = {resource.get("Type") for resource in template["Resources"].values()}
+
+    assert "AWS::EC2::SecurityGroupIngress" not in resource_types
+    assert "AWS::EC2::SecurityGroupEgress" not in resource_types
 
 
 def test_runtime_text_does_not_describe_oracle_static_ip_as_aws_nat():
