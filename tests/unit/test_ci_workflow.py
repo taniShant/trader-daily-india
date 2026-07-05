@@ -12,6 +12,7 @@ def test_ci_workflow_runs_project_verify_gate():
     assert "push:" in workflow
     assert "actions/setup-python@v5" in workflow
     assert "python-version: \"3.12\"" in workflow
+    assert "node-version: \"24\"" in workflow
     assert "npm install -g aws-cdk" in workflow
     assert "python -m pip install -r requirements.txt" in workflow
     assert "run: make verify" in workflow

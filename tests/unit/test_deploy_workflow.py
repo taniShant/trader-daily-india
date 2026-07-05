@@ -17,6 +17,16 @@ def test_deploy_workflow_supports_manual_dry_run():
     assert "if: env.DRY_RUN != 'true'" in workflow
 
 
+def test_deploy_workflow_uses_github_oidc_role_without_access_keys():
+    workflow = deploy_workflow()
+
+    assert "Configure AWS credentials with GitHub OIDC" in workflow
+    assert "aws-actions/configure-aws-credentials@v5" in workflow
+    assert "role-to-assume: arn:aws:iam::${{ steps.config.outputs.account_id }}:role/${{ steps.config.outputs.deploy_role_name }}" in workflow
+    assert "aws-access-key-id" not in workflow
+    assert "aws-secret-access-key" not in workflow
+
+
 def test_deploy_workflow_builds_and_pushes_trading_and_dashboard_images():
     workflow = deploy_workflow()
 

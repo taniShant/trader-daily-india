@@ -24,8 +24,9 @@ class IAMStack(Stack):
     - EC2/VPC (ENI attachment)
     """
 
-    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, config: dict | None = None, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
+        config = config or {}
 
         # ============================================================
         # SINGLE UNIFIED ROLE
@@ -231,6 +232,53 @@ class IAMStack(Stack):
             "RoleName",
             value=self.role.role_name,
             description="ECS Task Role Name",
+        )
+
+        # ============================================================
+        # GITHUB ACTIONS OIDC DEPLOY ROLE
+        # ============================================================
+
+        github_config = config.get("github", {})
+        github_repository = github_config.get("repository", "taniShant/trader-daily-india")
+        github_branch = github_config.get("deploy_branch", "main")
+        github_role_name = github_config.get("deploy_role_name", "svc-trd-github-deploy-role")
+        github_oidc_provider_arn = github_config.get(
+            "oidc_provider_arn",
+            "arn:aws:iam::632943041262:oidc-provider/token.actions.githubusercontent.com",
+        )
+
+        github_provider = iam.OpenIdConnectProvider.from_open_id_connect_provider_arn(
+            self,
+            "GitHubActionsOidcProvider",
+            github_oidc_provider_arn,
+        )
+
+        self.github_deploy_role = iam.Role(
+            self,
+            "GitHubDeployRole",
+            role_name=github_role_name,
+            assumed_by=iam.WebIdentityPrincipal(
+                github_provider.open_id_connect_provider_arn,
+                conditions={
+                    "StringEquals": {
+                        "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+                    },
+                    "StringLike": {
+                        "token.actions.githubusercontent.com:sub": f"repo:{github_repository}:ref:refs/heads/{github_branch}",
+                    },
+                },
+            ),
+            description=f"GitHub Actions deploy role for {github_repository}:{github_branch}",
+        )
+        self.github_deploy_role.add_managed_policy(
+            iam.ManagedPolicy.from_aws_managed_policy_name("AdministratorAccess")
+        )
+
+        CfnOutput(
+            self,
+            "GitHubDeployRoleArn",
+            value=self.github_deploy_role.role_arn,
+            description="GitHub Actions OIDC role ARN for AWS deployment",
         )
 
         print("\n" + "=" * 60)

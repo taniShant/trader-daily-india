@@ -81,6 +81,7 @@ app = App()
 iam_stack = IAMStack(
     app,
     "svc-trd-IamStack",
+    config=CONFIG,
     env=Environment(account=ACCOUNT_ID, region=REGION)
 )
  

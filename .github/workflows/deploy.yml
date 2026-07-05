@@ -13,7 +13,7 @@ on:
       dry_run:
         description: Build and synth only; do not push images or deploy
         required: true
-        default: false
+        default: true
         type: boolean
   workflow_run:
     workflows:
@@ -56,16 +56,17 @@ jobs:
           echo "account_id=$(jq -r '.aws.account_id' "$CONFIG_FILE")" >> "$GITHUB_OUTPUT"
           echo "region=$(jq -r '.aws.region' "$CONFIG_FILE")" >> "$GITHUB_OUTPUT"
           echo "ecr_repo=$(jq -r '.ecr.repository_name' "$CONFIG_FILE")" >> "$GITHUB_OUTPUT"
+          echo "deploy_role_name=$(jq -r '.github.deploy_role_name' "$CONFIG_FILE")" >> "$GITHUB_OUTPUT"
           echo "cluster_name=trading-cluster-${CDK_DEPLOY_ENV}" >> "$GITHUB_OUTPUT"
           echo "trading_service=trading-bot-${CDK_DEPLOY_ENV}" >> "$GITHUB_OUTPUT"
           echo "dashboard_service=dashboard-${CDK_DEPLOY_ENV}" >> "$GITHUB_OUTPUT"
           echo "image_tag=sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials with GitHub OIDC
         if: env.DRY_RUN != 'true'
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-to-assume: arn:aws:iam::${{ steps.config.outputs.account_id }}:role/${{ steps.config.outputs.deploy_role_name }}
           aws-region: ${{ steps.config.outputs.region }}
 
       - name: Login to Amazon ECR

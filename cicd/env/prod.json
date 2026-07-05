@@ -8,6 +8,12 @@
   "ecr": {
     "repository_name": "trending-resolver-agent"
   },
+  "github": {
+    "repository": "taniShant/trader-daily-india",
+    "deploy_branch": "main",
+    "deploy_role_name": "svc-trd-github-deploy-role",
+    "oidc_provider_arn": "arn:aws:iam::632943041262:oidc-provider/token.actions.githubusercontent.com"
+  },
   "ecs": {
     "cluster_name": "svc-genaimaissueres-dev-cluster",
     "trading_service": "trdBotService",
