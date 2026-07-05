@@ -20,9 +20,9 @@ def test_oracle_deploy_script_dry_run_is_safe_and_uses_static_ip():
     assert "dry run: true" in result.stdout
     assert "[dry-run] ssh" in result.stdout
     assert "[dry-run] rsync" in result.stdout
-    assert "docker build -t oracle-execution-proxy:latest" in result.stdout
-    assert "docker run -d --restart unless-stopped" in result.stdout
+    assert "docker compose up -d --build --remove-orphans" in result.stdout
     assert "curl -fsS http://127.0.0.1:8080/health" in result.stdout
+    assert "curl -fsS http://127.0.0.1:8090/health" in result.stdout
 
 
 def test_oracle_deploy_script_syntax_is_valid():

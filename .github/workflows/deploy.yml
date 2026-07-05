@@ -10,6 +10,11 @@ on:
         type: choice
         options:
           - prod
+      dry_run:
+        description: Build and synth only; do not push images or deploy
+        required: true
+        default: false
+        type: boolean
   workflow_run:
     workflows:
       - CI
@@ -20,6 +25,7 @@ on:
 
 env:
   CDK_DEPLOY_ENV: prod
+  DRY_RUN: false
 
 jobs:
   deploy-aws:
@@ -39,6 +45,7 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "CDK_DEPLOY_ENV=${{ github.event.inputs.environment }}" >> "$GITHUB_ENV"
+            echo "DRY_RUN=${{ github.event.inputs.dry_run }}" >> "$GITHUB_ENV"
           fi
 
       - name: Read AWS config
@@ -49,30 +56,56 @@ jobs:
           echo "account_id=$(jq -r '.aws.account_id' "$CONFIG_FILE")" >> "$GITHUB_OUTPUT"
           echo "region=$(jq -r '.aws.region' "$CONFIG_FILE")" >> "$GITHUB_OUTPUT"
           echo "ecr_repo=$(jq -r '.ecr.repository_name' "$CONFIG_FILE")" >> "$GITHUB_OUTPUT"
+          echo "cluster_name=trading-cluster-${CDK_DEPLOY_ENV}" >> "$GITHUB_OUTPUT"
+          echo "trading_service=trading-bot-${CDK_DEPLOY_ENV}" >> "$GITHUB_OUTPUT"
+          echo "dashboard_service=dashboard-${CDK_DEPLOY_ENV}" >> "$GITHUB_OUTPUT"
+          echo "image_tag=sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
 
       - name: Configure AWS credentials
+        if: env.DRY_RUN != 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ steps.config.outputs.region }}
 
       - name: Login to Amazon ECR
+        if: env.DRY_RUN != 'true'
         run: |
           aws ecr get-login-password --region "${{ steps.config.outputs.region }}" | \
             docker login --username AWS --password-stdin \
             "${{ steps.config.outputs.account_id }}.dkr.ecr.${{ steps.config.outputs.region }}.amazonaws.com"
 
-      - name: Build and push trading bot image
+      - name: Build trading bot image
         run: |
           ECR_URI="${{ steps.config.outputs.account_id }}.dkr.ecr.${{ steps.config.outputs.region }}.amazonaws.com/${{ steps.config.outputs.ecr_repo }}"
-          docker build -f containers/trading-bot/Dockerfile -t "${ECR_URI}:trading-bot-latest" .
-          docker push "${ECR_URI}:trading-bot-latest"
+          docker build \
+            -f containers/trading-bot/Dockerfile \
+            -t "${ECR_URI}:trading-bot-latest" \
+            -t "${ECR_URI}:trading-bot-${{ steps.config.outputs.image_tag }}" \
+            .
 
-      - name: Build and push dashboard image
+      - name: Build dashboard image
         run: |
           ECR_URI="${{ steps.config.outputs.account_id }}.dkr.ecr.${{ steps.config.outputs.region }}.amazonaws.com/${{ steps.config.outputs.ecr_repo }}"
-          docker build -f containers/dashboard/Dockerfile -t "${ECR_URI}:dashboard-latest" .
+          docker build \
+            -f containers/dashboard/Dockerfile \
+            -t "${ECR_URI}:dashboard-latest" \
+            -t "${ECR_URI}:dashboard-${{ steps.config.outputs.image_tag }}" \
+            .
+
+      - name: Push trading bot image
+        if: env.DRY_RUN != 'true'
+        run: |
+          ECR_URI="${{ steps.config.outputs.account_id }}.dkr.ecr.${{ steps.config.outputs.region }}.amazonaws.com/${{ steps.config.outputs.ecr_repo }}"
+          docker push "${ECR_URI}:trading-bot-latest"
+          docker push "${ECR_URI}:trading-bot-${{ steps.config.outputs.image_tag }}"
+
+      - name: Push dashboard image
+        if: env.DRY_RUN != 'true'
+        run: |
+          ECR_URI="${{ steps.config.outputs.account_id }}.dkr.ecr.${{ steps.config.outputs.region }}.amazonaws.com/${{ steps.config.outputs.ecr_repo }}"
           docker push "${ECR_URI}:dashboard-latest"
+          docker push "${ECR_URI}:dashboard-${{ steps.config.outputs.image_tag }}"
 
       - name: Install CDK dependencies
         run: |
@@ -87,4 +120,27 @@ jobs:
         run: cdk synth
 
       - name: CDK deploy
+        if: env.DRY_RUN != 'true'
         run: cdk deploy --all --require-approval never
+
+      - name: Refresh ECS services
+        if: env.DRY_RUN != 'true'
+        run: |
+          aws ecs update-service \
+            --cluster "${{ steps.config.outputs.cluster_name }}" \
+            --service "${{ steps.config.outputs.trading_service }}" \
+            --force-new-deployment \
+            --region "${{ steps.config.outputs.region }}"
+          aws ecs update-service \
+            --cluster "${{ steps.config.outputs.cluster_name }}" \
+            --service "${{ steps.config.outputs.dashboard_service }}" \
+            --force-new-deployment \
+            --region "${{ steps.config.outputs.region }}"
+
+      - name: Wait for ECS stability
+        if: env.DRY_RUN != 'true'
+        run: |
+          aws ecs wait services-stable \
+            --cluster "${{ steps.config.outputs.cluster_name }}" \
+            --services "${{ steps.config.outputs.trading_service }}" "${{ steps.config.outputs.dashboard_service }}" \
+            --region "${{ steps.config.outputs.region }}"
