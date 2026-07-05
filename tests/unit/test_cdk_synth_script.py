@@ -18,10 +18,12 @@ def test_cdk_synth_script_syntax_is_valid():
     assert result.returncode == 0, result.stderr
 
 
-def test_cdk_synth_script_uses_project_venv_and_local_cache():
+def test_cdk_synth_script_uses_project_venv_when_present_and_ci_python_otherwise():
     text = SCRIPT.read_text()
 
     assert ".venv/bin/python" in text
+    assert "command -v python" in text
+    assert "Missing .venv/bin/python" not in text
     assert "XDG_CACHE_HOME" in text
     assert ".cdk-cache" in text
     assert ".tmp-home" in text
