@@ -1,15 +1,22 @@
 from strands import Agent, tool
 from typing import Dict, Any, List
-import yfinance as yf
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 
+from agent.data.symbols import yahoo_symbol
+
+
+def _to_yahoo_symbol(stock_symbol: str) -> str:
+    return yahoo_symbol(stock_symbol)
+
+
 @tool
 def get_option_chain_data(stock_symbol: str) -> Dict[str, Any]:
     """Fetch available option chain for a stock"""
-    if not stock_symbol.endswith(".NS"):
-        stock_symbol = f"{stock_symbol}.NS"
+    import yfinance as yf
+
+    stock_symbol = _to_yahoo_symbol(stock_symbol)
     
     ticker = yf.Ticker(stock_symbol)
     
@@ -56,9 +63,10 @@ def get_option_chain_data(stock_symbol: str) -> Dict[str, Any]:
 @tool
 def calculate_implied_volatility(stock_symbol: str) -> Dict[str, Any]:
     """Estimate implied volatility from options prices"""
+    import yfinance as yf
+
     # This is a simplified estimation. For production, use Breeze API
-    if not stock_symbol.endswith(".NS"):
-        stock_symbol = f"{stock_symbol}.NS"
+    stock_symbol = _to_yahoo_symbol(stock_symbol)
     
     ticker = yf.Ticker(stock_symbol)
     hist = ticker.history(period="1mo")
@@ -95,8 +103,9 @@ def calculate_implied_volatility(stock_symbol: str) -> Dict[str, Any]:
 @tool
 def get_put_call_ratio(stock_symbol: str) -> Dict[str, Any]:
     """Calculate put/call ratio for sentiment analysis"""
-    if not stock_symbol.endswith(".NS"):
-        stock_symbol = f"{stock_symbol}.NS"
+    import yfinance as yf
+
+    stock_symbol = _to_yahoo_symbol(stock_symbol)
     
     ticker = yf.Ticker(stock_symbol)
     
@@ -139,8 +148,9 @@ def get_put_call_ratio(stock_symbol: str) -> Dict[str, Any]:
 @tool
 def get_max_pain_strike(stock_symbol: str) -> Dict[str, Any]:
     """Calculate max pain strike price (where option buyers lose the most)"""
-    if not stock_symbol.endswith(".NS"):
-        stock_symbol = f"{stock_symbol}.NS"
+    import yfinance as yf
+
+    stock_symbol = _to_yahoo_symbol(stock_symbol)
     
     ticker = yf.Ticker(stock_symbol)
     spot_price = ticker.history(period="1d")['Close'].iloc[-1] if not ticker.history(period="1d").empty else 0
@@ -186,11 +196,10 @@ def get_max_pain_strike(stock_symbol: str) -> Dict[str, Any]:
 class DerivativesAnalyst(Agent):
     """Specialist agent for options and derivatives analysis"""
     
-    def __init__(self, model, memory):
+    def __init__(self, model, memory=None):
         super().__init__(
             name="DerivativesAnalyst",
             model=model,
-            memory=memory,
             tools=[
                 get_option_chain_data,
                 calculate_implied_volatility,

@@ -43,6 +43,8 @@ trading_data/
 # AWS CDK
 cdk.out/
 cdk.context.json
+.cdk-cache/
+.tmp-home/
 
 # Logs
 *.log

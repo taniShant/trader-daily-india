@@ -1,13 +1,15 @@
 from strands import Agent, tool
 import pandas as pd
-import pandas_ta as ta
 from datetime import datetime, timedelta
-from tools.market_data import get_historical_data, get_live_quote
+from agent.data.market_data import bars_to_dataframe
+from agent.tools.market_data import get_historical_data, get_live_quote
 
 @tool
 def calculate_rsi(stock_symbol: str, period: int = 14) -> dict:
     """Calculate RSI indicator"""
-    df = get_historical_data(stock_symbol, days=30)
+    import pandas_ta as ta
+
+    df = bars_to_dataframe(get_historical_data(stock_symbol, days=30))
     if df is None or df.empty:
         return {"error": "No data available"}
     
@@ -23,7 +25,9 @@ def calculate_rsi(stock_symbol: str, period: int = 14) -> dict:
 @tool
 def calculate_macd(stock_symbol: str) -> dict:
     """Calculate MACD indicator"""
-    df = get_historical_data(stock_symbol, days=60)
+    import pandas_ta as ta
+
+    df = bars_to_dataframe(get_historical_data(stock_symbol, days=60))
     if df is None or df.empty:
         return {"error": "No data available"}
     
@@ -41,7 +45,9 @@ def calculate_macd(stock_symbol: str) -> dict:
 @tool
 def calculate_bollinger(stock_symbol: str) -> dict:
     """Calculate Bollinger Bands"""
-    df = get_historical_data(stock_symbol, days=30)
+    import pandas_ta as ta
+
+    df = bars_to_dataframe(get_historical_data(stock_symbol, days=30))
     if df is None or df.empty:
         return {"error": "No data available"}
     
@@ -72,11 +78,10 @@ def calculate_bollinger(stock_symbol: str) -> dict:
 class TechnicalAnalyst(Agent):
     """Specialist agent for technical analysis"""
     
-    def __init__(self, model, memory):
+    def __init__(self, model, memory=None):
         super().__init__(
             name="TechnicalAnalyst",
             model=model,
-            memory=memory,
             tools=[calculate_rsi, calculate_macd, calculate_bollinger, get_live_quote],
             system_prompt="""
             You are a senior technical analyst. Your job is to analyze stock price data

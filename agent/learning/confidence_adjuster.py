@@ -3,8 +3,11 @@ Confidence Adjuster - Dynamically adjusts confidence thresholds based on pattern
 """
 
 import os
+from decimal import Decimal
 from typing import Dict, Any, Optional
 import boto3
+
+from agent.learning.gates import apply_threshold_gate
 
 class ConfidenceAdjuster:
     """Adjusts confidence thresholds based on historical performance."""
@@ -42,6 +45,11 @@ class ConfidenceAdjuster:
         
         # Calculate adjustment based on win rates
         avg_win_rate = (best_rsi_win_rate + best_sentiment_win_rate) / 2
+        sample_size = max(
+            patterns.get("total_trades", 0),
+            max((data.get("trades", 0) for data in rsi_patterns.values()), default=0),
+            max((data.get("trades", 0) for data in sentiment_patterns.values()), default=0),
+        )
         
         if avg_win_rate > 70:
             # Patterns are working well - lower threshold to take more trades
@@ -52,8 +60,14 @@ class ConfidenceAdjuster:
         else:
             self.adjustment = 0
         
-        adjusted_threshold = self.base_threshold + self.adjustment
-        adjusted_threshold = max(50, min(90, adjusted_threshold))  # Clamp between 50-90
+        proposed_threshold = self.base_threshold + self.adjustment
+        proposed_threshold = max(50, min(90, proposed_threshold))  # Clamp between 50-90
+        adjusted_threshold = apply_threshold_gate(
+            current_threshold=self.base_threshold,
+            proposed_threshold=proposed_threshold,
+            sample_size=sample_size,
+            win_rate=Decimal(str(avg_win_rate)),
+        )
         
         print(f"📊 Confidence Adjustment: base={self.base_threshold}%, adjustment={self.adjustment}%, new={adjusted_threshold}%")
         print(f"   Avg Win Rate from patterns: {avg_win_rate:.1f}%")

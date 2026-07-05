@@ -10,16 +10,16 @@ from typing import Dict, List, Any
 from datetime import datetime
 
 from strands import Agent, tool
+from agent.config import settings
 
 # Initialize Bedrock client
 bedrock_runtime = boto3.client(
     service_name='bedrock-runtime',
-    region_name=os.environ.get('AWS_REGION', 'eu-west-1')
+    region_name=os.environ.get('AWS_REGION', settings.aws.region)
 )
 
-# Model ID for Claude 3 Haiku (fastest, cheapest, great for sentiment)
-# Available in eu-west-1 (Ireland) as confirmed [citation:1]
-MODEL_ID = "anthropic.claude-3-haiku-20240307-v1:0"
+# Fast model is used for lightweight sentiment classification.
+MODEL_ID = settings.bedrock.fast_model_id
 
 @tool
 def analyze_sentiment_with_bedrock(news_headline: str) -> Dict[str, float]:
@@ -82,7 +82,7 @@ def get_stock_sentiment_bedrock(stock_symbol: str) -> Dict[str, Any]:
     Uses Bedrock for all analysis - no local ML models.
     """
     # Fetch news headlines (using existing news function)
-    from tools.news_fetcher import get_stock_news
+    from agent.tools.news_fetcher import get_stock_news
     
     news_articles = get_stock_news(stock_symbol)
     
@@ -138,11 +138,10 @@ def get_stock_sentiment_bedrock(stock_symbol: str) -> Dict[str, Any]:
 class BedrockSentimentAnalyst(Agent):
     """Specialist agent using Amazon Bedrock for sentiment analysis"""
     
-    def __init__(self, model, memory):
+    def __init__(self, model, memory=None):
         super().__init__(
             name="BedrockSentimentAnalyst",
             model=model,
-            memory=memory,
             tools=[get_stock_sentiment_bedrock, analyze_sentiment_with_bedrock],
             system_prompt="""
             You are a sentiment analysis expert using Amazon Bedrock's Claude 3.

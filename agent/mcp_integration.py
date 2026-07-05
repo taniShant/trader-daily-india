@@ -21,7 +21,7 @@ MODEL_ID = os.environ.get("BEDROCK_MODEL_ID", "anthropic.claude-3-haiku-20240307
 SESSIONS_TABLE = os.environ.get("SESSIONS_TABLE", "svc-trd-sessions-dev")
 TRADES_TABLE = os.environ.get("TRADES_TABLE", "svc-trd-trades-dev")
 PAPER_TRADING = os.environ.get("PAPER_TRADING", "true").lower() == "true"
-STATIC_IP = os.environ.get("STATIC_IP", "3.8.245.57")
+ORACLE_STATIC_IP = os.environ.get("ORACLE_STATIC_IP") or os.environ.get("STATIC_IP", "80.225.242.6")
 MIN_CONFIDENCE = int(os.environ.get("MIN_CONFIDENCE_THRESHOLD", 70))
 
 # Initialize model
@@ -42,7 +42,7 @@ print(f"   Model: {MODEL_ID}")
 print(f"   Sessions Table: {SESSIONS_TABLE}")
 print(f"   Trades Table: {TRADES_TABLE}")
 print(f"   Paper Trading: {PAPER_TRADING}")
-print(f"   Static IP: {STATIC_IP}")
+print(f"   Oracle Static IP: {ORACLE_STATIC_IP}")
 
 # ============================================================
 # MCP SERVER PATHS (Relative to project root)
@@ -149,7 +149,7 @@ async def create_trading_agent_with_mcp(
             system_prompt=f"""
             You are a senior trading strategist for the Indian stock market.
             
-            STATIC IP: {STATIC_IP} (NAT Gateway - traffic appears from this IP)
+            ORACLE STATIC IP: {ORACLE_STATIC_IP} (ICICI Breeze execution proxy boundary)
             PAPER TRADING MODE: {PAPER_TRADING}
             
             You have access to:

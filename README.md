@@ -121,10 +121,18 @@ trader-daily-india/
 ├── requirements.txt                    # Python dependencies
 ├── README.md   
 ├── .gitignore   
-├── stacks/                    # CDK stacks (from above)
-│   ├── auth_stack.py
-│   ├── storage_stack.py
-│   └── agent_runtime_stack.py
+├── cicd/                    # CI/CD and infrastructure assets
+│   ├── env/                   # Environment configuration
+│   │   └── prod.json
+│   ├── stacks/                # CDK stacks (from above)
+│   │   ├── auth_stack.py
+│   │   ├── storage_stack.py
+│   │   └── agent_runtime_stack.py
+│   ├── ecstasks_unused/       # Legacy ECS task JSONs, not active deploy source
+│   │   ├── dashboard.json
+│   │   ├── overnight-analysis.json
+│   │   └── trading-bot.json
+│   └── cfn/                   # Hand-written CloudFormation, if needed
 ├── containers/                         # Docker containers
 │   ├── trading-bot/
 │   │   ├── Dockerfile
@@ -135,15 +143,6 @@ trader-daily-india/
 │       ├── requirements.txt
 │       └── api_server.py               # FastAPI + embedded HTML dashboard
 │
-├── ecs/                                # ECS task definitions (JSON)
-│   ├── task-definition.json            # Main trading bot task
-│   └── scheduled-task.json 
-│   │
-│   └── dashboard/                      # Container 2: Frontend
-│       ├── Dockerfile
-│       ├── requirements.txt
-│       ├── api_server.py               # FastAPI backend
-│       ├── index.html                  # Frontend UI
 │       └── static/      
 ├── agent/                     # Your trading agent code
 |   |___init__.py

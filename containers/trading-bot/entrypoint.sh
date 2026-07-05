@@ -77,9 +77,54 @@ echo "   Min Confidence: ${MIN_CONFIDENCE_THRESHOLD:-70}%"
 echo "   Max Daily Loss: ${MAX_DAILY_LOSS_PERCENT:-4}%"
 echo "   Max Position Size: ${MAX_POSITION_SIZE_PERCENT:-10}%"
 echo "   Watchlist Size: ${WATCHLIST_SIZE:-10}"
-echo "   Bedrock Model: ${BEDROCK_MODEL_ID:-anthropic.claude-3-haiku-20240307-v1:0}"
-echo "   Static IP (NAT): ${STATIC_IP:-3.8.245.57}"
+echo "   Bedrock Default Model: ${BEDROCK_MODEL_ID:-anthropic.claude-3-haiku-20240307-v1:0}"
+echo "   Bedrock Fast Model: ${BEDROCK_FAST_MODEL_ID:-anthropic.claude-3-haiku-20240307-v1:0}"
+echo "   Bedrock Reasoning Model: ${BEDROCK_REASONING_MODEL_ID:-anthropic.claude-3-5-sonnet-20241022-v2:0}"
+echo "   Bedrock Deep Research Model: ${BEDROCK_DEEP_RESEARCH_MODEL_ID:-anthropic.claude-3-opus-20240229-v1:0}"
+echo "   Oracle Static IP: ${ORACLE_STATIC_IP:-${STATIC_IP:-80.225.242.6}}"
+if [ -n "$SCHEDULED_ACTION" ]; then
+    echo "   Scheduled Action: $SCHEDULED_ACTION"
+    echo "   Run Source: ${RUN_SOURCE:-manual}"
+fi
 echo ""
+
+# ============================================================
+# RUN ONE-SHOT SCHEDULED ACTIONS
+# ============================================================
+
+if [ -n "$SCHEDULED_ACTION" ]; then
+    echo "⏱️ Running scheduled action: $SCHEDULED_ACTION"
+
+    exec python -c "
+import os
+import sys
+
+action = os.environ.get('SCHEDULED_ACTION', '').strip().lower()
+print(f'Scheduled action: {action}')
+
+try:
+    from agent.main import TradingBot
+
+    bot = TradingBot()
+
+    if action == 'overnight_analysis':
+        bot._run_overnight_analysis()
+    elif action == 'market_open':
+        print('Market-open scheduled checkpoint completed. Singleton trading service remains authoritative.')
+    elif action == 'square_off':
+        bot._square_off_all()
+    else:
+        print(f'Unsupported scheduled action: {action}')
+        sys.exit(2)
+
+    print(f'Scheduled action completed: {action}')
+except Exception as e:
+    print(f'Scheduled action failed: {e}')
+    import traceback
+    traceback.print_exc()
+    sys.exit(1)
+"
+fi
 
 # ============================================================
 # START THE TRADING BOT
@@ -105,7 +150,10 @@ print(f'Capital: ₹{float(os.environ.get(\"CAPITAL\", 100000)):,.2f}')
 print(f'Min Confidence: {os.environ.get(\"MIN_CONFIDENCE_THRESHOLD\", \"70\")}%')
 print(f'Max Daily Loss: {os.environ.get(\"MAX_DAILY_LOSS_PERCENT\", \"4\")}%')
 print(f'Max Position Size: {os.environ.get(\"MAX_POSITION_SIZE_PERCENT\", \"10\")}%')
-print(f'Bedrock Model: {os.environ.get(\"BEDROCK_MODEL_ID\", \"anthropic.claude-3-haiku\")}')
+print(f'Bedrock Default Model: {os.environ.get(\"BEDROCK_MODEL_ID\", \"anthropic.claude-3-haiku-20240307-v1:0\")}')
+print(f'Bedrock Fast Model: {os.environ.get(\"BEDROCK_FAST_MODEL_ID\", \"anthropic.claude-3-haiku-20240307-v1:0\")}')
+print(f'Bedrock Reasoning Model: {os.environ.get(\"BEDROCK_REASONING_MODEL_ID\", \"anthropic.claude-3-5-sonnet-20241022-v2:0\")}')
+print(f'Bedrock Deep Research Model: {os.environ.get(\"BEDROCK_DEEP_RESEARCH_MODEL_ID\", \"anthropic.claude-3-opus-20240229-v1:0\")}')
 print(f'ICICI API Key: {\"✓ Present\" if os.environ.get(\"ICICI_API_KEY\") else \"✗ Missing\"}')
 print(f'ICICI Secret Key: {\"✓ Present\" if os.environ.get(\"ICICI_SECRET_KEY\") else \"✗ Missing\"}')
 print(f'ICICI Session Token: {\"✓ Present\" if os.environ.get(\"ICICI_SESSION_TOKEN\") else \"✗ Missing\"}')
@@ -116,7 +164,7 @@ print(f'Market State Table: {os.environ.get(\"MARKET_STATE_TABLE\", \"svc-trd-ma
 print('=' * 60)
 
 try:
-    from agent.main import ECSCompatibleBot
+    from agent.main import TradingBot
     
     # Set up metrics server on port 9090
     try:
@@ -137,8 +185,11 @@ try:
     max_position_size_percent = float(os.environ.get('MAX_POSITION_SIZE_PERCENT', 10))
     watchlist_size = int(os.environ.get('WATCHLIST_SIZE', 10))
     bedrock_model_id = os.environ.get('BEDROCK_MODEL_ID', 'anthropic.claude-3-haiku-20240307-v1:0')
+    bedrock_fast_model_id = os.environ.get('BEDROCK_FAST_MODEL_ID', 'anthropic.claude-3-haiku-20240307-v1:0')
+    bedrock_reasoning_model_id = os.environ.get('BEDROCK_REASONING_MODEL_ID', 'anthropic.claude-3-5-sonnet-20241022-v2:0')
+    bedrock_deep_research_model_id = os.environ.get('BEDROCK_DEEP_RESEARCH_MODEL_ID', 'anthropic.claude-3-opus-20240229-v1:0')
     bedrock_region = os.environ.get('BEDROCK_REGION', 'eu-west-2')
-    static_ip = os.environ.get('STATIC_IP', '3.8.245.57')
+    static_ip = os.environ.get('ORACLE_STATIC_IP') or os.environ.get('STATIC_IP', '80.225.242.6')
     
     print(f'💰 Trading Capital: ₹{capital:,.2f}')
     print(f'⏱️  Analysis Interval: {analysis_interval} seconds')
@@ -147,21 +198,14 @@ try:
     print(f'🛡️ Max Daily Loss: {max_daily_loss_percent}%')
     print(f'📊 Max Position Size: {max_position_size_percent}%')
     print(f'👀 Watchlist Size: {watchlist_size}')
-    print(f'🧠 Bedrock Model: {bedrock_model_id}')
-    print(f'🌐 Static IP: {static_ip}')
+    print(f'🧠 Bedrock Default Model: {bedrock_model_id}')
+    print(f'🧠 Bedrock Fast Model: {bedrock_fast_model_id}')
+    print(f'🧠 Bedrock Reasoning Model: {bedrock_reasoning_model_id}')
+    print(f'🧠 Bedrock Deep Research Model: {bedrock_deep_research_model_id}')
+    print(f'🌐 Oracle Static IP: {static_ip}')
     print('')
     
-    bot = ECSCompatibleBot(
-        capital=capital,
-        analysis_interval=analysis_interval,
-        paper_trading=paper_trading,
-        min_confidence=min_confidence,
-        max_daily_loss_percent=max_daily_loss_percent,
-        max_position_size_percent=max_position_size_percent,
-        watchlist_size=watchlist_size,
-        bedrock_model_id=bedrock_model_id,
-        bedrock_region=bedrock_region
-    )
+    bot = TradingBot()
     
     print('🚀 Starting main trading loop...')
     bot.run()

@@ -26,10 +26,15 @@ ENV PORT=8080
 ENV TRADES_TABLE=svc-trd-trades-dev
 ENV LEARNING_TABLE=svc-trd-learning-dev
 ENV MARKET_STATE_TABLE=svc-trd-market-state-dev
+ENV SIGNALS_TABLE=svc-trd-signals-dev
+ENV RISK_EVENTS_TABLE=svc-trd-risk-events-dev
+ENV ORDERS_TABLE=svc-trd-orders-dev
+ENV FILLS_TABLE=svc-trd-fills-dev
+ENV POSITIONS_TABLE=svc-trd-positions-dev
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
+    CMD curl -f http://localhost:8080/api/health || exit 1
 
 EXPOSE 8080
 

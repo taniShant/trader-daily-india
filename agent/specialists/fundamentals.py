@@ -1,13 +1,20 @@
 from strands import Agent, tool
 from typing import Dict, Any
-import yfinance as yf
 import pandas as pd
+
+from agent.data.symbols import yahoo_symbol
+
+
+def _to_yahoo_symbol(stock_symbol: str) -> str:
+    return yahoo_symbol(stock_symbol)
+
 
 @tool
 def get_balance_sheet(stock_symbol: str) -> Dict[str, Any]:
     """Get company balance sheet data"""
-    if not stock_symbol.endswith(".NS"):
-        stock_symbol = f"{stock_symbol}.NS"
+    import yfinance as yf
+
+    stock_symbol = _to_yahoo_symbol(stock_symbol)
     
     ticker = yf.Ticker(stock_symbol)
     balance_sheet = ticker.balance_sheet
@@ -28,8 +35,9 @@ def get_balance_sheet(stock_symbol: str) -> Dict[str, Any]:
 @tool
 def get_income_statement(stock_symbol: str) -> Dict[str, Any]:
     """Get company income statement data"""
-    if not stock_symbol.endswith(".NS"):
-        stock_symbol = f"{stock_symbol}.NS"
+    import yfinance as yf
+
+    stock_symbol = _to_yahoo_symbol(stock_symbol)
     
     ticker = yf.Ticker(stock_symbol)
     income_stmt = ticker.income_stmt
@@ -50,8 +58,9 @@ def get_income_statement(stock_symbol: str) -> Dict[str, Any]:
 @tool
 def get_cash_flow(stock_symbol: str) -> Dict[str, Any]:
     """Get company cash flow statement data"""
-    if not stock_symbol.endswith(".NS"):
-        stock_symbol = f"{stock_symbol}.NS"
+    import yfinance as yf
+
+    stock_symbol = _to_yahoo_symbol(stock_symbol)
     
     ticker = yf.Ticker(stock_symbol)
     cashflow = ticker.cashflow
@@ -70,8 +79,9 @@ def get_cash_flow(stock_symbol: str) -> Dict[str, Any]:
 @tool
 def get_growth_metrics(stock_symbol: str) -> Dict[str, Any]:
     """Calculate year-over-year growth metrics"""
-    if not stock_symbol.endswith(".NS"):
-        stock_symbol = f"{stock_symbol}.NS"
+    import yfinance as yf
+
+    stock_symbol = _to_yahoo_symbol(stock_symbol)
     
     ticker = yf.Ticker(stock_symbol)
     income_stmt = ticker.income_stmt
@@ -94,8 +104,9 @@ def get_growth_metrics(stock_symbol: str) -> Dict[str, Any]:
 @tool
 def get_valuation_ratios(stock_symbol: str) -> Dict[str, Any]:
     """Get valuation metrics (P/E, P/B, EV/EBITDA, etc.)"""
-    if not stock_symbol.endswith(".NS"):
-        stock_symbol = f"{stock_symbol}.NS"
+    import yfinance as yf
+
+    stock_symbol = _to_yahoo_symbol(stock_symbol)
     
     ticker = yf.Ticker(stock_symbol)
     info = ticker.info
@@ -114,11 +125,10 @@ def get_valuation_ratios(stock_symbol: str) -> Dict[str, Any]:
 class FundamentalAnalyst(Agent):
     """Specialist agent for company fundamental analysis"""
     
-    def __init__(self, model, memory):
+    def __init__(self, model, memory=None):
         super().__init__(
             name="FundamentalAnalyst",
             model=model,
-            memory=memory,
             tools=[
                 get_balance_sheet,
                 get_income_statement,

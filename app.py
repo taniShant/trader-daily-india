@@ -4,7 +4,7 @@ AWS CDK Application for Multi-Agent Trading System
 
 Stacks in order of deployment:
 0. IAMStack - ECS Execution Role and Task Role
-1. NetworkStack - VPC, subnets, security groups, NAT Gateway
+1. NetworkStack - VPC, subnets, security groups, AWS NAT Gateway reference
 2. TradingAuthStack - Cognito user pool and identity pool
 3. TradingStorageStack - DynamoDB tables (Trades, Sessions, Learning, MarketState)
 4. TradingAgentRuntimeStack - ECS Fargate cluster, tasks, and load balancer
@@ -14,21 +14,26 @@ Usage:
     CDK_DEPLOY_ENV=prod cdk deploy --all
 """
 
-import os 
 import json
+import os
+from pathlib import Path
 from aws_cdk import App, Environment, CfnOutput
-from stacks.iam_stack import IAMStack
-from stacks.network_stack import NetworkStack
-from stacks.auth_stack import TradingAuthStack
-from stacks.storage_stack import TradingStorageStack
-from stacks.agent_runtime_stack import TradingAgentRuntimeStack
+
+ROOT_DIR = Path(__file__).resolve().parent
+CICD_DIR = ROOT_DIR / "cicd"
+
+from cicd.stacks.iam_stack import IAMStack
+from cicd.stacks.network_stack import NetworkStack
+from cicd.stacks.auth_stack import TradingAuthStack
+from cicd.stacks.storage_stack import TradingStorageStack
+from cicd.stacks.agent_runtime_stack import TradingAgentRuntimeStack
 
 # ============================================================
 # LOAD CONFIGURATION FROM ENVIRONMENT FILE
 # ============================================================
 
 def load_config():
-    """Load configuration from env/{dev,prod}.json based on CDK_DEPLOY_ENV"""
+    """Load configuration from cicd/env/{dev,prod}.json based on CDK_DEPLOY_ENV"""
     
     # Get environment from CDK_DEPLOY_ENV (default: dev)
     env_name = os.environ.get("CDK_DEPLOY_ENV", "prod").lower()
@@ -38,13 +43,13 @@ def load_config():
         raise ValueError(f"Invalid environment: {env_name}. Use 'dev' or 'prod'")
     
     # Path to config file
-    config_path = os.path.join(os.path.dirname(__file__), "env", f"{env_name}.json")
+    config_path = CICD_DIR / "env" / f"{env_name}.json"
     
-    if not os.path.exists(config_path):
+    if not config_path.exists():
         raise FileNotFoundError(f"Config file not found: {config_path}")
     
     # Load and return config
-    with open(config_path, "r") as f:
+    with config_path.open("r") as f:
         config = json.load(f)
     
     print(f"📋 Loaded configuration for environment: {env_name.upper()}")
@@ -52,7 +57,8 @@ def load_config():
     print(f"   Region: {config['aws']['region']}")
     print(f"   Paper Trading: {config['trading']['paper_trading']}")
     print(f"   S3 Bucket: {config['s3']['code_bucket']}")
-    print(f"   Static IP: {config['icici']['static_ip']}")
+    print(f"   AWS NAT IP: {config.get('vpc', {}).get('nat_gateway_ip')}")
+    print(f"   Oracle Static IP: {config.get('oracle', {}).get('static_ip')}")
     
     return config, env_name
 
@@ -80,7 +86,7 @@ iam_stack = IAMStack(
  
 
 # ============================================================
-# STACK 1: NETWORK (Imports existing VPC, subnets, NAT Gateway)
+# STACK 1: NETWORK (Imports existing VPC, subnets, AWS NAT Gateway reference)
 # ============================================================
 
 network_stack = NetworkStack(
@@ -129,6 +135,11 @@ agent_stack = TradingAgentRuntimeStack(
     trades_table=storage_stack.trades_table,
     learning_table=storage_stack.learning_table,
     market_state_table=storage_stack.market_state_table,
+    signals_table=storage_stack.signals_table,
+    risk_events_table=storage_stack.risk_events_table,
+    orders_table=storage_stack.orders_table,
+    fills_table=storage_stack.fills_table,
+    positions_table=storage_stack.positions_table,
     role=iam_stack.role,
     config=CONFIG,
     env=Environment(account=ACCOUNT_ID, region=REGION)

@@ -6,22 +6,23 @@ Supports both yfinance (fallback) and ICICI Breeze API (primary).
 import os
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
-import yfinance as yf
+from strands import tool
 
-# Try to import Breeze Connect if available
-try:
-    from breeze_connect import BreezeConnect
-    BREEZE_AVAILABLE = True
-except ImportError:
-    BREEZE_AVAILABLE = False
-    print("⚠️ breeze-connect not available. Using yfinance only.")
+from agent.data.market_data import (
+    normalize_ohlcv_bars,
+    normalize_quote,
+    ohlcv_bars_to_tool_payload,
+    quote_to_tool_payload,
+)
+from agent.data.quality import check_ohlcv_quality, check_quote_quality
+from agent.data.symbols import breeze_stock_code, canonical_symbol, yahoo_symbol
 
 class MarketDataProvider:
     """Provides market data from Breeze API (primary) or yfinance (fallback)."""
     
     def __init__(self):
         self.breeze = None
-        self.use_breeze = BREEZE_AVAILABLE and self._init_breeze()
+        self.use_breeze = self._init_breeze()
     
     def _init_breeze(self) -> bool:
         """Initialize Breeze Connect with credentials from environment."""
@@ -34,6 +35,9 @@ class MarketDataProvider:
             return False
         
         try:
+            BreezeConnect = _load_breeze_connect()
+            if BreezeConnect is None:
+                return False
             self.breeze = BreezeConnect(api_key=api_key)
             self.breeze.generate_session(
                 api_secret=secret_key,
@@ -47,24 +51,20 @@ class MarketDataProvider:
     
     def get_live_quote(self, stock_symbol: str) -> Dict[str, Any]:
         """Get live quote for a stock."""
+        canonical = canonical_symbol(stock_symbol)
         if self.use_breeze and self.breeze:
             try:
                 response = self.breeze.get_quotes(
-                    stock_code=stock_symbol,
+                    stock_code=breeze_stock_code(stock_symbol),
                     exchange_code="NSE"
                 )
                 if response and response.get("Success"):
                     data = response["Success"]
-                    return {
-                        "symbol": stock_symbol,
-                        "ltp": data.get("ltp"),
-                        "open": data.get("open"),
-                        "high": data.get("high"),
-                        "low": data.get("low"),
-                        "close": data.get("close"),
-                        "volume": data.get("volume"),
-                        "source": "breeze"
-                    }
+                    quote = normalize_quote(data, symbol=canonical, source="breeze")
+                    quality = check_quote_quality(quote, require_volume=True)
+                    if not quality.passed:
+                        return _quality_error(canonical, quality.reasons)
+                    return quote_to_tool_payload(quote)
             except Exception as e:
                 print(f"Breeze quote error for {stock_symbol}: {e}")
         
@@ -74,18 +74,16 @@ class MarketDataProvider:
     def _get_yfinance_quote(self, stock_symbol: str) -> Dict[str, Any]:
         """Fallback to yfinance for live quotes."""
         try:
-            ticker = yf.Ticker(f"{stock_symbol}.NS")
+            import yfinance as yf
+
+            canonical = canonical_symbol(stock_symbol)
+            ticker = yf.Ticker(yahoo_symbol(stock_symbol))
             info = ticker.fast_info
-            return {
-                "symbol": stock_symbol,
-                "ltp": info.get("lastPrice", 0),
-                "open": info.get("open", 0),
-                "high": info.get("dayHigh", 0),
-                "low": info.get("dayLow", 0),
-                "close": info.get("previousClose", 0),
-                "volume": info.get("volume", 0),
-                "source": "yfinance"
-            }
+            quote = normalize_quote(dict(info), symbol=canonical, source="yfinance")
+            quality = check_quote_quality(quote, require_volume=True)
+            if not quality.passed:
+                return _quality_error(canonical, quality.reasons)
+            return quote_to_tool_payload(quote)
         except Exception as e:
             print(f"yfinance quote error for {stock_symbol}: {e}")
             return {"symbol": stock_symbol, "error": str(e)}
@@ -98,22 +96,38 @@ class MarketDataProvider:
     ) -> Dict[str, Any]:
         """Get historical OHLCV data."""
         try:
-            ticker = yf.Ticker(f"{stock_symbol}.NS")
+            import yfinance as yf
+
+            canonical = canonical_symbol(stock_symbol)
+            ticker = yf.Ticker(yahoo_symbol(stock_symbol))
             hist = ticker.history(period=f"{days}d", interval=interval)
             
             if hist.empty:
                 return {"error": "No historical data available"}
+
+            records = hist.reset_index().to_dict(orient="records")
+            bars = normalize_ohlcv_bars(
+                records,
+                symbol=canonical,
+                interval=interval,
+                source="yfinance",
+            )
+            quality = check_ohlcv_quality(
+                bars,
+                symbol=canonical,
+                interval=interval,
+                min_bars=1,
+                require_nonzero_volume=True,
+            )
+            if not quality.passed:
+                return _quality_error(canonical, quality.reasons)
             
-            return {
-                "symbol": stock_symbol,
-                "days": days,
-                "interval": interval,
-                "data": hist.reset_index().to_dict(orient="records"),
-                "latest_close": float(hist['Close'].iloc[-1]),
-                "latest_volume": int(hist['Volume'].iloc[-1]),
-                "high_52w": float(hist['High'].max()),
-                "low_52w": float(hist['Low'].min()),
-            }
+            return ohlcv_bars_to_tool_payload(
+                symbol=canonical,
+                days=days,
+                interval=interval,
+                bars=bars,
+            )
         except Exception as e:
             return {"error": str(e)}
     
@@ -122,8 +136,9 @@ class MarketDataProvider:
         try:
             import pandas as pd
             import pandas_ta as ta
+            import yfinance as yf
             
-            ticker = yf.Ticker(f"{stock_symbol}.NS")
+            ticker = yf.Ticker(yahoo_symbol(stock_symbol))
             df = ticker.history(period=period)
             
             if df.empty:
@@ -170,3 +185,24 @@ def get_historical_data(stock_symbol: str, days: int = 30) -> Dict[str, Any]:
     """Get historical price data for technical analysis."""
     provider = get_market_data()
     return provider.get_historical_data(stock_symbol, days)
+
+
+def _quality_error(symbol: str, reasons: list[str]) -> Dict[str, Any]:
+    return {
+        "symbol": symbol,
+        "error": "data_quality_failed",
+        "reasons": reasons,
+    }
+
+
+def _load_breeze_connect():
+    try:
+        from breeze_connect import BreezeConnect
+
+        return BreezeConnect
+    except ImportError:
+        print("⚠️ breeze-connect not available. Using yfinance only.")
+        return None
+    except Exception as exc:
+        print(f"⚠️ breeze-connect import failed. Using yfinance only: {exc}")
+        return None

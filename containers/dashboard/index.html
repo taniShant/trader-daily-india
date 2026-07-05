@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trading Bot Dashboard</title>
+    <title>Trading Dashboard</title>
     <link rel="stylesheet" href="/static/style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🤖 Trading Bot Dashboard</h1>
-            <button class="refresh-btn" onclick="fetchAllData()">⟳ Refresh</button>
+            <h1>Trading Dashboard</h1>
+            <button class="refresh-btn" onclick="fetchAllData()">Refresh</button>
         </header>
         
         <!-- Stats Cards -->
@@ -22,7 +22,7 @@
             </div>
             <div class="card">
                 <div class="stat-value" id="pnl">-</div>
-                <div class="stat-label">Today's P&L</div>
+                <div class="stat-label">Today P&L</div>
             </div>
             <div class="card">
                 <div class="stat-value" id="winrate">-</div>
@@ -34,11 +34,13 @@
             </div>
         </div>
         
-        <!-- Tab Navigation -->
         <div class="tab-bar">
-            <button class="tab-btn active" onclick="switchTab('trades')">📊 Trades</button>
-            <button class="tab-btn" onclick="switchTab('learning')">🧠 Learning Patterns</button>
-            <button class="tab-btn" onclick="switchTab('market')">🌍 Market State</button>
+            <button class="tab-btn active" onclick="switchTab('trades', this)">Trades</button>
+            <button class="tab-btn" onclick="switchTab('signals', this)">Signals</button>
+            <button class="tab-btn" onclick="switchTab('statusView', this)">Status</button>
+            <button class="tab-btn" onclick="switchTab('controls', this)">Controls</button>
+            <button class="tab-btn" onclick="switchTab('learning', this)">Learning</button>
+            <button class="tab-btn" onclick="switchTab('market', this)">Market</button>
         </div>
         
         <!-- Filters (shown only on Trades tab) -->
@@ -60,13 +62,13 @@
         
         <!-- P&L Chart (shown on Trades tab) -->
         <div class="chart-card" id="pnlChartCard">
-            <h3>📈 P&L Curve</h3>
+            <h3>P&L Curve</h3>
             <canvas id="pnlChart" height="80"></canvas>
         </div>
         
         <!-- Trades Table (Trades tab) -->
         <div class="chart-card" id="tradesCard">
-            <h3>📊 Recent Trades</h3>
+            <h3>Recent Trades</h3>
             <div class="table-container">
                 <table id="tradesTable">
                     <thead>
@@ -86,9 +88,79 @@
             </div>
         </div>
         
-        <!-- Learning Patterns Table (Learning tab - hidden by default) -->
+        <div class="chart-card" id="signalsCard" style="display: none;">
+            <h3>Signals And Skipped Trades</h3>
+            <div class="table-container">
+                <table id="signalsTable">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Symbol</th>
+                            <th>Action</th>
+                            <th>Confidence</th>
+                            <th>Status</th>
+                            <th>Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="6" class="loading">Loading signals...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="chart-card" id="statusCard" style="display: none;">
+            <h3>Runtime Status</h3>
+            <div class="status-layout">
+                <div>
+                    <h4>Heartbeat</h4>
+                    <dl id="heartbeatDetails"></dl>
+                </div>
+                <div>
+                    <h4>Risk Usage</h4>
+                    <dl id="riskDetails"></dl>
+                </div>
+            </div>
+            <h4>Open Positions</h4>
+            <div class="table-container">
+                <table id="positionsTable">
+                    <thead>
+                        <tr>
+                            <th>Symbol</th>
+                            <th>Quantity</th>
+                            <th>Average</th>
+                            <th>Last</th>
+                            <th>Unrealized P&L</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="5" class="loading">Loading positions...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="chart-card" id="controlsCard" style="display: none;">
+            <h3>Manual Controls</h3>
+            <div class="control-grid">
+                <div class="control-panel">
+                    <h4>Kill Switch</h4>
+                    <input type="password" id="controlToken" placeholder="Control token">
+                    <textarea id="killReason" placeholder="Reason"></textarea>
+                    <button class="danger-btn" onclick="submitControl('kill-switch')">Request Kill Switch</button>
+                </div>
+                <div class="control-panel">
+                    <h4>Square Off</h4>
+                    <input type="text" id="squareSymbol" placeholder="Symbol, optional">
+                    <textarea id="squareReason" placeholder="Reason"></textarea>
+                    <button class="warning-btn" onclick="submitControl('square-off')">Request Square Off</button>
+                </div>
+            </div>
+            <div id="controlResult" class="control-result"></div>
+        </div>
+
         <div class="chart-card" id="learningCard" style="display: none;">
-            <h3>🧠 Learning Patterns</h3>
+            <h3>Learning Patterns</h3>
             <div class="table-container">
                 <table id="learningTable">
                     <thead>
@@ -108,9 +180,8 @@
             </div>
         </div>
         
-        <!-- Market State Table (Market tab - hidden by default) -->
         <div class="chart-card" id="marketCard" style="display: none;">
-            <h3>🌍 Market State (Overnight Analysis)</h3>
+            <h3>Market State</h3>
             <div class="table-container">
                 <table id="marketTable">
                     <thead>

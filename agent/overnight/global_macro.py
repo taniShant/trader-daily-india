@@ -7,7 +7,6 @@ import json
 from datetime import datetime
 from typing import Dict, Any, List
 import boto3
-import yfinance as yf
 
 class GlobalMacroCollector:
     """Collects global market data including US closes, VIX, currency, commodities."""
@@ -39,6 +38,8 @@ class GlobalMacroCollector:
     
     def _get_us_market_data(self) -> Dict[str, Any]:
         """Get US market indices data."""
+        import yfinance as yf
+
         indices = {
             "^GSPC": "S&P 500",
             "^DJI": "Dow Jones",
@@ -66,6 +67,8 @@ class GlobalMacroCollector:
     
     def _get_europe_market_data(self) -> Dict[str, Any]:
         """Get European market indices data."""
+        import yfinance as yf
+
         indices = {
             "^FTSE": "FTSE 100",
             "^GDAXI": "DAX",
@@ -92,6 +95,8 @@ class GlobalMacroCollector:
     
     def _get_asia_market_data(self) -> Dict[str, Any]:
         """Get Asian market indices data."""
+        import yfinance as yf
+
         indices = {
             "^N225": "Nikkei 225",
             "000001.SS": "Shanghai Composite",
@@ -118,6 +123,8 @@ class GlobalMacroCollector:
     
     def _get_india_vix(self) -> Dict[str, Any]:
         """Get India VIX data."""
+        import yfinance as yf
+
         try:
             ticker = yf.Ticker("^INDIAVIX")
             hist = ticker.history(period="5d")
@@ -137,6 +144,8 @@ class GlobalMacroCollector:
     
     def _get_dollar_index(self) -> Dict[str, Any]:
         """Get US Dollar Index (DXY)."""
+        import yfinance as yf
+
         try:
             ticker = yf.Ticker("DX-Y.NYB")
             hist = ticker.history(period="2d")
@@ -152,6 +161,8 @@ class GlobalMacroCollector:
     
     def _get_crude_oil(self) -> Dict[str, Any]:
         """Get Crude Oil prices (WTI)."""
+        import yfinance as yf
+
         try:
             ticker = yf.Ticker("CL=F")
             hist = ticker.history(period="2d")
@@ -167,6 +178,8 @@ class GlobalMacroCollector:
     
     def _get_gold(self) -> Dict[str, Any]:
         """Get Gold prices."""
+        import yfinance as yf
+
         try:
             ticker = yf.Ticker("GC=F")
             hist = ticker.history(period="2d")
@@ -182,6 +195,8 @@ class GlobalMacroCollector:
     
     def _get_us_bond_yields(self) -> Dict[str, Any]:
         """Get US Treasury yields."""
+        import yfinance as yf
+
         bonds = {
             "10-year": "^TNX",
             "2-year": "^IRX",

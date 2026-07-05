@@ -3,36 +3,42 @@ let pnlChart = null;
 let currentTab = 'trades';
 
 // Tab switching
-function switchTab(tabName) {
+function switchTab(tabName, button) {
     currentTab = tabName;
     
     // Update tab buttons
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.classList.remove('active');
     });
-    event.target.classList.add('active');
+    if (button) button.classList.add('active');
     
-    // Show/hide sections
+    ['pnlChartCard', 'tradesCard', 'learningCard', 'marketCard', 'signalsCard', 'statusCard', 'controlsCard'].forEach(id => {
+        document.getElementById(id).style.display = 'none';
+    });
+
     if (tabName === 'trades') {
         document.getElementById('filters').style.display = 'flex';
         document.getElementById('pnlChartCard').style.display = 'block';
         document.getElementById('tradesCard').style.display = 'block';
-        document.getElementById('learningCard').style.display = 'none';
-        document.getElementById('marketCard').style.display = 'none';
         fetchTrades();
         fetchPNL();
+    } else if (tabName === 'signals') {
+        document.getElementById('filters').style.display = 'none';
+        document.getElementById('signalsCard').style.display = 'block';
+        fetchSignals();
+    } else if (tabName === 'statusView') {
+        document.getElementById('filters').style.display = 'none';
+        document.getElementById('statusCard').style.display = 'block';
+        fetchStatus();
+    } else if (tabName === 'controls') {
+        document.getElementById('filters').style.display = 'none';
+        document.getElementById('controlsCard').style.display = 'block';
     } else if (tabName === 'learning') {
         document.getElementById('filters').style.display = 'none';
-        document.getElementById('pnlChartCard').style.display = 'none';
-        document.getElementById('tradesCard').style.display = 'none';
         document.getElementById('learningCard').style.display = 'block';
-        document.getElementById('marketCard').style.display = 'none';
         fetchLearningPatterns();
     } else if (tabName === 'market') {
         document.getElementById('filters').style.display = 'none';
-        document.getElementById('pnlChartCard').style.display = 'none';
-        document.getElementById('tradesCard').style.display = 'none';
-        document.getElementById('learningCard').style.display = 'none';
         document.getElementById('marketCard').style.display = 'block';
         fetchMarketState();
     }
@@ -55,9 +61,43 @@ async function fetchStatus() {
         
         const statusHtml = `<span class="status-badge status-${data.status}">${data.status}</span>`;
         document.getElementById('status').innerHTML = statusHtml;
+        renderStatusDetails(data);
     } catch(e) {
         console.error('Status fetch failed:', e);
     }
+}
+
+function renderStatusDetails(data) {
+    const heartbeat = data.heartbeat || {};
+    const risk = data.risk_usage || {};
+    document.getElementById('heartbeatDetails').innerHTML = `
+        <dt>Mode</dt><dd>${data.mode || '-'}</dd>
+        <dt>Market</dt><dd>${data.market_hours || '-'}</dd>
+        <dt>Last analysis</dt><dd>${data.last_analysis || '-'}</dd>
+        <dt>Cycle</dt><dd>${heartbeat.cycle ?? '-'}</dd>
+    `;
+    document.getElementById('riskDetails').innerHTML = `
+        <dt>Today P&L</dt><dd>₹${Number(risk.today_pnl || 0).toFixed(2)}</dd>
+        <dt>Today loss</dt><dd>₹${Number(risk.today_loss || 0).toFixed(2)}</dd>
+        <dt>Daily loss limit</dt><dd>${risk.daily_loss_limit || '-'}%</dd>
+        <dt>Trades</dt><dd>${risk.trade_count || 0}</dd>
+    `;
+
+    const tbody = document.querySelector('#positionsTable tbody');
+    const positions = data.open_positions || [];
+    if (positions.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="loading">No open positions</td></tr>';
+        return;
+    }
+    tbody.innerHTML = positions.map(position => `
+        <tr>
+            <td><strong>${position.symbol || '-'}</strong></td>
+            <td>${position.quantity || 0}</td>
+            <td>₹${Number(position.average_price || 0).toFixed(2)}</td>
+            <td>₹${Number(position.last_price || 0).toFixed(2)}</td>
+            <td class="${Number(position.unrealized_pnl || 0) >= 0 ? 'positive' : 'negative'}">₹${Number(position.unrealized_pnl || 0).toFixed(2)}</td>
+        </tr>
+    `).join('');
 }
 
 // Fetch recent trades
@@ -83,7 +123,7 @@ async function fetchTrades() {
         
         tbody.innerHTML = data.trades.map(trade => `
             <tr>
-                <td>${new Date(trade.timestamp).toLocaleString()}</td>
+                <td>${trade.timestamp ? new Date(trade.timestamp).toLocaleString() : '-'}</td>
                 <td><strong>${trade.stock_symbol || 'N/A'}</strong></td>
                 <td class="${(trade.action || '').toLowerCase()}">${trade.action || 'HOLD'}</td>
                 <td>₹${(trade.price || 0).toFixed(2)}</td>
@@ -95,6 +135,62 @@ async function fetchTrades() {
         `).join('');
     } catch(e) {
         console.error('Trades fetch failed:', e);
+    }
+}
+
+async function fetchSignals() {
+    if (currentTab !== 'signals') return;
+
+    try {
+        const res = await fetch('/api/signals?limit=100');
+        const data = await res.json();
+        const tbody = document.querySelector('#signalsTable tbody');
+
+        if (!data.signals || data.signals.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="loading">No signals found</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = data.signals.map(signal => {
+            const reasons = signal.skip_reasons && signal.skip_reasons.length ? signal.skip_reasons : signal.reasons || [];
+            return `
+                <tr>
+                    <td>${signal.created_at ? new Date(signal.created_at).toLocaleString() : '-'}</td>
+                    <td><strong>${signal.symbol || '-'}</strong></td>
+                    <td class="${(signal.action || '').toLowerCase()}">${signal.action || '-'}</td>
+                    <td>${signal.confidence ?? '-'}</td>
+                    <td><span class="status-badge status-${(signal.trade_status || '').toLowerCase()}">${signal.trade_status || '-'}</span></td>
+                    <td>${reasons.join(', ') || '-'}</td>
+                </tr>
+            `;
+        }).join('');
+    } catch(e) {
+        console.error('Signals fetch failed:', e);
+    }
+}
+
+async function submitControl(action) {
+    const token = document.getElementById('controlToken').value;
+    const result = document.getElementById('controlResult');
+    const isKill = action === 'kill-switch';
+    const reason = document.getElementById(isKill ? 'killReason' : 'squareReason').value;
+    const symbol = isKill ? null : document.getElementById('squareSymbol').value || null;
+
+    try {
+        const res = await fetch(`/api/controls/${action}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-dashboard-token': token
+            },
+            body: JSON.stringify({ reason, symbol })
+        });
+        const data = await res.json();
+        result.textContent = res.ok ? `Accepted: ${data.command.command_id}` : `Rejected: ${data.detail}`;
+        result.className = res.ok ? 'control-result positive' : 'control-result negative';
+    } catch(e) {
+        result.textContent = 'Control request failed';
+        result.className = 'control-result negative';
     }
 }
 
@@ -216,6 +312,10 @@ async function fetchAllData() {
     if (currentTab === 'trades') {
         await fetchTrades();
         await fetchPNL();
+    } else if (currentTab === 'signals') {
+        await fetchSignals();
+    } else if (currentTab === 'statusView') {
+        await fetchStatus();
     } else if (currentTab === 'learning') {
         await fetchLearningPatterns();
     } else if (currentTab === 'market') {

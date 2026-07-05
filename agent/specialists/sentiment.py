@@ -1,17 +1,28 @@
 from strands import Agent, tool
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
-import torch
+import os
 import requests
 from datetime import datetime
 
-# Initialize FinBERT model
 FINBERT_MODEL = "ProsusAI/finbert"
-tokenizer = AutoTokenizer.from_pretrained(FINBERT_MODEL)
-finbert = AutoModelForSequenceClassification.from_pretrained(FINBERT_MODEL)
+_tokenizer = None
+_finbert = None
+
+
+def _get_finbert_model():
+    global _tokenizer, _finbert
+    if _tokenizer is None or _finbert is None:
+        from transformers import AutoTokenizer, AutoModelForSequenceClassification
+
+        _tokenizer = AutoTokenizer.from_pretrained(FINBERT_MODEL)
+        _finbert = AutoModelForSequenceClassification.from_pretrained(FINBERT_MODEL)
+    return _tokenizer, _finbert
 
 @tool
 def get_finbert_sentiment(text: str) -> dict:
     """Analyze sentiment of a single text using FinBERT"""
+    import torch
+
+    tokenizer, finbert = _get_finbert_model()
     inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=512)
     outputs = finbert(**inputs)
     scores = torch.nn.functional.softmax(outputs.logits, dim=-1)
@@ -70,11 +81,10 @@ def aggregate_news_sentiment(stock_symbol: str) -> dict:
 class SentimentAnalyst(Agent):
     """Specialist agent for news and sentiment analysis"""
     
-    def __init__(self, model, memory):
+    def __init__(self, model, memory=None):
         super().__init__(
             name="SentimentAnalyst",
             model=model,
-            memory=memory,
             tools=[get_finbert_sentiment, get_stock_news, aggregate_news_sentiment],
             system_prompt="""
             You are a sentiment analysis expert for financial markets.
