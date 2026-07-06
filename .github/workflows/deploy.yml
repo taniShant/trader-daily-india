@@ -69,6 +69,22 @@ jobs:
           role-to-assume: arn:aws:iam::${{ steps.config.outputs.account_id }}:role/${{ steps.config.outputs.deploy_role_name }}
           aws-region: ${{ steps.config.outputs.region }}
 
+      - name: Install CDK dependencies
+        run: |
+          npm install -g aws-cdk
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Validate deploy path
+        run: python scripts/verify_deploy_path.py
+
+      - name: CDK synth
+        run: cdk synth
+
+      - name: Deploy platform stack
+        if: env.DRY_RUN != 'true'
+        run: cdk deploy svc-trd-PlatformStack --require-approval never
+
       - name: Login to Amazon ECR
         if: env.DRY_RUN != 'true'
         run: |
@@ -108,21 +124,9 @@ jobs:
           docker push "${ECR_URI}:dashboard-latest"
           docker push "${ECR_URI}:dashboard-${{ steps.config.outputs.image_tag }}"
 
-      - name: Install CDK dependencies
-        run: |
-          npm install -g aws-cdk
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
-
-      - name: Validate deploy path
-        run: python scripts/verify_deploy_path.py
-
-      - name: CDK synth
-        run: cdk synth
-
-      - name: CDK deploy
+      - name: Deploy agent runtime stack
         if: env.DRY_RUN != 'true'
-        run: cdk deploy --all --require-approval never
+        run: cdk deploy svc-trd-AgentRuntimeStack --require-approval never
 
       - name: Refresh ECS services
         if: env.DRY_RUN != 'true'

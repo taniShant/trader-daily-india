@@ -5,6 +5,14 @@
     "exclude": ["README.md", "cdk*.json", "**/*.pyc", "**/__pycache__"]
   },
   "context": {
-    "@aws-cdk/aws-lambda:recognizeLayerVersion": true
+    "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
+    "availability-zones:account=873660758628:region=eu-west-2": [
+      "eu-west-2a",
+      "eu-west-2b"
+    ],
+    "availability-zones:account=632943041262:region=eu-west-2": [
+      "eu-west-2a",
+      "eu-west-2b"
+    ]
   }
 }

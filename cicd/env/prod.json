@@ -1,7 +1,8 @@
 {
   "environment": "prod",
   "aws": {
-    "account_id": "632943041262",
+    "account_id": "873660758628",
+    "account_name": "prod",
     "region": "eu-west-2",
     "profile": "cgaws"
   },
@@ -12,17 +13,17 @@
     "repository": "taniShant/trader-daily-india",
     "deploy_branch": "main",
     "deploy_role_name": "svc-trd-github-deploy-role",
-    "oidc_provider_arn": "arn:aws:iam::632943041262:oidc-provider/token.actions.githubusercontent.com"
+    "oidc_provider_arn": ""
   },
   "ecs": {
-    "cluster_name": "svc-genaimaissueres-dev-cluster",
-    "trading_service": "trdBotService",
-    "dashboard_service": "trdDashboardService"
+    "cluster_name": "trading-cluster-prod",
+    "trading_service": "trading-bot-prod",
+    "dashboard_service": "dashboard-prod"
   },
   "load_balancer": {
-    "arn": "arn:aws:elasticloadbalancing:eu-west-2:632943041262:loadbalancer/app/svc-genaimaissueres-dev-alb/fe98570c6ed76f0c",
-    "dns_name": "internal-svc-genaimaissueres-dev-alb-434368021.eu-west-2.elb.amazonaws.com",
-    "listener_arn": "arn:aws:elasticloadbalancing:eu-west-2:632943041262:listener/app/svc-genaimaissueres-dev-alb/fe98570c6ed76f0c/f4102c858db5ffdf",
+    "arn": "",
+    "dns_name": "",
+    "listener_arn": "",
     "target_group_name": "dashboard-tg"
   },
   "scheduled_tasks": {
@@ -31,12 +32,15 @@
     "square_off_expression": "cron(50 9 ? * MON-FRI *)"
   },
   "iam": {
-    "task_role_arn": "arn:aws:iam::632943041262:role/svc-trd-ecs-taskexecute-role",
-    "execution_role_arn": "arn:aws:iam::632943041262:role/svc-trd-ecs-taskexecute-role",
-    "eventbridge_role_arn": "arn:aws:iam::632943041262:role/eventbridge-ecs-role"
+    "role_name": "svc-trd-ecs-taskexecute-role",
+    "eventbridge_role_name": "eventbridge-ecs-role",
+    "task_role_arn": "",
+    "execution_role_arn": "",
+    "eventbridge_role_arn": ""
   },
   "s3": {
-    "code_bucket": "svc-s3-dev-632943041262-modelartifact"
+    "code_bucket": "svc-s3-prod-873660758628-modelartifact",
+    "create_bucket": true
   },
   "icici": {
     "api_key": "O6731z39in79bV=1U53K615238Q47GX7",
@@ -70,29 +74,37 @@
     "paper_trading": true
   },
   "vpc": {
-    "vpc_id": "vpc-0ecad7f1c28500a36",
-    "public_subnet_id": "subnet-08928d37ce056370e",
-    "private_subnet_id": "subnet-07f56117b5db520aa",
+    "vpc_name": "trd-vpc",
+    "cidr": "10.60.0.0/16",
+    "max_azs": 2,
+    "availability_zones": [
+      "eu-west-2a",
+      "eu-west-2b"
+    ],
+    "public_subnet_name": "trd-pub-subnet",
+    "private_subnet_name": "trd-pri-subnet",
+    "public_subnet_cidr_mask": 24,
+    "private_subnet_cidr_mask": 24,
     "has_nat_gateway": true,
-    "nat_gateway_id": "nat-09397820abb975e89",
-    "nat_eip_allocation_id": "eipalloc-025acbfcd3c567e09",
-    "nat_gateway_ip": "35.177.116.82"
+    "nat_gateways": 1,
+    "ecs_security_group_name": "trd-ecs-sg",
+    "load_balancer_security_group_name": "trd-dashboard-lb-sg"
   },
   "security_groups": {
-    "ecs_sg_id": "sg-0eca41b9bd96319a4",
-    "load_balancer_sg_id": "sg-0f6cd02342daef78b",
-    "bastion_sg_id": "sg-0baa0107448513e64"
+    "ecs_sg_id": "",
+    "load_balancer_sg_id": "",
+    "bastion_sg_id": ""
   },
   "dynamodb": {
-    "trades_table": "svc-trd-trades-dev",
-    "session_table": "svc-trd-sessions-dev",
-    "learning_table": "svc-trd-learning-dev",
-    "market_state_table": "svc-trd-market-state-dev",
-    "signals_table": "svc-trd-signals-dev",
-    "risk_events_table": "svc-trd-risk-events-dev",
-    "orders_table": "svc-trd-orders-dev",
-    "fills_table": "svc-trd-fills-dev",
-    "positions_table": "svc-trd-positions-dev"
+    "trades_table": "svc-trd-trades-prod",
+    "session_table": "svc-trd-sessions-prod",
+    "learning_table": "svc-trd-learning-prod",
+    "market_state_table": "svc-trd-market-state-prod",
+    "signals_table": "svc-trd-signals-prod",
+    "risk_events_table": "svc-trd-risk-events-prod",
+    "orders_table": "svc-trd-orders-prod",
+    "fills_table": "svc-trd-fills-prod",
+    "positions_table": "svc-trd-positions-prod"
   },
   "bedrock": {
     "model_id": "anthropic.claude-3-haiku-20240307-v1:0",

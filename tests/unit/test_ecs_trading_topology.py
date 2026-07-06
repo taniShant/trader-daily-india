@@ -78,3 +78,17 @@ def test_ecs_services_have_fast_rollback_deployment_configuration():
             "Enable": True,
             "Rollback": True,
         }
+
+
+def test_agent_runtime_uses_single_iam_stack_role():
+    source = (ROOT / "cicd" / "stacks" / "agent_runtime_stack.py").read_text()
+    template = agent_runtime_template()
+    role_names = [
+        resource["Properties"].get("RoleName")
+        for resource in template["Resources"].values()
+        if resource.get("Type") == "AWS::IAM::Role"
+    ]
+
+    assert "self.agent_role = role" in source
+    assert "svc-trd-ecs-task-role" not in source
+    assert "svc-trd-ecs-task-role" not in role_names

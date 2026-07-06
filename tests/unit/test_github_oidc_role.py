@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-TEMPLATE = ROOT / "cdk.out" / "svc-trd-IamStack.template.json"
+TEMPLATE = ROOT / "cdk.out" / "svc-trd-PlatformStack.template.json"
 
 
 def synth_template():
@@ -31,19 +31,16 @@ def resources_of_type(resource_type: str):
     ]
 
 
-def test_prod_config_declares_existing_github_oidc_provider_arn():
+def test_prod_config_allows_new_account_to_create_github_oidc_provider():
     config = json.loads((ROOT / "cicd" / "env" / "prod.json").read_text())
 
-    assert (
-        config["github"]["oidc_provider_arn"]
-        == "arn:aws:iam::632943041262:oidc-provider/token.actions.githubusercontent.com"
-    )
+    assert config["github"]["oidc_provider_arn"] == ""
 
 
-def test_iam_stack_imports_existing_github_actions_oidc_provider():
+def test_iam_stack_creates_github_actions_oidc_provider_when_not_configured():
     providers = resources_of_type("Custom::AWSCDKOpenIdConnectProvider")
 
-    assert providers == []
+    assert len(providers) == 1
 
 
 def test_github_deploy_role_trust_is_limited_to_repo_main_branch():

@@ -64,6 +64,7 @@ def test_runtime_source_uses_reasoning_model_for_orchestrator_and_specialists():
 
 def test_ecs_runtime_wires_model_task_environment_variables():
     stack_source = (ROOT / "cicd" / "stacks" / "agent_runtime_stack.py").read_text()
+    iam_source = (ROOT / "cicd" / "stacks" / "platform_stack.py").read_text()
     entrypoint_source = (ROOT / "containers" / "trading-bot" / "entrypoint.sh").read_text()
 
     for env_name in [
@@ -74,4 +75,4 @@ def test_ecs_runtime_wires_model_task_environment_variables():
         assert env_name in stack_source
         assert env_name in entrypoint_source
 
-    assert "anthropic.claude-*" in stack_source
+    assert "anthropic.claude-*" in iam_source
