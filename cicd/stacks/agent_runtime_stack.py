@@ -45,12 +45,16 @@ class TradingAgentRuntimeStack(Stack):
         positions_table: dynamodb.Table,
         config: dict,
         role: iam.Role,  
+        public_subnets: list[ec2.ISubnet] | None = None,
+        private_subnets: list[ec2.ISubnet] | None = None,
         **kwargs
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         self.task_role = role
         self.execution_role = role
+        public_subnets = public_subnets or [public_subnet]
+        private_subnets = private_subnets or [private_subnet]
 
         # ============================================================
         # LOAD CONFIGURATION
@@ -102,51 +106,8 @@ class TradingAgentRuntimeStack(Stack):
         # ============================================================
         # IAM ROLE FOR ECS TASKS
         # ============================================================
-        
-        self.agent_role = iam.Role(
-            self, "svc-trd-ecs-task-role",
-            assumed_by=iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
-            description="IAM Role for ECS Trading Bot Tasks",
-            managed_policies=[
-                iam.ManagedPolicy.from_aws_managed_policy_name("CloudWatchFullAccess"),
-                iam.ManagedPolicy.from_aws_managed_policy_name("AmazonBedrockFullAccess"),
-            ]
-        )
 
-        # Bedrock permissions for Claude models
-        self.agent_role.add_to_policy(
-            iam.PolicyStatement(
-                actions=[
-                    "bedrock:InvokeModel",
-                    "bedrock:InvokeModelWithResponseStream"
-                ],
-                resources=[
-                    f"arn:aws:bedrock:{self.region}::foundation-model/anthropic.claude-*"
-                ]
-            )
-        )
-
-        # S3 permissions for code bucket
-        code_bucket.grant_read_write(self.agent_role)
-        
-        # DynamoDB permissions for all tables
-        session_table.grant_read_write_data(self.agent_role)
-        trades_table.grant_read_write_data(self.agent_role)
-        learning_table.grant_read_write_data(self.agent_role)
-        market_state_table.grant_read_write_data(self.agent_role)
-        signals_table.grant_read_write_data(self.agent_role)
-        risk_events_table.grant_read_write_data(self.agent_role)
-        orders_table.grant_read_write_data(self.agent_role)
-        fills_table.grant_read_write_data(self.agent_role)
-        positions_table.grant_read_write_data(self.agent_role)
-
-        # Secrets Manager permissions for ICICI credentials
-        self.agent_role.add_to_policy(
-            iam.PolicyStatement(
-                actions=["secretsmanager:GetSecretValue"],
-                resources=["*"]  # TODO: Restrict to specific secret ARNs
-            )
-        )
+        self.agent_role = role.without_policy_updates()
 
         # ============================================================
         # ECR REPOSITORIES- Reuse (name from dev.json)
@@ -266,7 +227,7 @@ class TradingAgentRuntimeStack(Stack):
             min_healthy_percent=100,
             max_healthy_percent=200,
             assign_public_ip=False,
-            vpc_subnets=ec2.SubnetSelection(subnets=[private_subnet]),
+            vpc_subnets=ec2.SubnetSelection(subnets=private_subnets),
             security_groups=[ecs_security_group],
             service_name=f"trading-bot-{environment}"
         )
@@ -384,7 +345,7 @@ class TradingAgentRuntimeStack(Stack):
                     task_count=1,
                     launch_type=ecs.LaunchType.FARGATE,
                     assign_public_ip=False,
-                    subnet_selection=ec2.SubnetSelection(subnets=[private_subnet]),
+                    subnet_selection=ec2.SubnetSelection(subnets=private_subnets),
                     security_groups=[ecs_security_group],
                     container_overrides=[
                         events_targets.ContainerOverride(
@@ -491,7 +452,7 @@ class TradingAgentRuntimeStack(Stack):
             min_healthy_percent=100,
             max_healthy_percent=200,
             assign_public_ip=False,
-            vpc_subnets=ec2.SubnetSelection(subnets=[private_subnet]),
+            vpc_subnets=ec2.SubnetSelection(subnets=private_subnets),
             security_groups=[ecs_security_group],
             service_name=f"dashboard-{environment}"
         )
@@ -505,7 +466,7 @@ class TradingAgentRuntimeStack(Stack):
             vpc=vpc,
             internet_facing=True,
             security_group=load_balancer_security_group,
-            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC)
+            vpc_subnets=ec2.SubnetSelection(subnets=public_subnets)
         )
 
         listener = lb.add_listener("DashboardListener", port=80)

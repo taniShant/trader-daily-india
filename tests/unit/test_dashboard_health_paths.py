@@ -57,3 +57,18 @@ def test_dashboard_alb_target_group_uses_api_health_path():
         and group["Properties"].get("Matcher", {}).get("HttpCode") == "200"
         for group in target_groups
     )
+
+
+def test_dashboard_alb_is_public_and_spans_created_public_subnets():
+    template = agent_runtime_template()
+    load_balancers = [
+        resource
+        for resource in template["Resources"].values()
+        if resource.get("Type") == "AWS::ElasticLoadBalancingV2::LoadBalancer"
+    ]
+
+    assert load_balancers
+    dashboard_lb = load_balancers[0]["Properties"]
+
+    assert dashboard_lb["Scheme"] == "internet-facing"
+    assert len(dashboard_lb["Subnets"]) == 2

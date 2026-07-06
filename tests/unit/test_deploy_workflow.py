@@ -30,6 +30,9 @@ def test_deploy_workflow_uses_github_oidc_role_without_access_keys():
 def test_deploy_workflow_builds_and_pushes_trading_and_dashboard_images():
     workflow = deploy_workflow()
 
+    assert "Deploy platform stack" in workflow
+    assert "cdk deploy svc-trd-PlatformStack" in workflow
+    assert "aws ecr create-repository" not in workflow
     assert "containers/trading-bot/Dockerfile" in workflow
     assert "containers/dashboard/Dockerfile" in workflow
     assert "trading-bot-latest" in workflow
@@ -46,6 +49,7 @@ def test_deploy_workflow_refreshes_ecs_services_after_cdk_deploy():
     assert "cluster_name=trading-cluster-${CDK_DEPLOY_ENV}" in workflow
     assert "trading_service=trading-bot-${CDK_DEPLOY_ENV}" in workflow
     assert "dashboard_service=dashboard-${CDK_DEPLOY_ENV}" in workflow
+    assert "cdk deploy svc-trd-AgentRuntimeStack" in workflow
     assert "aws ecs update-service" in workflow
     assert "--force-new-deployment" in workflow
     assert "aws ecs wait services-stable" in workflow

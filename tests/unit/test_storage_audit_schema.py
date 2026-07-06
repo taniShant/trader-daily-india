@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-TEMPLATE = ROOT / "cdk.out" / "svc-trd-StorageStack.template.json"
+TEMPLATE = ROOT / "cdk.out" / "svc-trd-PlatformStack.template.json"
 
 
 def synth_if_needed():
@@ -30,6 +30,21 @@ def storage_tables():
     }
 
 
+def test_storage_stack_creates_private_artifact_bucket():
+    synth_if_needed()
+    config = json.loads((ROOT / "cicd" / "env" / "prod.json").read_text())
+    template = json.loads(TEMPLATE.read_text())
+    buckets = [
+        resource["Properties"]
+        for resource in template["Resources"].values()
+        if resource.get("Type") == "AWS::S3::Bucket"
+    ]
+
+    assert len(buckets) == 1
+    assert buckets[0]["BucketName"] == config["s3"]["code_bucket"]
+    assert buckets[0]["VersioningConfiguration"]["Status"] == "Enabled"
+
+
 def gsi_names(table):
     return {index["IndexName"] for index in table.get("GlobalSecondaryIndexes", [])}
 
@@ -38,11 +53,11 @@ def test_storage_stack_defines_required_audit_tables():
     tables = storage_tables()
 
     for table_name in [
-        "svc-trd-signals-dev",
-        "svc-trd-risk-events-dev",
-        "svc-trd-orders-dev",
-        "svc-trd-fills-dev",
-        "svc-trd-positions-dev",
+        "svc-trd-signals-prod",
+        "svc-trd-risk-events-prod",
+        "svc-trd-orders-prod",
+        "svc-trd-fills-prod",
+        "svc-trd-positions-prod",
     ]:
         assert table_name in tables
         assert tables[table_name]["BillingMode"] == "PAY_PER_REQUEST"
@@ -51,23 +66,23 @@ def test_storage_stack_defines_required_audit_tables():
 def test_audit_tables_have_query_indexes_for_operations_and_dashboard():
     tables = storage_tables()
 
-    assert {"symbol-created-index", "session-created-index"} <= gsi_names(tables["svc-trd-signals-dev"])
-    assert {"signal-created-index", "status-created-index"} <= gsi_names(tables["svc-trd-risk-events-dev"])
-    assert {"symbol-updated-index", "status-updated-index"} <= gsi_names(tables["svc-trd-orders-dev"])
-    assert {"client-order-filled-index", "symbol-filled-index"} <= gsi_names(tables["svc-trd-fills-dev"])
-    assert {"session-symbol-index"} <= gsi_names(tables["svc-trd-positions-dev"])
+    assert {"symbol-created-index", "session-created-index"} <= gsi_names(tables["svc-trd-signals-prod"])
+    assert {"signal-created-index", "status-created-index"} <= gsi_names(tables["svc-trd-risk-events-prod"])
+    assert {"symbol-updated-index", "status-updated-index"} <= gsi_names(tables["svc-trd-orders-prod"])
+    assert {"client-order-filled-index", "symbol-filled-index"} <= gsi_names(tables["svc-trd-fills-prod"])
+    assert {"session-symbol-index"} <= gsi_names(tables["svc-trd-positions-prod"])
 
 
 def test_trade_and_execution_audit_tables_have_point_in_time_recovery():
     tables = storage_tables()
 
     for table_name in [
-        "svc-trd-trades-dev",
-        "svc-trd-signals-dev",
-        "svc-trd-risk-events-dev",
-        "svc-trd-orders-dev",
-        "svc-trd-fills-dev",
-        "svc-trd-positions-dev",
+        "svc-trd-trades-prod",
+        "svc-trd-signals-prod",
+        "svc-trd-risk-events-prod",
+        "svc-trd-orders-prod",
+        "svc-trd-fills-prod",
+        "svc-trd-positions-prod",
     ]:
         assert tables[table_name]["PointInTimeRecoverySpecification"]["PointInTimeRecoveryEnabled"] is True
 
