@@ -204,9 +204,10 @@ async def health_check():
 
 @app.get("/api/status")
 async def get_status(store: DashboardStore = Depends(get_store)):
-    trades = _recent_items(store.scan(TRADES_TABLE_NAME), "timestamp", days=1)
-    positions = [item for item in store.scan(POSITIONS_TABLE_NAME) if str(item.get("status", "OPEN")).upper() == "OPEN"]
     heartbeat = _latest_heartbeat(store.scan(MARKET_STATE_TABLE_NAME))
+    reference_time = _parse_time(heartbeat.get("timestamp")) if heartbeat else _now()
+    trades = _recent_items(store.scan(TRADES_TABLE_NAME), "timestamp", days=1, reference_time=reference_time)
+    positions = [item for item in store.scan(POSITIONS_TABLE_NAME) if str(item.get("status", "OPEN")).upper() == "OPEN"]
     today_pnl = sum(_decimal(item.get("pnl", item.get("realized_pnl", 0))) for item in trades)
     risk_usage = _risk_usage(trades, today_pnl)
 
@@ -376,9 +377,16 @@ def _signal_row(signal: dict[str, Any], risk: dict[str, Any] | None) -> dict[str
     }
 
 
-def _recent_items(items: list[dict[str, Any]], timestamp_key: str, *, days: int) -> list[dict[str, Any]]:
-    cutoff = _now() - timedelta(days=days)
-    return [item for item in items if _parse_time(item.get(timestamp_key)) >= cutoff]
+def _recent_items(
+    items: list[dict[str, Any]],
+    timestamp_key: str,
+    *,
+    days: int,
+    reference_time: datetime | None = None,
+) -> list[dict[str, Any]]:
+    anchor = reference_time or _now()
+    cutoff = anchor - timedelta(days=days)
+    return [item for item in items if cutoff <= _parse_time(item.get(timestamp_key)) <= anchor]
 
 
 def _risk_usage(trades: list[dict[str, Any]], today_pnl: Decimal) -> dict[str, Any]:

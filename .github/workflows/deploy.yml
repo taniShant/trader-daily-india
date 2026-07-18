@@ -11,7 +11,7 @@ on:
         options:
           - prod
       dry_run:
-        description: Build and synth only; do not push images or deploy
+        description: Dry Run ; Build and synth only; do not push images or deploy
         required: true
         default: true
         type: boolean

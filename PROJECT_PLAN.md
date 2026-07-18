@@ -247,11 +247,11 @@ Status values:
 
 | ID | Work Package | Status | Primary Files | Required Tests | Definition Of Done |
 |---|---|---|---|---|---|
-| P8-WP01 | Fix dashboard static serving and health | Implemented | `containers/dashboard/api_server.py`, `containers/dashboard/Dockerfile`, `tests/integration/test_dashboard_api.py` | Local: dashboard integration + health path suite -> 7 passed. User VS Code verification pending. | `/`, `/api/health`, container health check work. |
-| P8-WP02 | Add dashboard status views | Implemented | `containers/dashboard/api_server.py`, `containers/dashboard/index.html`, `containers/dashboard/static/*`, `tests/integration/test_dashboard_api.py` | Local: dashboard integration + health path suite -> 7 passed. User VS Code verification pending. | Mode, heartbeat, risk usage, P&L, open positions shown. |
-| P8-WP03 | Add signals and skipped trades views | Implemented | `containers/dashboard/api_server.py`, `containers/dashboard/index.html`, `containers/dashboard/static/*`, `tests/integration/test_dashboard_api.py` | Local: dashboard integration + health path suite -> 7 passed. User VS Code verification pending. | User can see every signal and why it traded or skipped. |
-| P8-WP04 | Add safe manual controls | Implemented | `containers/dashboard/api_server.py`, `containers/dashboard/index.html`, `containers/dashboard/static/*`, `tests/integration/test_dashboard_api.py` | Local: dashboard integration + health path suite -> 7 passed. User VS Code verification pending. | Kill switch and square-off requests write guarded command records only. |
-| P8-WP05 | Add dashboard auth/access control | Implemented | `containers/dashboard/api_server.py`, `containers/dashboard/static/script.js`, `tests/integration/test_dashboard_api.py` | Local: dashboard integration + health path suite -> 7 passed. User VS Code verification pending. | Manual write controls require `DASHBOARD_CONTROL_TOKEN`; without it controls are disabled. |
+| P8-WP01 | Fix dashboard static serving and health | Implemented | `containers/dashboard/api_server.py`, `containers/dashboard/Dockerfile`, `tests/integration/test_dashboard_api.py` | Local: dashboard integration + health path suite -> 8 passed. User VS Code verification pending. | `/`, `/api/health`, container health check work. |
+| P8-WP02 | Add dashboard status views | Implemented | `containers/dashboard/api_server.py`, `containers/dashboard/index.html`, `containers/dashboard/static/*`, `tests/integration/test_dashboard_api.py` | Local: dashboard integration + health path suite -> 8 passed. User VS Code verification pending. | Mode, heartbeat, risk usage, P&L, open positions shown. |
+| P8-WP03 | Add signals and skipped trades views | Implemented | `containers/dashboard/api_server.py`, `containers/dashboard/index.html`, `containers/dashboard/static/*`, `tests/integration/test_dashboard_api.py` | Local: dashboard integration + health path suite -> 8 passed. User VS Code verification pending. | User can see every signal and why it traded or skipped. |
+| P8-WP04 | Add safe manual controls | Implemented | `containers/dashboard/api_server.py`, `containers/dashboard/index.html`, `containers/dashboard/static/*`, `tests/integration/test_dashboard_api.py` | Local: dashboard integration + health path suite -> 8 passed. User VS Code verification pending. | Kill switch and square-off requests write guarded command records only. |
+| P8-WP05 | Add dashboard auth/access control | Implemented | `containers/dashboard/api_server.py`, `containers/dashboard/static/script.js`, `tests/integration/test_dashboard_api.py` | Local: dashboard integration + health path suite -> 8 passed. User VS Code verification pending. | Manual write controls require `DASHBOARD_CONTROL_TOKEN`; without it controls are disabled. |
 
 ### Phase 9 - CI/CD And Deployment
 
@@ -261,7 +261,7 @@ Status values:
 | P9-WP02 | Add CI test workflow | Implemented | `.github/workflows/ci.yml`, `.github/workflows/deploy.yml`, `tests/unit/test_ci_workflow.py` | Local: workflow tests passed and `make verify` passed with 179 tests plus CDK synth. GitHub CI pass pending. | Tests run before deploy; push deploys wait for successful `CI`, while manual deploy remains available. |
 | P9-WP03 | Fix ECS image deploy workflow | Implemented | `.github/workflows/deploy.yml`, `app.py`, `cicd/stacks/platform_stack.py`, `cicd/stacks/agent_runtime_stack.py`, `cicd/env/prod.json`, `cdk.json`, `tests/unit/test_deploy_workflow.py`, `tests/unit/test_github_oidc_role.py`, `tests/unit/test_dashboard_health_paths.py`, `tests/unit/test_network_oracle_alignment.py`, `tests/unit/test_storage_audit_schema.py` | Local: `make verify` passed with 187 tests plus CDK synth. Final synth also passed after aligning the S3 bucket to account `873660758628`. GitHub/new-account deploy pending. | Deploys two CDK stacks: `svc-trd-PlatformStack` creates VPC/public/private subnets/NAT/SG/IAM/ECR/S3/DynamoDB/Cognito; `svc-trd-AgentRuntimeStack` deploys ECS trading bot, dashboard, schedules, alarms, then refreshes ECS services. |
 | P9-WP04 | Add Oracle deploy workflow/script | Implemented | `oracle/scripts/deploy_oracle_services.sh`, `oracle/docker-compose.yml`, `oracle/collector/Dockerfile`, `.github/workflows/oracle-deploy.yml`, `tests/unit/test_oracle_deploy_workflow.py` | Local: Oracle dry run passed, Oracle deploy tests passed, and `make verify` passed with 178 tests plus CDK synth. User/GitHub dry run pending. | Oracle proxy and collector deployment is repeatable against the existing static-IP VM `80.225.242.6`. |
-| P9-WP05 | Add environment verification script | Not started | `scripts/verify_env.py` | unit/smoke | Validates AWS tables, ECS services, Oracle health, dashboard health. |
+| P9-WP05 | Add environment verification script | Tested | `scripts/verify_env.py`, `tests/unit/test_verify_env.py` | User VS Code: `python scripts/verify_env.py --env prod --dry-run` -> passed; `python -m pytest tests/unit/test_verify_env.py -q` -> passed. Local py_compile passed. Real AWS degraded run confirms PlatformStack/ECR/DynamoDB OK while AgentRuntimeStack/ECS remains blocked by Fargate account quota/restriction. | Validates AWS tables, ECS services, Oracle health, dashboard health. |
 
 ### Phase 10 - Paper Trading, Live Readiness, And Release
 
@@ -803,6 +803,28 @@ What Changed: Added order monitoring for created/submitted/accepted/partial/fill
 Test Command: python -m py_compile agent/execution/__init__.py agent/execution/order_monitor.py agent/execution/position_monitor.py agent/execution/square_off.py agent/execution/reconciliation.py agent/main.py tests/unit/test_order_monitor.py tests/unit/test_position_monitor.py tests/unit/test_square_off.py tests/unit/test_reconciliation.py; python -m pytest tests/unit/test_order_monitor.py tests/unit/test_position_monitor.py tests/unit/test_square_off.py tests/unit/test_reconciliation.py -q; python -m pytest tests/unit/test_order_monitor.py tests/unit/test_position_monitor.py tests/unit/test_square_off.py tests/unit/test_reconciliation.py tests/unit/test_execution_routing.py tests/unit/test_paper_broker.py tests/unit/test_market_clock.py tests/unit/test_structured_logging.py tests/unit/test_contracts.py -q
 Test Result: Local py_compile passed. Focused Phase 6 suite passed with 11 tests. Execution-path regression suite passed with 44 tests.
 Notes / Next Step: User should run the focused Phase 6 pytest command from VS Code. Keep P6-WP01 through P6-WP04 as Implemented until user confirms VS Code verification, then mark them Tested.
+```
+
+```text
+Date: 2026-07-12
+Work Package: P8-WP02 - Add dashboard status views
+Status: Implemented
+Files Changed: containers/dashboard/api_server.py, PROJECT_PLAN.md
+What Changed: Fixed dashboard status calculations so the one-day trade/P&L window anchors to the latest bot heartbeat when available. This keeps status P&L and risk usage aligned with the bot snapshot instead of dropping matching rows when the dashboard is viewed later than the recorded heartbeat.
+Test Command: make test-phase8; make test-phase7; make smoke; make deploy-path
+Test Result: Phase 8 dashboard suite passed with 8 tests; Phase 7 suite passed with 13 tests; smoke compile passed; deploy-path guard passed.
+Notes / Next Step: Continue with P9-WP05 environment verification script, then proceed toward deployed paper trading.
+```
+
+```text
+Date: 2026-07-12
+Work Package: P9-WP05 - Add environment verification script
+Status: Tested
+Files Changed: scripts/verify_env.py, tests/unit/test_verify_env.py, PROJECT_PLAN.md
+What Changed: Added a read-only environment verifier that loads cicd/env/prod.json, checks AWS caller/account, CloudFormation platform/runtime stack status, ECR repository, all DynamoDB tables, ECS service rollout state, Oracle proxy/collector health, and dashboard /api/health. Added dry-run mode for local/CI-safe validation, skip-http for AWS-only checks, and allow-degraded for diagnostic runs while AWS account restrictions are unresolved.
+Test Command: python scripts/verify_env.py --env prod --dry-run; python -m pytest tests/unit/test_verify_env.py -q; python -m py_compile scripts/verify_env.py; python scripts/verify_env.py --env prod --profile default --skip-http --allow-degraded
+Test Result: User confirmed VS Code dry-run and unit tests passed. Local unit tests passed with 2 tests. py_compile passed. Real AWS degraded run reported AWS caller OK, PlatformStack UPDATE_COMPLETE, ECR OK, all 9 DynamoDB tables ACTIVE, and ECS services failed/running=0 as expected while the Fargate account quota/restriction case is pending with AWS.
+Notes / Next Step: After AWS unblocks Fargate, rerun without --allow-degraded and with HTTP health checks enabled. Then continue with P10-WP01 full-day paper trading.
 ```
 
 ## 13. Plan Change Log
