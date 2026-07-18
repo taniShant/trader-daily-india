@@ -61,7 +61,7 @@ def test_eventbridge_defines_required_trading_schedules():
     assert schedules["trading-square-off-prod"] == "cron(50 9 ? * MON-FRI *)"
 
 
-def test_schedules_run_single_private_fargate_task_with_action_override():
+def test_schedules_run_single_public_egress_fargate_task_with_action_override():
     expected_actions = {
         "trading-overnight-analysis-prod": "overnight_analysis",
         "trading-market-open-prod": "market_open",
@@ -77,7 +77,7 @@ def test_schedules_run_single_private_fargate_task_with_action_override():
         assert target["EcsParameters"]["TaskCount"] == 1
         assert (
             target["EcsParameters"]["NetworkConfiguration"]["AwsVpcConfiguration"]["AssignPublicIp"]
-            == "DISABLED"
+            == "ENABLED"
         )
         assert scheduled_action(rule) == {
             "SCHEDULED_ACTION": action,

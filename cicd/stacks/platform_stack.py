@@ -50,7 +50,7 @@ class PlatformStack(Stack):
             vpc_name=vpc_name,
             ip_addresses=ec2.IpAddresses.cidr(vpc_cidr),
             availability_zones=availability_zones,
-            nat_gateways=int(vpc_config.get("nat_gateways", 1)),
+            nat_gateways=int(vpc_config.get("nat_gateways", 0)),
             subnet_configuration=[
                 ec2.SubnetConfiguration(
                     name=vpc_config.get("public_subnet_name", "trd-pub-subnet"),
@@ -59,7 +59,7 @@ class PlatformStack(Stack):
                 ),
                 ec2.SubnetConfiguration(
                     name=vpc_config.get("private_subnet_name", "trd-pri-subnet"),
-                    subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS,
+                    subnet_type=ec2.SubnetType.PRIVATE_ISOLATED,
                     cidr_mask=int(vpc_config.get("private_subnet_cidr_mask", 24)),
                 ),
             ],
@@ -68,7 +68,7 @@ class PlatformStack(Stack):
         Tags.of(self.vpc).add("ManagedBy", "cdk")
 
         self.public_subnets = list(self.vpc.public_subnets)
-        self.private_subnets = list(self.vpc.private_subnets)
+        self.private_subnets = list(self.vpc.isolated_subnets)
         self.public_subnet = self.public_subnets[0]
         self.private_subnet = self.private_subnets[0]
 

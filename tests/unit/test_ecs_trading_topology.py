@@ -80,6 +80,14 @@ def test_ecs_services_have_fast_rollback_deployment_configuration():
         }
 
 
+def test_ecs_services_use_public_subnet_egress_without_nat_gateway():
+    for service in ecs_services():
+        network = service["Properties"]["NetworkConfiguration"]["AwsvpcConfiguration"]
+
+        assert network["AssignPublicIp"] == "ENABLED"
+        assert len(network["Subnets"]) == 2
+
+
 def test_agent_runtime_uses_single_iam_stack_role():
     source = (ROOT / "cicd" / "stacks" / "agent_runtime_stack.py").read_text()
     template = agent_runtime_template()

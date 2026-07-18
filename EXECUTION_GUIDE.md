@@ -151,19 +151,19 @@ AWS remains the main system. Oracle is the static-IP execution boundary for ICIC
 
 AWS networking distinction:
 
-- AWS NAT gateway IP in `cicd/env/prod.json`: `35.177.116.82`.
 - Oracle/ICICI whitelisted static IP in `cicd/env/prod.json`: `80.225.242.6`.
-- AWS NAT is for AWS private subnet egress only.
+- AWS ECS tasks use public subnet egress with assigned public IPs; those IPs are not used for ICICI whitelisting.
+- The AWS VPC intentionally has `nat_gateways=0` to avoid fixed NAT Gateway cost.
 - Oracle static IP is the only ICICI Breeze live execution boundary.
-- The CDK network stack exports `AwsNatGatewayIp` and `OracleStaticIp` separately.
+- Live order placement must go through the Oracle execution proxy.
 
 EventBridge schedules:
 
 - Runtime schedules are defined in `cicd/stacks/agent_runtime_stack.py`.
 - Schedule expressions live in `cicd/env/prod.json` under `scheduled_tasks`.
-- `overnight_analysis` runs as one private ECS Fargate task at 17:00 UTC on weekdays.
-- `market_open` runs as one private ECS Fargate task at 03:45 UTC on weekdays.
-- `square_off` runs as one private ECS Fargate task at 09:50 UTC on weekdays.
+- `overnight_analysis` runs as one public-egress ECS Fargate task at 17:00 UTC on weekdays.
+- `market_open` runs as one public-egress ECS Fargate task at 03:45 UTC on weekdays.
+- `square_off` runs as one public-egress ECS Fargate task at 09:50 UTC on weekdays.
 - Scheduled tasks set `SCHEDULED_ACTION` and exit after the one-shot action; they must not start another long-running trading loop.
 
 ## Active Deployment Path

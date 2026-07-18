@@ -85,8 +85,8 @@
     "private_subnet_name": "trd-pri-subnet",
     "public_subnet_cidr_mask": 24,
     "private_subnet_cidr_mask": 24,
-    "has_nat_gateway": true,
-    "nat_gateways": 1,
+    "has_nat_gateway": false,
+    "nat_gateways": 0,
     "ecs_security_group_name": "trd-ecs-sg",
     "load_balancer_security_group_name": "trd-dashboard-lb-sg"
   },

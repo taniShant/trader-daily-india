@@ -66,7 +66,7 @@ flowchart TD
   end
 
   subgraph AWS["AWS - Main Trading System"]
-    ECS["ECS Trading Bot"]
+    ECS["ECS Trading Bot - public subnet egress, no NAT"]
     RISK["Deterministic Risk Manager"]
     SIG["Signal Engine"]
     AG["Specialist Agents"]
@@ -139,7 +139,7 @@ Do not deploy the full live-trading path before interfaces and safety gates are 
 
 1. Define contracts and tests for signals, risk decisions, orders, fills, and Oracle proxy requests.
 2. Deploy minimal Oracle proxy infrastructure with mock Breeze mode.
-3. Deploy AWS base infrastructure: DynamoDB/S3, ECS, dashboard, monitoring.
+3. Deploy AWS base infrastructure: DynamoDB/S3, ECS, dashboard, monitoring. Use public-subnet ECS egress without NAT Gateway; ICICI static-IP execution stays on Oracle.
 4. Deploy containers in paper mode.
 5. Run paper trading and backtests.
 6. Enable live Breeze only after live-readiness gates pass.
@@ -838,6 +838,28 @@ Test Result: JSON validation passed. CDK synth passed and now uses svc-s3-prod-8
 Notes / Next Step: Redeploy svc-trd-PlatformStack from main/default profile, then verify the GitHub OIDC provider and trd-prod-github-deploy-role exist before rerunning GitHub Actions.
 ```
 
+```text
+Date: 2026-07-18
+Work Package: P9-WP03 - Fix ECS image deploy workflow
+Status: Implemented
+Files Changed: containers/trading-bot/entrypoint.sh, tests/unit/test_trading_entrypoint_secrets.py, PROJECT_PLAN.md
+What Changed: Fixed the trading bot container startup guard after ECS reached runtime. The AWS trading bot no longer requires direct ICICI_API_KEY, ICICI_SECRET_KEY, or ICICI_SESSION_TOKEN in paper mode. This aligns with the architecture: ICICI credentials stay on the Oracle static-IP proxy, while AWS paper mode can start without execution credentials. Live AWS mode now fails fast only if Oracle proxy execution URL or ORACLE_PROXY_SHARED_SECRET is missing.
+Test Command: bash -n containers/trading-bot/entrypoint.sh; python -m pytest tests/unit/test_trading_entrypoint_secrets.py tests/unit/test_execution_routing.py tests/unit/test_model_routing.py tests/unit/test_ecs_trading_topology.py -q; python -m py_compile agent/config.py agent/execution/router.py; make smoke
+Test Result: Shell syntax passed. Focused entrypoint/execution/runtime topology tests passed with 15 tests. py_compile passed. Smoke compile passed.
+Notes / Next Step: Rebuild/push the trading-bot image and redeploy/refresh AgentRuntimeStack so ECS starts a task with the corrected entrypoint.
+```
+
+```text
+Date: 2026-07-18
+Work Package: P2-WP02 - Align AWS networking with Oracle execution path
+Status: Implemented
+Files Changed: cicd/env/prod.json, cicd/stacks/platform_stack.py, cicd/stacks/agent_runtime_stack.py, tests/unit/test_network_oracle_alignment.py, tests/unit/test_ecs_trading_topology.py, tests/unit/test_eventbridge_schedules.py, EXECUTION_GUIDE.md, PROJECT_PLAN.md
+What Changed: Removed the AWS NAT Gateway from the target architecture because Oracle provides the ICICI whitelisted static IP and AWS does not need stable ICICI egress. PlatformStack now creates zero NAT gateways and no NAT EIP. Private subnets are isolated for future internal-only use. Trading bot, dashboard, and one-shot scheduled ECS tasks now run in public subnets with assigned public IPs for ordinary internet egress to AWS APIs, Bedrock/news sources, and the Oracle proxy. ICICI live order placement remains Oracle-only.
+Test Command: python -m json.tool cicd/env/prod.json; bash scripts/verify_cdk_synth.sh; python -m pytest tests/unit/test_network_oracle_alignment.py tests/unit/test_ecs_trading_topology.py tests/unit/test_eventbridge_schedules.py tests/unit/test_dashboard_health_paths.py tests/unit/test_deploy_path.py -q; synthesized template inspection for AWS::EC2::NatGateway/AWS::EC2::EIP and ECS AssignPublicIp.
+Test Result: JSON validation passed. CDK synth passed. Focused networking/runtime tests passed with 18 tests. Synthesized PlatformStack has NatGateway=0 and EIP=0. Synthesized AgentRuntimeStack has trading-bot-prod, dashboard-prod, and all scheduled ECS tasks with AssignPublicIp=ENABLED.
+Notes / Next Step: Re-execute PlatformStack and AgentRuntimeStack. CloudFormation should remove the existing CDK-owned NAT Gateway/EIP and redeploy ECS services onto public subnets. Verify with `aws ec2 describe-nat-gateways` and `python scripts/verify_env.py --env prod --profile default`.
+```
+
 ## 13. Plan Change Log
 
 Use this section only when the plan itself changes materially.
@@ -853,5 +875,12 @@ Approved By: User request in chat.
 Date: 2026-07-04
 Change: Added P3-WP07 for Bedrock task-model routing.
 Reason: User approved selective use of Opus/deep model for higher-value reasoning while keeping faster/cheaper models for routine market loops and sentiment classification.
+Approved By: User request in chat.
+```
+
+```text
+Date: 2026-07-18
+Change: Removed AWS NAT Gateway from the target AWS runtime architecture.
+Reason: AWS account inspection and Cost Explorer showed a CDK-owned NAT Gateway billing continuously, while Oracle already provides the required static IP for ICICI Breeze execution. AWS tasks now use public subnet egress; ICICI live execution remains Oracle-only.
 Approved By: User request in chat.
 ```

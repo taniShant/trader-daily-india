@@ -217,7 +217,7 @@ class TradingAgentRuntimeStack(Stack):
             )
         )
 
-        # Trading Bot Service (Private Subnet - uses NAT Gateway for internet)
+        # Trading Bot Service: public subnet egress. ICICI live execution still goes through Oracle.
         trading_service = ecs.FargateService(
             self, "TradingBotService",
             cluster=cluster,
@@ -226,8 +226,8 @@ class TradingAgentRuntimeStack(Stack):
             circuit_breaker=ecs.DeploymentCircuitBreaker(rollback=True),
             min_healthy_percent=100,
             max_healthy_percent=200,
-            assign_public_ip=False,
-            vpc_subnets=ec2.SubnetSelection(subnets=private_subnets),
+            assign_public_ip=True,
+            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC),
             security_groups=[ecs_security_group],
             service_name=f"trading-bot-{environment}"
         )
@@ -344,8 +344,8 @@ class TradingAgentRuntimeStack(Stack):
                     role=schedule_role,
                     task_count=1,
                     launch_type=ecs.LaunchType.FARGATE,
-                    assign_public_ip=False,
-                    subnet_selection=ec2.SubnetSelection(subnets=private_subnets),
+                    assign_public_ip=True,
+                    subnet_selection=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC),
                     security_groups=[ecs_security_group],
                     container_overrides=[
                         events_targets.ContainerOverride(
@@ -442,7 +442,7 @@ class TradingAgentRuntimeStack(Stack):
             port_mappings=[ecs.PortMapping(container_port=8080, name="http")]
         )
 
-        # Dashboard Service (Public facing)
+        # Dashboard Service: public subnet egress, inbound traffic only through the ALB security group.
         dashboard_service = ecs.FargateService(
             self, "DashboardService",
             cluster=cluster,
@@ -451,8 +451,8 @@ class TradingAgentRuntimeStack(Stack):
             circuit_breaker=ecs.DeploymentCircuitBreaker(rollback=True),
             min_healthy_percent=100,
             max_healthy_percent=200,
-            assign_public_ip=False,
-            vpc_subnets=ec2.SubnetSelection(subnets=private_subnets),
+            assign_public_ip=True,
+            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC),
             security_groups=[ecs_security_group],
             service_name=f"dashboard-{environment}"
         )

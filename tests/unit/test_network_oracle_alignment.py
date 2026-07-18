@@ -11,8 +11,8 @@ def test_prod_config_separates_aws_nat_ip_from_oracle_static_ip():
     config = json.loads((ROOT / "cicd" / "env" / "prod.json").read_text())
 
     assert config["vpc"]["vpc_name"] == "trd-vpc"
-    assert config["vpc"]["has_nat_gateway"] is True
-    assert config["vpc"]["nat_gateways"] == 1
+    assert config["vpc"]["has_nat_gateway"] is False
+    assert config["vpc"]["nat_gateways"] == 0
     assert config["oracle"]["static_ip"] == "80.225.242.6"
     assert config["icici"]["static_ip"] == "80.225.242.6"
     assert config["oracle"]["use_for_live_execution"] is True
@@ -32,7 +32,7 @@ def test_network_stack_creates_vpc_and_security_groups():
     assert "ec2.Vpc(" in source
     assert "vpc_name=vpc_name" in source
     assert "ec2.SubnetType.PUBLIC" in source
-    assert "ec2.SubnetType.PRIVATE_WITH_EGRESS" in source
+    assert "ec2.SubnetType.PRIVATE_ISOLATED" in source
     assert "TradingEcsSecurityGroup" in source
     assert "DashboardLoadBalancerSecurityGroup" in source
     assert "OracleStaticIp" in source
@@ -41,7 +41,7 @@ def test_network_stack_creates_vpc_and_security_groups():
     assert "from_security_group_id" not in source
 
 
-def test_network_stack_synthesizes_created_vpc_with_nat_gateway():
+def test_network_stack_synthesizes_created_vpc_without_nat_gateway():
     result = subprocess.run(
         ["bash", "scripts/verify_cdk_synth.sh"],
         cwd=ROOT,
@@ -57,7 +57,8 @@ def test_network_stack_synthesizes_created_vpc_with_nat_gateway():
     assert "AWS::EC2::VPC" in resource_types
     assert "AWS::EC2::Subnet" in resource_types
     assert "AWS::EC2::InternetGateway" in resource_types
-    assert "AWS::EC2::NatGateway" in resource_types
+    assert "AWS::EC2::NatGateway" not in resource_types
+    assert "AWS::EC2::EIP" not in resource_types
 
 
 def test_runtime_text_does_not_describe_oracle_static_ip_as_aws_nat():

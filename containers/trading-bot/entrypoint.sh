@@ -13,26 +13,30 @@ echo ""
 echo "🔐 Validating secrets..."
 
 MISSING_SECRETS=""
+PAPER_MODE="${PAPER_TRADING:-true}"
+PAPER_MODE="$(printf '%s' "$PAPER_MODE" | tr '[:upper:]' '[:lower:]')"
 
-if [ -z "$ICICI_API_KEY" ]; then
-    echo "❌ ICICI_API_KEY is not set"
-    MISSING_SECRETS="$MISSING_SECRETS ICICI_API_KEY"
-else
-    echo "✅ ICICI_API_KEY is set"
-fi
+echo "   Paper Trading: ${PAPER_TRADING:-true}"
+echo "   Execution boundary: Oracle proxy at ${ORACLE_EXECUTION_PROXY_BASE_URL:-not configured}"
 
-if [ -z "$ICICI_SECRET_KEY" ]; then
-    echo "❌ ICICI_SECRET_KEY is not set"
-    MISSING_SECRETS="$MISSING_SECRETS ICICI_SECRET_KEY"
+if [ "$PAPER_MODE" = "true" ] || [ "$PAPER_MODE" = "1" ] || [ "$PAPER_MODE" = "yes" ] || [ "$PAPER_MODE" = "on" ]; then
+    echo "✅ Paper mode enabled - ICICI credentials are not required in AWS"
 else
-    echo "✅ ICICI_SECRET_KEY is set"
-fi
+    if [ -z "$ORACLE_EXECUTION_PROXY_BASE_URL" ]; then
+        echo "❌ ORACLE_EXECUTION_PROXY_BASE_URL is not set"
+        MISSING_SECRETS="$MISSING_SECRETS ORACLE_EXECUTION_PROXY_BASE_URL"
+    else
+        echo "✅ ORACLE_EXECUTION_PROXY_BASE_URL is set"
+    fi
 
-if [ -z "$ICICI_SESSION_TOKEN" ]; then
-    echo "❌ ICICI_SESSION_TOKEN is not set"
-    MISSING_SECRETS="$MISSING_SECRETS ICICI_SESSION_TOKEN"
-else
-    echo "✅ ICICI_SESSION_TOKEN is set"
+    if [ -z "$ORACLE_PROXY_SHARED_SECRET" ]; then
+        echo "❌ ORACLE_PROXY_SHARED_SECRET is not set"
+        MISSING_SECRETS="$MISSING_SECRETS ORACLE_PROXY_SHARED_SECRET"
+    else
+        echo "✅ ORACLE_PROXY_SHARED_SECRET is set"
+    fi
+
+    echo "ℹ️  ICICI credentials must remain on the Oracle static-IP proxy, not in AWS ECS"
 fi
 
 # NEWS_API_KEY is optional
@@ -58,7 +62,7 @@ echo ""
 if [ -n "$MISSING_SECRETS" ]; then
     echo "❌ FATAL: Missing required secrets:$MISSING_SECRETS"
     echo "   Please ensure these secrets are passed to the ECS task."
-    echo "   Trading bot will not start without ICICI credentials."
+    echo "   In paper mode no execution secret is required; in live mode AWS needs Oracle proxy signing credentials."
     exit 1
 fi
 
@@ -154,9 +158,8 @@ print(f'Bedrock Default Model: {os.environ.get(\"BEDROCK_MODEL_ID\", \"anthropic
 print(f'Bedrock Fast Model: {os.environ.get(\"BEDROCK_FAST_MODEL_ID\", \"anthropic.claude-3-haiku-20240307-v1:0\")}')
 print(f'Bedrock Reasoning Model: {os.environ.get(\"BEDROCK_REASONING_MODEL_ID\", \"anthropic.claude-3-5-sonnet-20241022-v2:0\")}')
 print(f'Bedrock Deep Research Model: {os.environ.get(\"BEDROCK_DEEP_RESEARCH_MODEL_ID\", \"anthropic.claude-3-opus-20240229-v1:0\")}')
-print(f'ICICI API Key: {\"✓ Present\" if os.environ.get(\"ICICI_API_KEY\") else \"✗ Missing\"}')
-print(f'ICICI Secret Key: {\"✓ Present\" if os.environ.get(\"ICICI_SECRET_KEY\") else \"✗ Missing\"}')
-print(f'ICICI Session Token: {\"✓ Present\" if os.environ.get(\"ICICI_SESSION_TOKEN\") else \"✗ Missing\"}')
+print(f'Oracle Proxy: {os.environ.get(\"ORACLE_EXECUTION_PROXY_BASE_URL\", \"not configured\")}')
+print(f'Oracle Proxy Shared Secret: {\"✓ Present\" if os.environ.get(\"ORACLE_PROXY_SHARED_SECRET\") else \"✗ Missing/Not required in paper\"}')
 print(f'Sessions Table: {os.environ.get(\"SESSIONS_TABLE\", \"svc-trd-sessions-dev\")}')
 print(f'Trades Table: {os.environ.get(\"TRADES_TABLE\", \"svc-trd-trades-dev\")}')
 print(f'Learning Table: {os.environ.get(\"LEARNING_TABLE\", \"svc-trd-learning-dev\")}')
