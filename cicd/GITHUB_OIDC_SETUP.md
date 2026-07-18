@@ -2,12 +2,12 @@
 
 This project should not use long-lived AWS access keys in GitHub.
 
-The AWS account already has the GitHub OIDC provider. Its ARN is declared in `cicd/env/prod.json`. The CDK IAM stack imports that provider and creates one GitHub Actions OIDC deploy role. GitHub Actions then assumes that role directly.
+`svc-trd-PlatformStack` creates the GitHub OIDC provider and the GitHub Actions deploy role. GitHub Actions then assumes that role directly.
 
-Existing provider ARN:
+Provider URL:
 
 ```text
-arn:aws:iam::632943041262:oidc-provider/token.actions.githubusercontent.com
+https://token.actions.githubusercontent.com
 ```
 
 Required trust:
@@ -19,7 +19,7 @@ Required trust:
 Role name:
 
 ```text
-svc-trd-github-deploy-role
+trd-prod-github-deploy-role
 ```
 
 The role needs enough permissions to run the deployment workflow:
@@ -35,11 +35,11 @@ The role needs enough permissions to run the deployment workflow:
 Create/update the role from a local AWS identity that can manage IAM:
 
 ```bash
-cdk deploy svc-trd-IamStack --require-approval never
+CDK_DEPLOY_ENV=prod cdk deploy svc-trd-PlatformStack --profile default --require-approval never
 ```
 
 Then run:
 
 ```text
-Actions -> Deploy AWS Trading System -> Run workflow -> dry_run=true
+Actions -> Deploy AWS Trading System -> Run workflow
 ```

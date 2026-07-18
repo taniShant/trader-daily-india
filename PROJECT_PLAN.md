@@ -827,6 +827,17 @@ Test Result: User confirmed VS Code dry-run and unit tests passed. Local unit te
 Notes / Next Step: After AWS unblocks Fargate, rerun without --allow-degraded and with HTTP health checks enabled. Then continue with P10-WP01 full-day paper trading.
 ```
 
+```text
+Date: 2026-07-18
+Work Package: P9-WP03 - Fix ECS image deploy workflow
+Status: Implemented
+Files Changed: cicd/env/prod.json, cicd/stacks/platform_stack.py, cicd/GITHUB_OIDC_SETUP.md, tests/unit/test_github_oidc_role.py, PROJECT_PLAN.md
+What Changed: Updated the production S3 artifact bucket, ECR repository, ECS task/execution role, EventBridge role, and GitHub deploy role names to fresh PlatformStack-owned names after AWS reported orphaned resources with the old names but no corresponding svc-trd-PlatformStack. This avoids deleting existing AWS resources and lets the first PlatformStack deploy create deploy-owned resources cleanly.
+Test Command: python -m json.tool cicd/env/prod.json; bash scripts/verify_cdk_synth.sh; python -m pytest tests/unit/test_github_oidc_role.py tests/unit/test_storage_audit_schema.py tests/unit/test_deploy_workflow.py tests/unit/test_verify_env.py -q; aws ecr describe-repositories --repository-names trader-daily-india-agent --region eu-west-2 --profile default; aws s3api list-buckets --profile default --query "Buckets[?Name=='svc-s3-prod-873660758628-trading-artifacts'].Name" --output text; aws iam get-role --role-name trd-prod-github-deploy-role --profile default; aws iam get-role --role-name trd-prod-ecs-taskexecute-role --profile default; aws iam get-role --role-name trd-prod-eventbridge-ecs-role --profile default
+Test Result: JSON validation passed. CDK synth passed and now uses svc-s3-prod-873660758628-trading-artifacts, trader-daily-india-agent, and trd-prod-* IAM role names. Focused tests passed with 14 tests. AWS read checks confirmed the new ECR repository, S3 bucket, and IAM role names do not already exist, so PlatformStack can create them.
+Notes / Next Step: Redeploy svc-trd-PlatformStack from main/default profile, then verify the GitHub OIDC provider and trd-prod-github-deploy-role exist before rerunning GitHub Actions.
+```
+
 ## 13. Plan Change Log
 
 Use this section only when the plan itself changes materially.

@@ -7,12 +7,12 @@
     "profile": "cgaws"
   },
   "ecr": {
-    "repository_name": "trending-resolver-agent"
+    "repository_name": "trader-daily-india-agent"
   },
   "github": {
     "repository": "taniShant/trader-daily-india",
     "deploy_branch": "main",
-    "deploy_role_name": "svc-trd-github-deploy-role",
+    "deploy_role_name": "trd-prod-github-deploy-role",
     "oidc_provider_arn": ""
   },
   "ecs": {
@@ -32,14 +32,14 @@
     "square_off_expression": "cron(50 9 ? * MON-FRI *)"
   },
   "iam": {
-    "role_name": "svc-trd-ecs-taskexecute-role",
-    "eventbridge_role_name": "eventbridge-ecs-role",
+    "role_name": "trd-prod-ecs-taskexecute-role",
+    "eventbridge_role_name": "trd-prod-eventbridge-ecs-role",
     "task_role_arn": "",
     "execution_role_arn": "",
     "eventbridge_role_arn": ""
   },
   "s3": {
-    "code_bucket": "svc-s3-prod-873660758628-modelartifact",
+    "code_bucket": "svc-s3-prod-873660758628-trading-artifacts",
     "create_bucket": true
   },
   "icici": {

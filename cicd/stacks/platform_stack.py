@@ -108,7 +108,7 @@ class PlatformStack(Stack):
         self.role = iam.Role(
             self,
             "TradingSystemRole",
-            role_name=iam_config.get("role_name", "svc-trd-ecs-taskexecute-role"),
+            role_name=iam_config.get("role_name", "trd-prod-ecs-taskexecute-role"),
             assumed_by=iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
             description="Unified ECS Task Role for trading system (execution + task)",
         )
@@ -185,7 +185,7 @@ class PlatformStack(Stack):
         self.eventbridge_role = iam.Role(
             self,
             "EventBridgeRole",
-            role_name=iam_config.get("eventbridge_role_name", "eventbridge-ecs-role"),
+            role_name=iam_config.get("eventbridge_role_name", "trd-prod-eventbridge-ecs-role"),
             assumed_by=iam.ServicePrincipal("events.amazonaws.com"),
             description="Role for EventBridge to start ECS tasks",
         )
@@ -217,7 +217,7 @@ class PlatformStack(Stack):
         self.github_deploy_role = iam.Role(
             self,
             "GitHubDeployRole",
-            role_name=github_config.get("deploy_role_name", "svc-trd-github-deploy-role"),
+            role_name=github_config.get("deploy_role_name", "trd-prod-github-deploy-role"),
             assumed_by=iam.WebIdentityPrincipal(
                 github_provider.open_id_connect_provider_arn,
                 conditions={

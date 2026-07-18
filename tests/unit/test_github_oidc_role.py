@@ -44,8 +44,13 @@ def test_iam_stack_creates_github_actions_oidc_provider_when_not_configured():
 
 
 def test_github_deploy_role_trust_is_limited_to_repo_main_branch():
+    config = json.loads((ROOT / "cicd" / "env" / "prod.json").read_text())
     roles = resources_of_type("AWS::IAM::Role")
-    role = next(role for role in roles if role["Properties"].get("RoleName") == "svc-trd-github-deploy-role")
+    role = next(
+        role
+        for role in roles
+        if role["Properties"].get("RoleName") == config["github"]["deploy_role_name"]
+    )
     statements = role["Properties"]["AssumeRolePolicyDocument"]["Statement"]
     trust = statements[0]
 
