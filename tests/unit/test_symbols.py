@@ -26,6 +26,14 @@ def test_symbol_mapping_handles_known_aliases_and_unknowns():
     assert unknown.breeze == "ABCDEF"
 
 
+def test_tata_motors_legacy_symbol_maps_to_current_yahoo_symbol():
+    tata = resolve_symbol("TATAMOTORS")
+
+    assert tata.canonical == "TMCV"
+    assert tata.yahoo == "TMCV.NS"
+    assert tata.breeze == "TMCV"
+
+
 def test_market_data_uses_canonical_symbol_for_breeze_quote():
     calls = []
 

@@ -309,12 +309,12 @@ class TradingBot:
             if not self.watchlist:
                 self.watchlist = [
                     "RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK",
-                    "SBIN", "BHARTIARTL", "KOTAKBANK", "BAJFINANCE", "ITC"
+                    "SBIN", "BHARTIARTL", "KOTAKBANK", "BAJFINANCE", "MARUTI", "ITC"
                 ][:WATCHLIST_SIZE]
             print(f"📋 Watchlist ({len(self.watchlist)} stocks): {', '.join(self.watchlist)}")
         except Exception as e:
             print(f"Error loading watchlist: {e}")
-            self.watchlist = ["RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK"][:WATCHLIST_SIZE]
+            self.watchlist = ["RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK", "MARUTI"][:WATCHLIST_SIZE]
     
     def _is_market_hours(self) -> bool:
         """Check if market is open (9:15 AM - 3:30 PM IST)."""

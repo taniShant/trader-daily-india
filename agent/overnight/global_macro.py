@@ -8,6 +8,8 @@ from datetime import datetime
 from typing import Dict, Any, List
 import boto3
 
+from agent.overnight.state_store import put_daily_state
+
 class GlobalMacroCollector:
     """Collects global market data including US closes, VIX, currency, commodities."""
     
@@ -239,12 +241,11 @@ class GlobalMacroCollector:
             global_sentiment = "negative"
         
         item = {
-            "date": today,
-            "timestamp": datetime.utcnow().isoformat(),
+            "updated_at": datetime.utcnow().isoformat(),
             "type": "global_macro",
             "global_sentiment": global_sentiment,
             "data": macro_data
         }
         
-        self.market_state_db.put_item(Item=item)
+        put_daily_state(self.market_state_db, today, "global_macro", item)
         print(f"✅ Stored global macro data for {today}")

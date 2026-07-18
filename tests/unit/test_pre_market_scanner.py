@@ -10,9 +10,11 @@ from agent.overnight.pre_market_scanner import PreMarketScanner
 class FakeMarketStateTable:
     def __init__(self, item=None):
         self.item = item or {}
+        self.get_keys = []
         self.put_items = []
 
     def get_item(self, Key):
+        self.get_keys.append(Key)
         return {"Item": dict(self.item)} if self.item else {}
 
     def put_item(self, Item):
@@ -112,6 +114,8 @@ def test_scan_stocks_sorts_by_watchlist_score_and_stores_reasoned_watchlist(monk
     assert watchlist[0]["reasons"]
     stored = scanner.market_state_db.put_items[0]
     assert stored["date"] == "2026-07-05"
+    assert stored["timestamp"] == "state#watchlist"
+    assert stored["record_type"] == "watchlist"
     assert stored["watchlist_size"] == 2
     assert stored["pre_market_watchlist"][0]["symbol"] == "RELIANCE"
 
@@ -128,6 +132,10 @@ def test_get_watchlist_returns_plain_symbols_for_trading_loop():
     )
 
     assert scanner.get_watchlist() == ["RELIANCE", "INFY"]
+    assert scanner.market_state_db.get_keys[0] == {
+        "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "timestamp": "state#watchlist",
+    }
 
 
 class FixedDatetime(datetime):

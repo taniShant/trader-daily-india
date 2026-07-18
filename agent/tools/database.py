@@ -1,18 +1,21 @@
 # agent/tools/database.py
 import os
 import boto3
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
+
+from agent.overnight.state_store import decimalize
 
 def save_trade_signal(signal) -> None:
     """Save a trade signal to DynamoDB."""
     try:
         dynamodb = boto3.resource('dynamodb', region_name=os.environ.get("AWS_REGION", "eu-west-2"))
         table = dynamodb.Table(os.environ.get("TRADES_TABLE", "svc-trd-trades-dev"))
+        now = datetime.now(timezone.utc)
         item = {
-            "tradeId": f"{signal.stock_symbol}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S%f')}",
+            "tradeId": f"{signal.stock_symbol}_{now.strftime('%Y%m%d_%H%M%S%f')}",
             "date": signal.date,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": now.isoformat(),
             "stock_symbol": signal.stock_symbol,
             "action": signal.action,
             "confidence": signal.confidence,
@@ -25,7 +28,7 @@ def save_trade_signal(signal) -> None:
             "risk_level": signal.risk_level,
             "pnl": 0.0  # Placeholder, will be updated on square-off
         }
-        table.put_item(Item=item)
+        table.put_item(Item=decimalize(item))
         print(f"✅ Saved trade signal for {signal.stock_symbol}")
     except Exception as e:
         print(f"❌ Failed to save trade signal: {e}")

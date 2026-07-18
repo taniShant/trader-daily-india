@@ -8,6 +8,8 @@ import time
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 import boto3
+
+from agent.overnight.state_store import get_daily_state, put_daily_state
 import requests
 from collections import deque
 
@@ -334,8 +336,7 @@ class NewsAggregator:
         """Store news data in DynamoDB."""
         today = datetime.utcnow().strftime("%Y-%m-%d")
         
-        response = self.market_state_db.get_item(Key={"date": today})
-        item = response.get("Item", {"date": today})
+        item = get_daily_state(self.market_state_db, today, "news")
         
         if news_data.get("type") == "overnight":
             item["overnight_news"] = news_data
@@ -352,14 +353,13 @@ class NewsAggregator:
             item["latest_sentiment"] = news_data.get("sentiment_update", item.get("latest_sentiment", 0))
             item["realtime_updated_at"] = news_data.get("timestamp")
         
-        self.market_state_db.put_item(Item=item)
+        put_daily_state(self.market_state_db, today, "news", item)
     
     def _store_realtime_update(self, realtime_data: Dict[str, Any]):
         """Store real-time news update (called every 3 minutes)."""
         today = datetime.utcnow().strftime("%Y-%m-%d")
         
-        response = self.market_state_db.get_item(Key={"date": today})
-        item = response.get("Item", {"date": today})
+        item = get_daily_state(self.market_state_db, today, "news")
         
         updates = item.get("realtime_news_updates", [])
         updates.append({
@@ -378,20 +378,18 @@ class NewsAggregator:
         item["latest_sentiment"] = realtime_data.get("sentiment_update", item.get("latest_sentiment", 0))
         item["realtime_updated_at"] = realtime_data["timestamp"]
         
-        self.market_state_db.put_item(Item=item)
+        put_daily_state(self.market_state_db, today, "news", item)
     
     def get_latest_sentiment(self) -> float:
         """Get the latest real-time sentiment score."""
         today = datetime.utcnow().strftime("%Y-%m-%d")
-        response = self.market_state_db.get_item(Key={"date": today})
-        item = response.get("Item", {})
+        item = get_daily_state(self.market_state_db, today, "news")
         return item.get("latest_sentiment", 0.0)
     
     def has_breaking_news(self) -> bool:
         """Check if there was breaking news in the last 3 minutes."""
         today = datetime.utcnow().strftime("%Y-%m-%d")
-        response = self.market_state_db.get_item(Key={"date": today})
-        item = response.get("Item", {})
+        item = get_daily_state(self.market_state_db, today, "news")
         updates = item.get("realtime_news_updates", [])
         if updates:
             last_update = updates[-1]

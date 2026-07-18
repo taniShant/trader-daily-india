@@ -60,7 +60,8 @@ _NIFTY_LARGE_CAPS = {
     "BPCL": "Bharat Petroleum",
     "IOC": "Indian Oil Corporation",
     "M&M": "Mahindra and Mahindra",
-    "TATAMOTORS": "Tata Motors",
+    "TMCV": "Tata Motors Commercial Vehicles",
+    "TMPV": "Tata Motors Passenger Vehicles",
     "TATACONSUM": "Tata Consumer Products",
 }
 
@@ -105,4 +106,5 @@ def breeze_stock_code(symbol: str) -> str:
 _ALIASES = {
     "NESTLE": "NESTLEIND",
     "M&M.NS": "M&M",
+    "TATAMOTORS": "TMCV",
 }

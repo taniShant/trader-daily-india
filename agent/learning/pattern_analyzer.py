@@ -9,6 +9,8 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
 import boto3
 
+from agent.overnight.state_store import decimalize
+
 class PatternAnalyzer:
     """Analyzes historical trades to identify profitable patterns."""
     
@@ -216,7 +218,7 @@ class PatternAnalyzer:
             "win_rate": (patterns.get("winning_trades", 0) / patterns.get("total_trades", 1)) * 100
         }
         
-        self.learning_db.put_item(Item=item)
+        self.learning_db.put_item(Item=decimalize(item))
         print(f"✅ Stored pattern analysis for {item['date']}")
     
     def get_best_rsi_range(self) -> tuple:

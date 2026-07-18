@@ -51,3 +51,10 @@ def test_trading_bot_entrypoint_imports_existing_bot_class():
 
     assert "from agent.main import TradingBot" in entrypoint
     assert "from agent.main import ECSCompatibleBot" not in entrypoint
+
+
+def test_trading_bot_fallback_watchlist_includes_maruti():
+    source = Path("agent/main.py").read_text()
+
+    assert '"MARUTI"' in source
+    assert '"RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK", "MARUTI"' in source

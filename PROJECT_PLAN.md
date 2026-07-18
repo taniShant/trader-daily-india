@@ -860,6 +860,17 @@ Test Result: JSON validation passed. CDK synth passed. Focused networking/runtim
 Notes / Next Step: Re-execute PlatformStack and AgentRuntimeStack. CloudFormation should remove the existing CDK-owned NAT Gateway/EIP and redeploy ECS services onto public subnets. Verify with `aws ec2 describe-nat-gateways` and `python scripts/verify_env.py --env prod --profile default`.
 ```
 
+```text
+Date: 2026-07-18
+Work Package: P10-WP01 - Run full-day paper trading
+Status: In progress
+Files Changed: agent/overnight/state_store.py, agent/overnight/global_macro.py, agent/overnight/news_aggregator.py, agent/overnight/pre_market_scanner.py, agent/data/symbols.py, agent/tools/database.py, agent/learning/pattern_analyzer.py, tests/unit/test_overnight_state_store.py, tests/unit/test_pre_market_scanner.py, tests/unit/test_symbols.py, tests/unit/test_database_decimal_safety.py, PROJECT_PLAN.md
+What Changed: Fixed runtime issues found after both ECS services came up. Market-state overnight modules now use the table's composite key shape (`date`, `timestamp`) through stable state records such as `state#watchlist`, `state#news`, and `state#global_macro`; this removes DynamoDB ValidationException errors from get_item calls. Added recursive Decimal conversion before DynamoDB writes to prevent boto3 float serialization failures. Updated the Tata Motors scanner mapping away from the stale Yahoo `TATAMOTORS.NS` ticker and added a legacy alias to `TMCV.NS`.
+Test Command: python -m pytest tests/unit/test_overnight_state_store.py tests/unit/test_pre_market_scanner.py tests/unit/test_symbols.py tests/unit/test_database_decimal_safety.py tests/unit/test_learning_gates.py -q; python -m py_compile agent/overnight/state_store.py agent/overnight/global_macro.py agent/overnight/pre_market_scanner.py agent/overnight/news_aggregator.py agent/data/symbols.py agent/tools/database.py agent/learning/pattern_analyzer.py; make smoke
+Test Result: Focused tests passed with 17 tests. py_compile passed. Smoke compile passed.
+Notes / Next Step: Rebuild/push trading bot image and redeploy AgentRuntimeStack, then watch CloudWatch logs for a clean overnight analysis and pre-market scanner pass.
+```
+
 ## 13. Plan Change Log
 
 Use this section only when the plan itself changes materially.

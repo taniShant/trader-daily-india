@@ -9,6 +9,7 @@ from typing import List, Dict, Any
 import boto3
 
 from agent.data.symbols import resolve_symbol
+from agent.overnight.state_store import get_daily_state, put_daily_state
 
 class PreMarketScanner:
     """Scans all NIFTY stocks before market open to generate watchlist."""
@@ -34,7 +35,7 @@ class PreMarketScanner:
             "DRREDDY", "BRITANNIA", "EICHERMOT", "COALINDIA", "DIVISLAB",
             "SBILIFE", "HDFCLIFE", "UPL", "BAJAJ-AUTO", "SHREECEM",
             "CIPLA", "HEROMOTOCO", "TATASTEEL", "HINDALCO", "BPCL",
-            "IOC", "M&M", "TATAMOTORS", "TATACONSUM"
+            "IOC", "M&M", "TMCV", "TMPV", "TATACONSUM"
         ]
 
     def score_candidate(self, symbol: str, hist) -> Dict[str, Any] | None:
@@ -140,23 +141,20 @@ class PreMarketScanner:
         now = datetime.now(timezone.utc)
         today = now.strftime("%Y-%m-%d")
         
-        # Get existing item or create new
-        response = self.market_state_db.get_item(Key={"date": today})
-        item = response.get("Item", {"date": today})
+        item = get_daily_state(self.market_state_db, today, "watchlist")
         
         item["pre_market_watchlist"] = watchlist
         item["watchlist_size"] = len(watchlist)
-        item["timestamp"] = now.isoformat()
+        item["updated_at"] = now.isoformat()
         
-        self.market_state_db.put_item(Item=item)
+        put_daily_state(self.market_state_db, today, "watchlist", item)
         print(f"✅ Stored pre-market watchlist for {today} ({len(watchlist)} stocks)")
     
     def get_watchlist(self) -> List[str]:
         """Retrieve today's watchlist from DynamoDB."""
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         
-        response = self.market_state_db.get_item(Key={"date": today})
-        item = response.get("Item", {})
+        item = get_daily_state(self.market_state_db, today, "watchlist")
         
         watchlist = item.get("pre_market_watchlist", [])
         if watchlist:
