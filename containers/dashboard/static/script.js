@@ -12,7 +12,7 @@ function switchTab(tabName, button) {
     });
     if (button) button.classList.add('active');
     
-    ['pnlChartCard', 'tradesCard', 'learningCard', 'marketCard', 'signalsCard', 'statusCard', 'controlsCard'].forEach(id => {
+    ['pnlChartCard', 'tradesCard', 'learningCard', 'marketCard', 'signalsCard', 'statusCard', 'controlsCard', 'intelligenceCard'].forEach(id => {
         document.getElementById(id).style.display = 'none';
     });
 
@@ -41,6 +41,10 @@ function switchTab(tabName, button) {
         document.getElementById('filters').style.display = 'none';
         document.getElementById('marketCard').style.display = 'block';
         fetchMarketState();
+    } else if (tabName === 'intelligence') {
+        document.getElementById('filters').style.display = 'none';
+        document.getElementById('intelligenceCard').style.display = 'block';
+        fetchIntelligence();
     }
 }
 
@@ -302,6 +306,45 @@ async function fetchMarketState() {
     }
 }
 
+async function fetchIntelligence() {
+    try {
+        const res = await fetch('/api/intelligence');
+        const data = await res.json();
+        const health = data.source_health || {};
+        const macro = data.global_macro || {};
+        const latestNews = data.latest_news || {};
+
+        document.getElementById('sourceHealthDetails').innerHTML = `
+            <dt>Status</dt><dd><span class="status-badge status-${health.status || 'pending'}">${health.status || '-'}</span></dd>
+            <dt>Score</dt><dd>${Number(health.score ?? 0).toFixed(2)}</dd>
+            <dt>Blocked</dt><dd>${health.live_trade_blocked ? 'yes' : 'no'}</dd>
+            <dt>Reasons</dt><dd>${(health.reasons || []).join(', ') || '-'}</dd>
+        `;
+        document.getElementById('globalMacroDetails').innerHTML = `
+            <dt>Sentiment</dt><dd>${macro.global_sentiment || '-'}</dd>
+            <dt>Updated</dt><dd>${macro.updated_at || '-'}</dd>
+            <dt>News sentiment</dt><dd>${latestNews.latest_sentiment ?? '-'}</dd>
+            <dt>News updated</dt><dd>${latestNews.updated_at || '-'}</dd>
+        `;
+
+        const tbody = document.querySelector('#intelligenceTable tbody');
+        const events = data.events || [];
+        if (events.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" class="loading">No intelligence events found</td></tr>';
+            return;
+        }
+        tbody.innerHTML = events.map(event => `
+            <tr>
+                <td>${event.type || '-'}</td>
+                <td>${event.title || '-'}</td>
+                <td>${event.source || '-'}</td>
+            </tr>
+        `).join('');
+    } catch(e) {
+        console.error('Intelligence fetch failed:', e);
+    }
+}
+
 // Fetch all data based on current tab
 async function fetchAllData() {
     const now = new Date();
@@ -320,6 +363,8 @@ async function fetchAllData() {
         await fetchLearningPatterns();
     } else if (currentTab === 'market') {
         await fetchMarketState();
+    } else if (currentTab === 'intelligence') {
+        await fetchIntelligence();
     }
 }
 

@@ -1,0 +1,161 @@
+{
+  "cases": [
+    {
+      "case_id": "fresh-m-and-a-announcement",
+      "symbol": "MARUTI",
+      "replay_at": "2026-07-19T09:30:00+00:00",
+      "description": "Fresh official exchange announcement and live news should support an explained actionable signal.",
+      "global_context": {
+        "title": "Asian markets trade firm before India open",
+        "sentiment_score": 0.25,
+        "published_at": "2026-07-19T09:25:00+00:00"
+      },
+      "indian_news": [
+        {
+          "title": "Auto shares gain as domestic demand improves",
+          "sentiment_score": 0.35,
+          "published_at": "2026-07-19T09:24:00+00:00"
+        }
+      ],
+      "company_news": [
+        {
+          "title": "Maruti announces acquisition to expand EV supply chain",
+          "sentiment_score": 0.45,
+          "published_at": "2026-07-19T09:23:00+00:00"
+        }
+      ],
+      "announcements": [
+        {
+          "symbol": "MARUTI",
+          "title": "Maruti Suzuki announces acquisition of EV component supplier",
+          "source": "NSE",
+          "published_at": "2026-07-19T09:22:00+00:00",
+          "url": "https://www.nseindia.com/companies-listing/corporate-filings-announcements"
+        }
+      ],
+      "regulatory_events": [
+        {
+          "source": "SEBI",
+          "title": "SEBI circular on settlement margins",
+          "published_at": "2026-07-19T09:21:00+00:00",
+          "url": "https://www.sebi.gov.in/sebirss.xml"
+        }
+      ],
+      "technical": {
+        "trend_bias": "bullish",
+        "close": 13200,
+        "vwap": 13160,
+        "rsi": 62,
+        "macd": 3.2,
+        "macd_signal": 2.4,
+        "atr": 95
+      },
+      "expected": {
+        "action": "BUY",
+        "live_trade_blocked": false,
+        "reason_contains": ["company_news"],
+        "announcement_categories": ["corporate_action"],
+        "regulatory_categories": ["market_structure"]
+      }
+    },
+    {
+      "case_id": "missing-official-sources-block",
+      "symbol": "RELIANCE",
+      "replay_at": "2026-07-19T09:30:00+00:00",
+      "description": "Unavailable news and missing official event feeds must block live trading even with bullish technicals.",
+      "global_context": {
+        "title": "global news unavailable",
+        "source_mode": "unavailable",
+        "source_status": "missing_news_api_key_or_empty_provider_response",
+        "published_at": "2026-07-19T09:28:00+00:00"
+      },
+      "indian_news": [],
+      "company_news": [
+        {
+          "title": "Reliance shares rise in early trade",
+          "sentiment_score": 0.4,
+          "published_at": "2026-07-19T09:20:00+00:00"
+        }
+      ],
+      "announcements": [],
+      "regulatory_events": [],
+      "technical": {
+        "trend_bias": "bullish",
+        "close": 3000,
+        "vwap": 2980,
+        "rsi": 61,
+        "macd": 2.1,
+        "macd_signal": 1.4,
+        "atr": 35
+      },
+      "expected": {
+        "action": "HOLD",
+        "live_trade_blocked": true,
+        "reason_contains": [
+          "source_quality_block",
+          "global_news unavailable",
+          "missing official announcements",
+          "missing regulatory events"
+        ]
+      }
+    },
+    {
+      "case_id": "sebi-enforcement-caution",
+      "symbol": "HDFCBANK",
+      "replay_at": "2026-07-19T09:30:00+00:00",
+      "description": "Fresh SEBI enforcement event should be classified as caution and visible in signal context.",
+      "global_context": {
+        "title": "US banks close mixed after bond yields rise",
+        "sentiment_score": -0.1,
+        "published_at": "2026-07-19T09:25:00+00:00"
+      },
+      "indian_news": [
+        {
+          "title": "Banking index trades cautiously after regulatory order",
+          "sentiment_score": -0.35,
+          "published_at": "2026-07-19T09:24:00+00:00"
+        }
+      ],
+      "company_news": [
+        {
+          "title": "HDFC Bank receives penalty order, management says no material impact",
+          "sentiment_score": -0.45,
+          "published_at": "2026-07-19T09:23:00+00:00"
+        }
+      ],
+      "announcements": [
+        {
+          "symbol": "HDFCBANK",
+          "title": "HDFC Bank receives regulatory penalty notice",
+          "source": "BSE",
+          "published_at": "2026-07-19T09:22:00+00:00",
+          "url": "https://www.bseindia.com/corporates/ann.html"
+        }
+      ],
+      "regulatory_events": [
+        {
+          "source": "SEBI",
+          "title": "SEBI passes enforcement order imposing penalty on market intermediary",
+          "published_at": "2026-07-19T09:21:00+00:00",
+          "url": "https://www.sebi.gov.in/sebirss.xml"
+        }
+      ],
+      "technical": {
+        "trend_bias": "neutral",
+        "close": 1780,
+        "vwap": 1782,
+        "rsi": 48,
+        "macd": -0.4,
+        "macd_signal": -0.3,
+        "atr": 28
+      },
+      "expected": {
+        "action": "HOLD",
+        "live_trade_blocked": false,
+        "reason_contains": ["company_news", "announcements"],
+        "announcement_categories": ["regulatory"],
+        "regulatory_categories": ["enforcement"]
+      }
+    }
+  ]
+}

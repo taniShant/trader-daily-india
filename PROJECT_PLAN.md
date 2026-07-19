@@ -263,13 +263,28 @@ Status values:
 | P9-WP04 | Add Oracle deploy workflow/script | Implemented | `oracle/scripts/deploy_oracle_services.sh`, `oracle/docker-compose.yml`, `oracle/collector/Dockerfile`, `.github/workflows/oracle-deploy.yml`, `tests/unit/test_oracle_deploy_workflow.py` | Local: Oracle dry run passed, Oracle deploy tests passed, and `make verify` passed with 178 tests plus CDK synth. User/GitHub dry run pending. | Oracle proxy and collector deployment is repeatable against the existing static-IP VM `80.225.242.6`. |
 | P9-WP05 | Add environment verification script | Tested | `scripts/verify_env.py`, `tests/unit/test_verify_env.py` | User VS Code: `python scripts/verify_env.py --env prod --dry-run` -> passed; `python -m pytest tests/unit/test_verify_env.py -q` -> passed. Local py_compile passed. Real AWS degraded run confirms PlatformStack/ECR/DynamoDB OK while AgentRuntimeStack/ECS remains blocked by Fargate account quota/restriction. | Validates AWS tables, ECS services, Oracle health, dashboard health. |
 
+### Phase 10A - Production Market Intelligence Hardening
+
+This phase is a live-readiness gate. Yahoo Finance plus NewsAPI is acceptable for paper-trading observation, but it is not enough for live-money confidence. Before live trading, the system must ingest official Indian corporate/regulatory sources and record source quality.
+
+| ID | Work Package | Status | Primary Files | Required Tests | Definition Of Done |
+|---|---|---|---|---|---|
+| P10A-WP01 | Add source coverage audit | Tested | `docs/market_intelligence_sources.md`, `agent/data/`, `tests/unit/test_market_intelligence_sources.py` | User VS Code: `python -m pytest tests/unit/test_market_intelligence_sources.py -q` -> passed. Local: 3 passed. | Required source classes are documented: global macro, India market news, company news, NSE/BSE announcements, RBI/SEBI updates, M&A/corporate actions, broker quote validation. |
+| P10A-WP02 | Add official NSE/BSE announcement ingestion | Tested | `agent/data/company_announcements.py`, `agent/data/announcement_sources.py`, `agent/overnight/`, `tests/unit/test_announcement_sources.py` | User VS Code: `python -m pytest tests/unit/test_announcement_sources.py tests/unit/test_company_announcements.py -q` -> passed. Local: 12 passed. | Results, board meetings, dividends, buybacks, mergers, acquisitions, penalties, management changes, and corporate actions are fetched from official exchange sources where available and normalized into `CompanyAnnouncement`. |
+| P10A-WP03 | Add RBI/SEBI/regulatory event ingestion | Tested | `agent/data/regulatory_events.py`, `agent/overnight/`, `tests/unit/test_regulatory_events.py` | User VS Code: `python -m pytest tests/unit/test_regulatory_events.py tests/unit/test_announcement_sources.py tests/unit/test_company_announcements.py -q` -> passed. Local: 19 passed. | Policy, circular, penalty, ban, compliance, rate, liquidity, and market-structure events become structured inputs with source URL and impact classification. |
+| P10A-WP04 | Add production news source strategy | Tested | `agent/tools/news_fetcher.py`, `agent/overnight/news_aggregator.py`, `cicd/env/prod.json`, `tests/unit/test_news_source_strategy.py` | User VS Code: `python -m pytest tests/unit/test_news_source_strategy.py tests/unit/test_config.py tests/unit/test_market_intelligence_sources.py tests/unit/test_regulatory_events.py tests/unit/test_announcement_sources.py tests/unit/test_company_announcements.py -q` -> passed. Local: 31 passed. | NewsAPI/GDELT/RSS/provider strategy is explicit, rate-limited, deduplicated, freshness-checked, and does not silently use simulated data in production. |
+| P10A-WP05 | Add source quality and freshness scoring | Tested | `agent/data/quality.py`, `agent/signals/sentiment.py`, `agent/overnight/`, `tests/unit/test_source_quality.py` | User VS Code: `python -m pytest tests/unit/test_source_quality.py tests/unit/test_news_source_strategy.py tests/unit/test_regulatory_events.py tests/unit/test_announcement_sources.py tests/unit/test_company_announcements.py tests/unit/test_market_intelligence_sources.py tests/unit/test_sentiment_scoring.py -q` -> passed. Local: 33 passed. | Signals include data freshness, source count, source reliability, and fail-closed behavior when critical event sources are stale or unavailable. |
+| P10A-WP06 | Wire intelligence features into signal decisions | Tested | `agent/main.py`, `agent/signals/scorer.py`, `agent/signals/sentiment.py`, `tests/unit/test_signal_intelligence_integration.py` | User VS Code: `python -m pytest tests/unit/test_signal_intelligence_integration.py tests/unit/test_source_quality.py tests/unit/test_news_source_strategy.py tests/unit/test_regulatory_events.py tests/unit/test_announcement_sources.py tests/unit/test_company_announcements.py tests/unit/test_market_intelligence_sources.py tests/unit/test_sentiment_scoring.py tests/unit/test_signal_scorer.py -q` -> passed. Local: 38 passed. | Global news, India news, company news, official announcements, regulatory events, and M&A/corporate-action flags are visible in final signal reasons and can block or reduce confidence. |
+| P10A-WP07 | Add intelligence dashboard visibility | Tested | `containers/dashboard/*`, `tests/integration/test_dashboard_api.py` | User VS Code: `python -m pytest tests/integration/test_dashboard_api.py tests/unit/test_dashboard_health_paths.py -q` -> passed. Local: 9 passed; Phase 10A signal/data suite -> 38 passed. | Dashboard shows latest source health, key headlines/events, announcement/regulatory flags, and reason codes behind each signal. |
+| P10A-WP08 | Run intelligence replay against known event days | Tested | `agent/backtest/event_replay.py`, `tests/fixtures/market_events/known_event_days.json`, `reports/market_event_replay.md`, `tests/unit/test_event_replay.py` | User VS Code: `python -m pytest tests/unit/test_event_replay.py tests/unit/test_signal_intelligence_integration.py tests/unit/test_source_quality.py tests/unit/test_backtest_engine.py -q` -> passed. Local: 12 passed. | Known high-impact event days are replayed to confirm the system detects events, avoids stale data, and explains trade/skip decisions. |
+
 ### Phase 10 - Paper Trading, Live Readiness, And Release
 
 | ID | Work Package | Status | Primary Files | Required Tests | Definition Of Done |
 |---|---|---|---|---|---|
-| P10-WP01 | Run full-day paper trading | Not started | deployed system | paper report | One full market day with signals, skips, paper orders, P&L, no live calls. |
+| P10-WP01 | Run full-day paper trading | In progress | deployed system | Paper report; local `make verify` passed with 231 tests plus CDK synth before paper-day run. | One full market day with signals, skips, paper orders, P&L, no live calls. |
 | P10-WP02 | Run backtest and paper comparison | Not started | reports | report review | Backtest assumptions compared against paper outcomes. |
-| P10-WP03 | Live readiness review | Not started | checklist below | manual sign-off | All live gates pass. |
+| P10-WP03 | Live readiness review | Not started | checklist below | manual sign-off | All live gates pass, including Phase 10A production market-intelligence gates. |
 | P10-WP04 | Tiny-capital live pilot | Not started | deployed system | live pilot report | Strict capped live mode runs with full audit and square-off. |
 
 ## 8. Testing Strategy
@@ -305,6 +320,11 @@ Live trading cannot be enabled until all are checked:
 - [ ] CloudWatch alarms exist for bot stopped, stale data, order failure, loss breach, and square-off failure.
 - [ ] Backtest report exists for the active strategy.
 - [ ] At least one full market day of paper trading has been reviewed.
+- [ ] Official NSE/BSE company announcements are ingested and freshness-checked.
+- [ ] RBI/SEBI/regulatory events are ingested and freshness-checked.
+- [ ] News source strategy is production-ready and does not silently fall back to simulated data.
+- [ ] Signal reasons show whether global news, Indian market news, company news, announcements, regulatory events, or M&A/corporate actions affected the decision.
+- [ ] Source quality/freshness checks can block or reduce confidence before live trading.
 
 ## 10. Deployment Order
 
@@ -319,7 +339,9 @@ Recommended order:
 7. `P6`: order lifecycle and square-off.
 8. `P7`: backtesting and learning gates.
 9. `P9`: CI/CD hardening.
-10. `P10`: paper day, review, tiny live pilot.
+10. `P10`: paper day and paper/backtest comparison.
+11. `P10A`: production market-intelligence hardening before live readiness.
+12. `P10`: live readiness review and tiny live pilot only after `P10A` gates pass.
 
 ## 11. Stable Progress Tracker
 
@@ -341,6 +363,127 @@ What Changed:
 Test Command:
 Test Result:
 Notes / Next Step:
+```
+
+```text
+Date: 2026-07-19
+Work Package: Full local verification gate before P10-WP01 paper trading
+Status: Tested
+Files Changed: PROJECT_PLAN.md
+What Changed: Recorded the user-confirmed full `make verify` pass after Phase 10A completion. This validates smoke compilation, deploy-path guard, full test suite, and CDK synth against the current production configuration before continuing paper-trading validation.
+Test Command: make verify
+Test Result: User VS Code/local run passed. py_compile passed for agent/main.py, dashboard API, Oracle proxy app, and Oracle collector app. Deploy-path check passed. Full pytest suite passed with 231 tests in 115.33 seconds. CDK synth passed for `svc-trd-PlatformStack` and `svc-trd-AgentRuntimeStack` using account `873660758628`, region `eu-west-2`, artifact bucket `svc-s3-prod-873660758628-trading-artifacts`, ECR repository `trader-daily-india-agent`, and Oracle static IP `80.225.242.6`.
+Notes / Next Step: Continue P10-WP01 by running one full Indian-market paper-trading day, then review dashboard, DynamoDB records, source-quality reasons, skipped trades, paper orders/fills, and confirm no live Breeze order calls occurred.
+```
+
+```text
+Date: 2026-07-19
+Work Package: P10A-WP04, P10A-WP06, P10A-WP07, P10A-WP08 - VS Code verification
+Status: Tested
+Files Changed: PROJECT_PLAN.md
+What Changed: Updated remaining Phase 10A implemented work packages to Tested after user confirmed the focused VS Code test commands all passed.
+Test Command: python -m pytest tests/unit/test_news_source_strategy.py tests/unit/test_config.py tests/unit/test_market_intelligence_sources.py tests/unit/test_regulatory_events.py tests/unit/test_announcement_sources.py tests/unit/test_company_announcements.py -q; python -m pytest tests/unit/test_signal_intelligence_integration.py tests/unit/test_source_quality.py tests/unit/test_news_source_strategy.py tests/unit/test_regulatory_events.py tests/unit/test_announcement_sources.py tests/unit/test_company_announcements.py tests/unit/test_market_intelligence_sources.py tests/unit/test_sentiment_scoring.py tests/unit/test_signal_scorer.py -q; python -m pytest tests/integration/test_dashboard_api.py tests/unit/test_dashboard_health_paths.py -q; python -m pytest tests/unit/test_event_replay.py tests/unit/test_signal_intelligence_integration.py tests/unit/test_source_quality.py tests/unit/test_backtest_engine.py -q
+Test Result: User confirmed all listed VS Code tests passed.
+Notes / Next Step: Phase 10A is now implemented and tested. Next project step is `make verify`, then one full Indian-market paper-trading day before P10 live-readiness review.
+```
+
+```text
+Date: 2026-07-19
+Work Package: P10A-WP08 - Run intelligence replay against known event days
+Status: Implemented
+Files Changed: agent/backtest/event_replay.py, agent/backtest/__init__.py, tests/fixtures/market_events/known_event_days.json, tests/unit/test_event_replay.py, reports/market_event_replay.md, PROJECT_PLAN.md
+What Changed: Added deterministic event replay cases for fresh MARUTI M&A/corporate-action intelligence, unavailable/missing official sources, and SEBI enforcement caution. The replay path parses official announcements and regulatory events, runs source-quality checks with official-event requirements, computes sentiment features, scores a signal, and verifies expected trade/skip explanations.
+Test Command: python -m py_compile agent/backtest/event_replay.py; python -m pytest tests/unit/test_event_replay.py tests/unit/test_signal_intelligence_integration.py tests/unit/test_source_quality.py tests/unit/test_backtest_engine.py -q
+Test Result: py_compile passed. Focused replay/source/signal/backtest suite passed with 12 tests.
+Notes / Next Step: User should run the focused replay command from VS Code. Keep P10A-WP08 as Implemented until user confirms VS Code verification.
+```
+
+```text
+Date: 2026-07-19
+Work Package: P10A-WP07 - Add intelligence dashboard visibility
+Status: Implemented
+Files Changed: containers/dashboard/api_server.py, containers/dashboard/index.html, containers/dashboard/static/script.js, tests/integration/test_dashboard_api.py, PROJECT_PLAN.md
+What Changed: Added `/api/intelligence` to summarize latest source health, news headlines, global macro state, source-quality reasons, and event rows from market-state and signal records. Added a dashboard Intelligence tab showing source-health status, score, live-trade blocked state, reasons, global macro sentiment, news sentiment, and latest headlines/events. Dashboard mock/test data now includes source-quality and market-intelligence records.
+Test Command: python -m py_compile containers/dashboard/api_server.py tests/integration/test_dashboard_api.py; python -m pytest tests/integration/test_dashboard_api.py tests/unit/test_dashboard_health_paths.py -q; python -m pytest tests/unit/test_signal_intelligence_integration.py tests/unit/test_source_quality.py tests/unit/test_news_source_strategy.py tests/unit/test_regulatory_events.py tests/unit/test_announcement_sources.py tests/unit/test_company_announcements.py tests/unit/test_market_intelligence_sources.py tests/unit/test_sentiment_scoring.py tests/unit/test_signal_scorer.py -q
+Test Result: py_compile passed. Dashboard integration/health suite passed with 9 tests. Phase 10A signal/data suite passed with 38 tests.
+Notes / Next Step: User should run the dashboard integration command from VS Code. Keep P10A-WP07 as Implemented until user confirms VS Code verification.
+```
+
+```text
+Date: 2026-07-19
+Work Package: P10A-WP06 - Wire intelligence features into signal decisions
+Status: Implemented
+Files Changed: agent/signals/scorer.py, tests/unit/test_signal_intelligence_integration.py, PROJECT_PLAN.md
+What Changed: Wired source-quality intelligence into the deterministic signal scorer. A signal now becomes HOLD with confidence 0 and HIGH risk when source quality says live trading should be blocked. Degraded but non-blocking source quality reduces confidence proportionally. Signal raw features now include source-quality score, reasons, and live_trade_blocked state so later dashboard/audit layers can explain the decision.
+Test Command: python -m py_compile agent/signals/scorer.py tests/unit/test_signal_intelligence_integration.py; python -m pytest tests/unit/test_signal_intelligence_integration.py tests/unit/test_signal_scorer.py tests/unit/test_sentiment_scoring.py tests/unit/test_source_quality.py -q; python -m pytest tests/unit/test_signal_intelligence_integration.py tests/unit/test_source_quality.py tests/unit/test_news_source_strategy.py tests/unit/test_regulatory_events.py tests/unit/test_announcement_sources.py tests/unit/test_company_announcements.py tests/unit/test_market_intelligence_sources.py tests/unit/test_sentiment_scoring.py tests/unit/test_signal_scorer.py -q
+Test Result: py_compile passed. Signal/source focused suite passed with 11 tests. Phase 10A signal/data focused suite passed with 38 tests.
+Notes / Next Step: User should run the Phase 10A signal/data pytest command from VS Code. Keep P10A-WP06 as Implemented until user confirms VS Code verification.
+```
+
+```text
+Date: 2026-07-19
+Work Package: P10A-WP05 - Add source quality and freshness scoring
+Status: Implemented
+Files Changed: agent/data/quality.py, agent/data/__init__.py, agent/signals/sentiment.py, tests/unit/test_source_quality.py, PROJECT_PLAN.md
+What Changed: Added SourceQualityResult and check_source_quality for market-intelligence freshness and reliability checks. The new gate scores global news, Indian news, company news, official announcements, and regulatory events; counts stale, unavailable, and simulated sources; flags live_trade_blocked for unsafe source states; and exposes source-quality fields through SentimentFeatures so later signal logic can block or reduce confidence. Existing price/quote quality checks remain unchanged.
+Test Command: python -m py_compile agent/data/quality.py agent/data/__init__.py agent/signals/sentiment.py tests/unit/test_source_quality.py; python -m pytest tests/unit/test_source_quality.py tests/unit/test_sentiment_scoring.py tests/unit/test_data_quality.py -q; python -m pytest tests/unit/test_source_quality.py tests/unit/test_news_source_strategy.py tests/unit/test_regulatory_events.py tests/unit/test_announcement_sources.py tests/unit/test_company_announcements.py tests/unit/test_market_intelligence_sources.py tests/unit/test_sentiment_scoring.py -q
+Test Result: py_compile passed. Focused quality/sentiment/data suite passed with 14 tests. Phase 10A data/intelligence suite passed with 33 tests.
+Notes / Next Step: User should run the Phase 10A focused pytest command from VS Code. Keep P10A-WP05 as Implemented until user confirms VS Code verification.
+```
+
+```text
+Date: 2026-07-19
+Work Package: P10A-WP04 - Add production news source strategy
+Status: Implemented
+Files Changed: agent/config.py, agent/tools/news_fetcher.py, agent/overnight/news_aggregator.py, cicd/env/prod.json, tests/unit/test_news_source_strategy.py, PROJECT_PLAN.md
+What Changed: Added an explicit `allow_simulated_news` API config flag, defaulting to false in production. NewsFetcher and NewsAggregator now mark missing or empty provider data as unavailable instead of silently returning simulated headlines. Simulated news remains available only when explicitly enabled for local tests or experiments. Fallback items now carry `source_mode` and `source_status` fields so downstream signal and dashboard layers can detect source quality.
+Test Command: python -m py_compile agent/config.py agent/tools/news_fetcher.py agent/overnight/news_aggregator.py tests/unit/test_news_source_strategy.py; python -m pytest tests/unit/test_news_source_strategy.py tests/unit/test_config.py tests/unit/test_market_intelligence_sources.py tests/unit/test_regulatory_events.py tests/unit/test_announcement_sources.py tests/unit/test_company_announcements.py -q
+Test Result: py_compile passed. Phase 10A/news/config focused suite passed with 31 tests.
+Notes / Next Step: User should run the focused pytest command from VS Code. Keep P10A-WP04 as Implemented until user confirms VS Code verification.
+```
+
+```text
+Date: 2026-07-19
+Work Package: P10A-WP03 - Add RBI/SEBI/regulatory event ingestion
+Status: Implemented
+Files Changed: agent/data/regulatory_events.py, agent/data/__init__.py, tests/unit/test_regulatory_events.py, PROJECT_PLAN.md
+What Changed: Added a regulatory event model and adapter for RBI/SEBI events. The new layer parses direct payloads and official RSS XML into structured RegulatoryEvent records with source, category, impact, impact score, timestamp, URL, summary, and raw payload. Added official RBI/SEBI RSS URL constants, timestamp parsing, deduplication, RSS fetching with explicit User-Agent, HTTP error handling, feature summarization, and word-safe impact matching so terms like `ban` do not accidentally match `banks`.
+Test Command: python -m py_compile agent/data/regulatory_events.py agent/data/announcement_sources.py agent/data/__init__.py tests/unit/test_regulatory_events.py tests/unit/test_announcement_sources.py; python -m pytest tests/unit/test_regulatory_events.py tests/unit/test_announcement_sources.py tests/unit/test_company_announcements.py -q; python -m pytest tests/unit/test_market_intelligence_sources.py tests/unit/test_regulatory_events.py tests/unit/test_announcement_sources.py tests/unit/test_sentiment_scoring.py -q
+Test Result: py_compile passed. Regulatory/announcement parser tests passed with 19 tests. Phase 10A focused regression passed with 19 tests.
+Notes / Next Step: User should run `python -m pytest tests/unit/test_regulatory_events.py tests/unit/test_announcement_sources.py tests/unit/test_company_announcements.py -q` from VS Code. Keep P10A-WP03 as Implemented until user confirms VS Code verification.
+```
+
+```text
+Date: 2026-07-19
+Work Package: P10A-WP02 - Add official NSE/BSE announcement ingestion
+Status: Implemented
+Files Changed: agent/data/announcement_sources.py, agent/data/__init__.py, tests/unit/test_announcement_sources.py, PROJECT_PLAN.md
+What Changed: Added an official announcement source adapter that normalizes NSE-style payloads, BSE-style payloads, and NSE RSS XML items into the existing CompanyAnnouncement model. Added official source URL constants, timestamp parsing for common exchange/RSS formats, stable source IDs, source-specific URL normalization, RSS fetching with explicit User-Agent headers, HTTP error handling, and deduplication. Exported the adapter functions from agent.data.
+Test Command: python -m py_compile agent/data/announcement_sources.py agent/data/__init__.py tests/unit/test_announcement_sources.py; python -m pytest tests/unit/test_announcement_sources.py tests/unit/test_company_announcements.py -q; python -m pytest tests/unit/test_market_intelligence_sources.py tests/unit/test_symbols.py tests/unit/test_sentiment_scoring.py -q
+Test Result: py_compile passed. Announcement source/parser tests passed with 12 tests. Market-intelligence/symbol/sentiment regression passed with 10 tests.
+Notes / Next Step: User should run `python -m pytest tests/unit/test_announcement_sources.py tests/unit/test_company_announcements.py -q` from VS Code. Keep P10A-WP02 as Implemented until user confirms VS Code verification.
+```
+
+```text
+Date: 2026-07-19
+Work Package: P10A-WP01 - Add source coverage audit
+Status: Implemented
+Files Changed: docs/market_intelligence_sources.md, tests/unit/test_market_intelligence_sources.py, PROJECT_PLAN.md
+What Changed: Added a production market-intelligence source coverage audit that separates paper-trading acceptable sources from live-readiness requirements. The audit documents required source classes, current code coverage, current gaps, freshness expectations, fail-closed behavior, and maps each gap to the owning Phase 10A work package. Added a unit test that prevents the audit and project plan from losing the required live source categories.
+Test Command: python -m pytest tests/unit/test_market_intelligence_sources.py -q
+Test Result: Local focused test passed with 3 tests. py_compile passed for the new test file. Keep status as Implemented until user confirms VS Code verification.
+Notes / Next Step: Continue with P10A-WP02 official NSE/BSE announcement ingestion after user reviews the source audit.
+```
+
+```text
+Date: 2026-07-18
+Work Package: Phase 10A - Production Market Intelligence Hardening
+Status: Not started
+Files Changed: PROJECT_PLAN.md
+What Changed: Added a mandatory live-readiness phase for production-grade market intelligence after reassessing the codebase. The plan now explicitly separates paper-trading-acceptable sources from live-money readiness and adds work packages for source coverage audit, official NSE/BSE announcements, RBI/SEBI regulatory events, production news-source strategy, source quality/freshness scoring, signal integration, dashboard visibility, and event-day replay.
+Test Command: Markdown review
+Test Result: Plan updated only; no code tests required.
+Notes / Next Step: Continue paper observation if desired, but do not approve live trading until Phase 10A gates are implemented and reviewed.
 ```
 
 ```text
@@ -893,5 +1036,12 @@ Approved By: User request in chat.
 Date: 2026-07-18
 Change: Removed AWS NAT Gateway from the target AWS runtime architecture.
 Reason: AWS account inspection and Cost Explorer showed a CDK-owned NAT Gateway billing continuously, while Oracle already provides the required static IP for ICICI Breeze execution. AWS tasks now use public subnet egress; ICICI live execution remains Oracle-only.
+Approved By: User request in chat.
+```
+
+```text
+Date: 2026-07-18
+Change: Added Phase 10A - Production Market Intelligence Hardening as a mandatory live-readiness gate.
+Reason: Codebase reassessment showed Yahoo Finance plus NewsAPI is enough for paper observation but not enough for production live-money decisions; official NSE/BSE announcements, RBI/SEBI events, source freshness, and source-quality gates must be added before live trading.
 Approved By: User request in chat.
 ```

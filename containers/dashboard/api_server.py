@@ -106,6 +106,30 @@ class MockDashboardStore(DashboardStore):
                     "market_open": True,
                     "active_positions": 1,
                     "daily_pnl": Decimal("450.50"),
+                },
+                {
+                    "date": now.date().isoformat(),
+                    "timestamp": "state#news",
+                    "record_type": "news",
+                    "latest_sentiment": Decimal("0.2"),
+                    "realtime_updated_at": now.isoformat(),
+                    "realtime_news_updates": [
+                        {
+                            "timestamp": now.isoformat(),
+                            "new_news_count": 2,
+                            "sentiment_update": Decimal("0.2"),
+                            "has_breaking": True,
+                            "headlines": ["RBI keeps liquidity steady", "NIFTY advances on global cues"],
+                        }
+                    ],
+                },
+                {
+                    "date": now.date().isoformat(),
+                    "timestamp": "state#global_macro",
+                    "record_type": "global_macro",
+                    "updated_at": now.isoformat(),
+                    "global_sentiment": "positive",
+                    "data": {"us_markets": {"S&P 500": {"change_percent": Decimal("0.5")}}},
                 }
             ],
             POSITIONS_TABLE_NAME: [
@@ -128,6 +152,13 @@ class MockDashboardStore(DashboardStore):
                     "confidence": 82,
                     "created_at": now.isoformat(),
                     "reasons": ["technical momentum", "positive sentiment"],
+                    "raw_features": {
+                        "source_quality": {
+                            "score": Decimal("0.92"),
+                            "reasons": [],
+                            "live_trade_blocked": False,
+                        }
+                    },
                 },
                 {
                     "signal_id": "sig-2",
@@ -136,6 +167,13 @@ class MockDashboardStore(DashboardStore):
                     "confidence": 61,
                     "created_at": now.isoformat(),
                     "reasons": ["weak confidence"],
+                    "raw_features": {
+                        "source_quality": {
+                            "score": Decimal("0.4"),
+                            "reasons": ["global_news unavailable"],
+                            "live_trade_blocked": True,
+                        }
+                    },
                 },
             ],
             RISK_EVENTS_TABLE_NAME: [
@@ -302,6 +340,13 @@ async def get_market_state(days: int = Query(default=7, ge=1, le=60), store: Das
     return _json_safe({"market_states": states, "total": len(states)})
 
 
+@app.get("/api/intelligence")
+async def get_intelligence(store: DashboardStore = Depends(get_store)):
+    market_state = store.scan(MARKET_STATE_TABLE_NAME)
+    signals = store.scan(SIGNALS_TABLE_NAME, limit=100)
+    return _json_safe(_intelligence_summary(market_state, signals))
+
+
 @app.post("/api/controls/kill-switch")
 async def request_kill_switch(
     request: ControlRequest,
@@ -375,6 +420,96 @@ def _signal_row(signal: dict[str, Any], risk: dict[str, Any] | None) -> dict[str
         "trade_status": trade_status,
         "skip_reasons": (risk or {}).get("reasons", []) if trade_status == "SKIPPED" else [],
     }
+
+
+def _intelligence_summary(market_state: list[dict[str, Any]], signals: list[dict[str, Any]]) -> dict[str, Any]:
+    news_state = _latest_state_record(market_state, "news")
+    macro_state = _latest_state_record(market_state, "global_macro")
+    source_quality = _latest_source_quality(signals)
+    events = _intelligence_events(news_state, macro_state)
+
+    source_health = {
+        "status": "blocked" if source_quality.get("live_trade_blocked") else "degraded" if source_quality.get("score", 1) < 0.8 else "ok",
+        "score": source_quality.get("score", 1),
+        "reasons": source_quality.get("reasons", []),
+        "live_trade_blocked": source_quality.get("live_trade_blocked", False),
+        "latest_signal_id": source_quality.get("signal_id"),
+    }
+
+    return {
+        "source_health": source_health,
+        "latest_news": {
+            "latest_sentiment": news_state.get("latest_sentiment", news_state.get("overnight_sentiment")),
+            "updated_at": news_state.get("realtime_updated_at") or news_state.get("overnight_updated_at"),
+            "headlines": _latest_headlines(news_state),
+        },
+        "global_macro": {
+            "global_sentiment": macro_state.get("global_sentiment", "neutral"),
+            "updated_at": macro_state.get("updated_at"),
+            "data": macro_state.get("data", {}),
+        },
+        "events": events,
+    }
+
+
+def _latest_state_record(items: list[dict[str, Any]], record_type: str) -> dict[str, Any]:
+    matching = [
+        item
+        for item in items
+        if item.get("record_type") == record_type or item.get("timestamp") == f"state#{record_type}"
+    ]
+    if not matching:
+        return {}
+    return max(matching, key=lambda item: item.get("updated_at") or item.get("realtime_updated_at") or item.get("timestamp", ""))
+
+
+def _latest_source_quality(signals: list[dict[str, Any]]) -> dict[str, Any]:
+    latest: dict[str, Any] = {}
+    latest_time = ""
+    for signal in signals:
+        raw = signal.get("raw_features") or {}
+        source_quality = raw.get("source_quality") or {}
+        if not source_quality:
+            continue
+        created_at = str(signal.get("created_at") or signal.get("generated_at") or "")
+        if not latest or created_at >= latest_time:
+            latest = dict(source_quality)
+            latest["signal_id"] = signal.get("signal_id")
+            latest_time = created_at
+    return latest
+
+
+def _latest_headlines(news_state: dict[str, Any]) -> list[str]:
+    updates = news_state.get("realtime_news_updates") or []
+    if updates:
+        latest = max(updates, key=lambda item: item.get("timestamp", ""))
+        return list(latest.get("headlines") or [])
+
+    overnight = news_state.get("overnight_news") or {}
+    headlines = overnight.get("key_headlines") or []
+    if headlines:
+        return list(headlines)
+
+    return [
+        str(item.get("title"))
+        for item in (overnight.get("global_news") or []) + (overnight.get("india_overnight_news") or [])
+        if item.get("title")
+    ][:5]
+
+
+def _intelligence_events(news_state: dict[str, Any], macro_state: dict[str, Any]) -> list[dict[str, Any]]:
+    events: list[dict[str, Any]] = []
+    for headline in _latest_headlines(news_state):
+        events.append({"type": "news", "title": headline, "source": "market_state"})
+    if macro_state:
+        events.append(
+            {
+                "type": "macro",
+                "title": f"Global sentiment: {macro_state.get('global_sentiment', 'neutral')}",
+                "source": "global_macro",
+            }
+        )
+    return events[:10]
 
 
 def _recent_items(

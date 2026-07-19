@@ -66,6 +66,7 @@ class TradingAgentRuntimeStack(Stack):
         bedrock_config = config.get("bedrock", {})
         icici_config = config.get("icici", {})
         oracle_config = config.get("oracle", {})
+        apis_config = config.get("apis", {})
         
         paper_trading = trading_config.get("paper_trading", True)
         capital = trading_config.get("capital", 100000)
@@ -175,6 +176,10 @@ class TradingAgentRuntimeStack(Stack):
             "FILLS_TABLE": fills_table.table_name,
             "POSITIONS_TABLE": positions_table.table_name,
             "CODE_BUCKET": code_bucket.bucket_name,
+            "NEWS_API_KEY": apis_config.get("news_api_key", ""),
+            "TWITTER_BEARER_TOKEN": apis_config.get("twitter_bearer_token", ""),
+            "REDDIT_CLIENT_ID": apis_config.get("reddit_client_id", ""),
+            "REDDIT_CLIENT_SECRET": apis_config.get("reddit_client_secret", ""),
         }
 
         trading_log_group = logs.LogGroup(

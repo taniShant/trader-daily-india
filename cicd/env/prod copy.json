@@ -62,8 +62,7 @@
     "news_api_key": "05ff5ad4c93b44719e86818d3f73b98c",
     "twitter_bearer_token": "AAAAAAAAAAAAAAAAAAAAANDF%2BgEAAAAAEKaOPgijhG%2BBhLzFBlRvmjhPo0w%3DzQgrXsd9o50vYMUAnXU9YMNGzdrdJq0dwOGv1XQiqAd97AQ9fD",
     "reddit_client_id": "3k5vMpeKrNez8js2Zb5CWQ",
-    "reddit_client_secret": "e3Gq1a-DRZT8CJ6MFRrFwq6FXjGkHA",
-    "allow_simulated_news": false
+    "reddit_client_secret": "e3Gq1a-DRZT8CJ6MFRrFwq6FXjGkHA"
   },
   "trading": {
     "capital": 100000,

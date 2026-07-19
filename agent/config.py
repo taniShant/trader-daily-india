@@ -89,6 +89,7 @@ class ApiConfig(BaseModel):
     twitter_bearer_token: str | None = None
     reddit_client_id: str | None = None
     reddit_client_secret: str | None = None
+    allow_simulated_news: bool = False
 
 
 class Settings(BaseModel):
@@ -190,6 +191,10 @@ def _apply_env_overrides(config: dict) -> dict:
     config["oracle"]["use_for_live_execution"] = _env_bool(
         "ORACLE_USE_FOR_LIVE_EXECUTION",
         bool(config["oracle"].get("use_for_live_execution", True)),
+    )
+    config["apis"]["allow_simulated_news"] = _env_bool(
+        "ALLOW_SIMULATED_NEWS",
+        bool(config["apis"].get("allow_simulated_news", False)),
     )
 
     return config

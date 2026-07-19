@@ -35,6 +35,29 @@ class FakeStore(dashboard.DashboardStore):
                     "market_open": True,
                     "active_positions": 1,
                     "daily_pnl": Decimal("100"),
+                },
+                {
+                    "date": "2026-07-06",
+                    "timestamp": "state#news",
+                    "record_type": "news",
+                    "latest_sentiment": Decimal("0.25"),
+                    "realtime_updated_at": NOW,
+                    "realtime_news_updates": [
+                        {
+                            "timestamp": NOW,
+                            "new_news_count": 1,
+                            "sentiment_update": Decimal("0.25"),
+                            "has_breaking": True,
+                            "headlines": ["SEBI circular on settlement margins"],
+                        }
+                    ],
+                },
+                {
+                    "date": "2026-07-06",
+                    "timestamp": "state#global_macro",
+                    "record_type": "global_macro",
+                    "updated_at": NOW,
+                    "global_sentiment": "negative",
                 }
             ],
             dashboard.POSITIONS_TABLE_NAME: [
@@ -57,6 +80,13 @@ class FakeStore(dashboard.DashboardStore):
                     "confidence": 82,
                     "created_at": NOW,
                     "reasons": ["momentum"],
+                    "raw_features": {
+                        "source_quality": {
+                            "score": Decimal("0.95"),
+                            "reasons": [],
+                            "live_trade_blocked": False,
+                        }
+                    },
                 },
                 {
                     "signal_id": "sig-2",
@@ -65,6 +95,13 @@ class FakeStore(dashboard.DashboardStore):
                     "confidence": 58,
                     "created_at": NOW,
                     "reasons": ["setup forming"],
+                    "raw_features": {
+                        "source_quality": {
+                            "score": Decimal("0.45"),
+                            "reasons": ["global_news unavailable"],
+                            "live_trade_blocked": True,
+                        }
+                    },
                 },
             ],
             dashboard.RISK_EVENTS_TABLE_NAME: [
@@ -111,6 +148,7 @@ def test_dashboard_root_and_health_work_without_dynamodb_client():
     health = client.get("/api/health")
 
     assert root.status_code == 200
+    assert "intelligenceCard" in root.text
     assert health.status_code == 200
     assert health.json()["status"] == "healthy"
     assert "signals" in health.json()["tables"]
@@ -141,6 +179,21 @@ def test_dashboard_signals_include_skipped_trade_reasons():
     rows = response.json()["signals"]
     assert {row["trade_status"] for row in rows} == {"APPROVED", "SKIPPED"}
     assert skipped.json()["skipped_trades"][0]["skip_reasons"] == ["confidence below threshold"]
+
+
+def test_dashboard_intelligence_shows_source_health_and_latest_events():
+    client = client_with_store(FakeStore())
+
+    response = client.get("/api/intelligence")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["source_health"]["status"] == "blocked"
+    assert body["source_health"]["live_trade_blocked"] is True
+    assert body["source_health"]["reasons"] == ["global_news unavailable"]
+    assert body["latest_news"]["headlines"] == ["SEBI circular on settlement margins"]
+    assert body["global_macro"]["global_sentiment"] == "negative"
+    assert body["events"][0]["type"] == "news"
 
 
 def test_dashboard_controls_require_token_and_write_safe_command():

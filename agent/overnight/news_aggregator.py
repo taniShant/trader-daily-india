@@ -5,10 +5,11 @@ News Aggregator - Real-time news scanning during market hours + overnight batch.
 import os
 import json
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any, Optional
 import boto3
 
+from agent.config import settings
 from agent.overnight.state_store import get_daily_state, put_daily_state
 import requests
 from collections import deque
@@ -23,7 +24,8 @@ class NewsAggregator:
     def __init__(self):
         self.region = os.environ.get("AWS_REGION", "eu-west-2")
         self.market_state_table = os.environ.get("MARKET_STATE_TABLE", "svc-trd-market-state-dev")
-        self.news_api_key = os.environ.get("NEWS_API_KEY", "")
+        self.news_api_key = os.environ.get("NEWS_API_KEY") or settings.apis.news_api_key or ""
+        self.allow_simulated_news = _allow_simulated_news()
         self.dynamodb = boto3.resource('dynamodb', region_name=self.region)
         self.market_state_db = self.dynamodb.Table(self.market_state_table)
         
@@ -135,7 +137,7 @@ class NewsAggregator:
         news_items = []
         
         if not self.news_api_key:
-            return self._get_simulated_breaking_news()
+            return self._fallback_news("india", self._get_simulated_breaking_news)
         
         # Use 'from' parameter to get news since last scan
         from_time = (datetime.utcnow() - timedelta(minutes=minutes_back)).strftime("%Y-%m-%dT%H:%M:%S")
@@ -174,7 +176,7 @@ class NewsAggregator:
                 seen_titles.add(item["title"])
                 unique_items.append(item)
         
-        return unique_items[:15]
+        return unique_items[:15] or self._fallback_news("india", self._get_simulated_breaking_news)
     
     def _get_sector_news(self) -> List[Dict[str, Any]]:
         """Fetch sector-specific news (Banking, IT, Pharma, Auto, Energy)."""
@@ -199,7 +201,7 @@ class NewsAggregator:
                 except Exception as e:
                     print(f"Error fetching {sector} news: {e}")
         
-        return self._get_simulated_sector_news() if not news_items else news_items[:10]
+        return self._fallback_news("sector", self._get_simulated_sector_news) if not news_items else news_items[:10]
     
     def _get_company_news_realtime(self) -> List[Dict[str, Any]]:
         """Fetch real-time company news for NIFTY 50 stocks."""
@@ -224,7 +226,7 @@ class NewsAggregator:
                 except Exception as e:
                     print(f"Error fetching {stock} news: {e}")
         
-        return self._get_simulated_company_news() if not news_items else news_items[:15]
+        return self._fallback_news("company", self._get_simulated_company_news) if not news_items else news_items[:15]
     
     def _filter_new_headlines(self, news_items: List[Dict]) -> List[Dict]:
         """Filter out headlines already seen."""
@@ -306,7 +308,7 @@ class NewsAggregator:
     def _get_india_overnight_news(self) -> List[Dict[str, Any]]:
         """Fetch Indian news from overnight period."""
         # Similar to _get_india_breaking_news but with larger time window
-        return self._get_simulated_india_overnight_news()
+        return self._fallback_news("india_overnight", self._get_simulated_india_overnight_news)
     
     def _get_simulated_india_overnight_news(self) -> List[Dict[str, Any]]:
         """Simulated overnight Indian news."""
@@ -318,7 +320,7 @@ class NewsAggregator:
     
     def _get_global_news(self) -> List[Dict[str, Any]]:
         """Fetch global news for overnight analysis."""
-        return self._get_simulated_global_news()
+        return self._fallback_news("global", self._get_simulated_global_news)
     
     def _get_simulated_global_news(self) -> List[Dict[str, Any]]:
         """Simulated global news."""
@@ -395,3 +397,31 @@ class NewsAggregator:
             last_update = updates[-1]
             return last_update.get("has_breaking", False)
         return False
+
+    def _fallback_news(self, category: str, factory) -> List[Dict[str, Any]]:
+        if self.allow_simulated_news:
+            return [_mark_news_item(item, "simulated", "simulated") for item in factory()]
+
+        return [
+            {
+                "title": f"{category} news source unavailable",
+                "source": "system",
+                "category": category,
+                "source_mode": "unavailable",
+                "source_status": "missing_news_api_key_or_empty_provider_response",
+                "published_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ]
+
+
+def _allow_simulated_news() -> bool:
+    return os.environ.get("ALLOW_SIMULATED_NEWS", "").lower() in {"1", "true", "yes", "y", "on"} or bool(
+        settings.apis.allow_simulated_news
+    )
+
+
+def _mark_news_item(item: Dict[str, Any], source_mode: str, source_status: str) -> Dict[str, Any]:
+    marked = dict(item)
+    marked["source_mode"] = source_mode
+    marked["source_status"] = source_status
+    return marked

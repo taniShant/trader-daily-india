@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from agent.data.company_announcements import CompanyAnnouncement
+from agent.data.quality import SourceQualityResult, check_source_quality
 
 
 @dataclass(frozen=True)
@@ -16,6 +17,9 @@ class SentimentFeatures:
     event_count: int
     bias: str
     reasons: list[str]
+    source_quality_score: float = 1.0
+    source_quality_reasons: list[str] | None = None
+    live_trade_blocked: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return self.__dict__.copy()
@@ -27,7 +31,17 @@ def compute_sentiment_features(
     indian_news: list[dict[str, Any]] | None = None,
     company_news: list[dict[str, Any]] | None = None,
     announcements: list[CompanyAnnouncement] | None = None,
+    regulatory_events: list[Any] | None = None,
+    source_quality: SourceQualityResult | None = None,
 ) -> SentimentFeatures:
+    source_quality = source_quality or check_source_quality(
+        global_news=[global_context] if global_context else [],
+        indian_news=indian_news or [],
+        company_news=company_news or [],
+        announcements=announcements or [],
+        regulatory_events=regulatory_events or [],
+        require_official_events=False,
+    )
     global_score = _global_score(global_context or {})
     indian_score = _news_score(indian_news or [])
     company_score = _news_score(company_news or [])
@@ -40,15 +54,20 @@ def compute_sentiment_features(
         4,
     )
     reasons = _reasons(global_score, indian_score, company_score, announcement_score)
+    if source_quality.live_trade_blocked:
+        reasons.append("source_quality_block")
     return SentimentFeatures(
         global_score=global_score,
         indian_market_score=indian_score,
         company_news_score=company_score,
         announcement_score=announcement_score,
         combined_score=combined,
-        event_count=len(indian_news or []) + len(company_news or []) + len(announcements or []),
+        event_count=len(indian_news or []) + len(company_news or []) + len(announcements or []) + len(regulatory_events or []),
         bias="bullish" if combined > 0.2 else "bearish" if combined < -0.2 else "neutral",
         reasons=reasons,
+        source_quality_score=source_quality.score,
+        source_quality_reasons=source_quality.reasons,
+        live_trade_blocked=source_quality.live_trade_blocked,
     )
 
 

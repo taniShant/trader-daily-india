@@ -29,11 +29,26 @@ def score_signal(
 ) -> TradeSignal:
     score, reasons = _weighted_score(technical, sentiment, derivatives)
     action = SignalAction.BUY if score >= 0.35 else SignalAction.SELL if score <= -0.35 else SignalAction.HOLD
+    if sentiment.live_trade_blocked:
+        action = SignalAction.HOLD
+        reasons.append("source_quality_block")
+        reasons.extend(sentiment.source_quality_reasons or [])
     confidence = min(95, max(0, int(abs(score) * 100)))
+    if sentiment.source_quality_score < 1.0:
+        confidence = int(confidence * sentiment.source_quality_score)
+    if sentiment.live_trade_blocked:
+        confidence = 0
     risk_level = _risk_level(technical, sentiment, derivatives)
+    if sentiment.live_trade_blocked:
+        risk_level = RiskLevel.HIGH
     raw_features: dict[str, Any] = {
         "technical": technical.to_dict(),
         "sentiment": sentiment.to_dict(),
+        "source_quality": {
+            "score": sentiment.source_quality_score,
+            "reasons": sentiment.source_quality_reasons or [],
+            "live_trade_blocked": sentiment.live_trade_blocked,
+        },
     }
     if derivatives is not None:
         raw_features["derivatives"] = derivatives.to_dict()

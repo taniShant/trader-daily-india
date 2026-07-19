@@ -27,6 +27,25 @@ cd /Users/shantanu/Downloads/CodeProjects/AGENTIC_AI_PROJECTS/trader-daily-india
 # Configure the agent (this packages and uploads your code)
 agentcore create
 
+# DDB Tables
+vc-trd-market-state-prod
+Look for:
+date = 2026-07-18
+timestamp = state#global_macro
+timestamp = state#news
+timestamp = state#watchlist
+Also check heartbeat:
+date = heartbeat#trading-bot
+That tells you the bot is still running and periodically alive.
+Other useful tables:
+svc-trd-learning-prod       # pattern learning / daily analysis
+svc-trd-trades-prod         # current trade records / paper trades
+svc-trd-signals-prod        # signal audit table
+svc-trd-orders-prod         # order audit table
+svc-trd-fills-prod          # fill audit table
+svc-trd-positions-prod      # position table
+svc-trd-risk-events-prod    # risk decisions / blocks
+
 # Deploy the agent
 agentcore launch \
   --runtime-name svc-trd-strands-agent \

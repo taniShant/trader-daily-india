@@ -41,6 +41,7 @@
             <button class="tab-btn" onclick="switchTab('controls', this)">Controls</button>
             <button class="tab-btn" onclick="switchTab('learning', this)">Learning</button>
             <button class="tab-btn" onclick="switchTab('market', this)">Market</button>
+            <button class="tab-btn" onclick="switchTab('intelligence', this)">Intelligence</button>
         </div>
         
         <!-- Filters (shown only on Trades tab) -->
@@ -195,6 +196,35 @@
                     </thead>
                     <tbody>
                         <tr><td colspan="5" class="loading">Loading market state...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="chart-card" id="intelligenceCard" style="display: none;">
+            <h3>Market Intelligence</h3>
+            <div class="status-layout">
+                <div>
+                    <h4>Source Health</h4>
+                    <dl id="sourceHealthDetails"></dl>
+                </div>
+                <div>
+                    <h4>Global Macro</h4>
+                    <dl id="globalMacroDetails"></dl>
+                </div>
+            </div>
+            <h4>Latest Headlines And Events</h4>
+            <div class="table-container">
+                <table id="intelligenceTable">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Title</th>
+                            <th>Source</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="3" class="loading">Loading intelligence...</td></tr>
                     </tbody>
                 </table>
             </div>

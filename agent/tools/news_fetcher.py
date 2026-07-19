@@ -6,10 +6,17 @@ Supports NewsAPI, RSS feeds, and fallback simulated data.
 import os
 import re
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Any, Optional
 import requests
 from collections import deque
+
+from agent.config import settings
+
+
+class NewsSourceUnavailable(RuntimeError):
+    """Raised when a required production news source is unavailable."""
+
 
 class NewsFetcher:
     """
@@ -18,7 +25,8 @@ class NewsFetcher:
     """
     
     def __init__(self):
-        self.news_api_key = os.environ.get("NEWS_API_KEY", "")
+        self.news_api_key = os.environ.get("NEWS_API_KEY") or settings.apis.news_api_key or ""
+        self.allow_simulated_news = _allow_simulated_news()
         self.seen_headlines = deque(maxlen=500)  # Avoid duplicates
         
         # Keywords for filtering relevant financial news
@@ -40,7 +48,7 @@ class NewsFetcher:
         news_items = []
         
         if not self.news_api_key:
-            return self._get_simulated_news()
+            return self._fallback_news("india", self._get_simulated_news)
         
         from_time = (datetime.utcnow() - timedelta(minutes=minutes_back)).strftime("%Y-%m-%dT%H:%M:%S")
         
@@ -85,7 +93,7 @@ class NewsFetcher:
             time.sleep(0.5)  # Rate limit protection
         
         # Return unique items
-        return self._deduplicate_news(news_items)[:30]
+        return self._deduplicate_news(news_items)[:30] or self._fallback_news("india", self._get_simulated_news)
     
     def fetch_company_news(self, stock_symbol: str) -> List[Dict[str, Any]]:
         """
@@ -100,7 +108,7 @@ class NewsFetcher:
         news_items = []
         
         if not self.news_api_key:
-            return self._get_simulated_company_news(stock_symbol)
+            return self._fallback_news("company", lambda: self._get_simulated_company_news(stock_symbol), stock_symbol)
         
         # Company name mapping for better search
         company_names = {
@@ -136,7 +144,7 @@ class NewsFetcher:
         except Exception as e:
             print(f"Error fetching company news for {stock_symbol}: {e}")
         
-        return news_items[:10]
+        return news_items[:10] or self._fallback_news("company", lambda: self._get_simulated_company_news(stock_symbol), stock_symbol)
     
     def fetch_sector_news(self) -> List[Dict[str, Any]]:
         """
@@ -178,7 +186,7 @@ class NewsFetcher:
                 
                 time.sleep(0.3)
         
-        return self._get_simulated_sector_news() if not all_sector_news else all_sector_news[:20]
+        return self._fallback_news("sector", self._get_simulated_sector_news) if not all_sector_news else all_sector_news[:20]
     
     def fetch_global_news(self) -> List[Dict[str, Any]]:
         """
@@ -212,7 +220,7 @@ class NewsFetcher:
                 except Exception as e:
                     print(f"Error fetching global news for {query}: {e}")
         
-        return self._get_simulated_global_news() if not news_items else news_items[:15]
+        return self._fallback_news("global", self._get_simulated_global_news) if not news_items else news_items[:15]
     
     def _is_relevant_news(self, title: str) -> bool:
         """Check if news is relevant to Indian stock market."""
@@ -245,6 +253,22 @@ class NewsFetcher:
                 seen.add(title)
                 unique.append(item)
         return unique
+
+    def _fallback_news(self, category: str, factory, stock_symbol: str | None = None) -> List[Dict[str, Any]]:
+        if self.allow_simulated_news:
+            return [_mark_news_item(item, source_mode="simulated", source_status="simulated") for item in factory()]
+
+        marker = {
+            "title": f"{category} news source unavailable",
+            "source": "system",
+            "category": category,
+            "source_mode": "unavailable",
+            "source_status": "missing_news_api_key_or_empty_provider_response",
+            "published_at": datetime.now(timezone.utc).isoformat(),
+        }
+        if stock_symbol:
+            marker["stock"] = stock_symbol
+        return [marker]
     
     # ============================================================
     # SIMULATED NEWS (Fallback when API unavailable)
@@ -332,3 +356,16 @@ def get_news_fetcher() -> NewsFetcher:
     if _news_fetcher is None:
         _news_fetcher = NewsFetcher()
     return _news_fetcher
+
+
+def _allow_simulated_news() -> bool:
+    return os.environ.get("ALLOW_SIMULATED_NEWS", "").lower() in {"1", "true", "yes", "y", "on"} or bool(
+        settings.apis.allow_simulated_news
+    )
+
+
+def _mark_news_item(item: Dict[str, Any], *, source_mode: str, source_status: str) -> Dict[str, Any]:
+    marked = dict(item)
+    marked["source_mode"] = source_mode
+    marked["source_status"] = source_status
+    return marked
