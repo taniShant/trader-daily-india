@@ -366,6 +366,17 @@ Notes / Next Step:
 ```
 
 ```text
+Date: 2026-07-20
+Work Package: P10-WP01 - Fix paper trading Bedrock model identifier runtime error
+Status: Implemented
+Files Changed: agent/config.py, cicd/env/prod.json, containers/trading-bot/entrypoint.sh, agent/trading_agent_with_execution.py, tests/unit/test_bedrock_model_ids.py, PROJECT_PLAN.md
+What Changed: Replaced invalid Bedrock model IDs that ECS reported during paper trading. The reasoning model now uses `anthropic.claude-3-7-sonnet-20250219-v1:0`; the deep-research model now uses `anthropic.claude-opus-4-6-v1`; fast/default remains Claude 3 Haiku. Startup fallbacks and the alternate MCP trading-agent example now use the same config path. Added a regression test to prevent the known-invalid Sonnet 3.5 and Opus 3 IDs from returning to production config or container startup defaults.
+Test Command: aws bedrock list-foundation-models --region eu-west-2 --profile default; python -m py_compile agent/config.py agent/main.py agent/trading_agent_with_execution.py tests/unit/test_bedrock_model_ids.py; python -m pytest tests/unit/test_bedrock_model_ids.py tests/unit/test_model_routing.py tests/unit/test_config.py -q; bash scripts/verify_cdk_synth.sh
+Test Result: AWS Bedrock model listing for account `873660758628` in `eu-west-2` showed Haiku 3, Sonnet 3.7, Sonnet 4.6, and Opus 4.6 as available model IDs, while the failing Sonnet 3.5/Opus 3 IDs were not listed. py_compile passed. Focused model/config tests passed with 11 tests. CDK synth passed and shows ECS configured with Haiku 3, Sonnet 3.7, and Opus 4.6.
+Notes / Next Step: Rebuild/push the trading-bot image and redeploy `svc-trd-AgentRuntimeStack`, then watch CloudWatch logs for the absence of `ValidationException: provided model identifier is invalid`.
+```
+
+```text
 Date: 2026-07-19
 Work Package: Full local verification gate before P10-WP01 paper trading
 Status: Tested

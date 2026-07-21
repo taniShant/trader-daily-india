@@ -413,3 +413,49 @@ sudo ln -s /usr/local/sessionmanagerplugin/bin/session-manager-plugin /usr/local
 
 Connect to instance: 
 aws ssm start-session --target i-03681d7414161dd6d --profile tiiqu --region eu-west-2 (Note i-03681d7414161dd6d is instance id of running ec2) 
+
+# Commands 
+
+#Spin up 2 services 
+
+aws ecs update-service \
+  --cluster trading-cluster-prod \
+  --service trading-bot-prod \
+  --desired-count 1 \
+  --region eu-west-2 \
+  --profile default
+
+
+aws ecs update-service \
+  --cluster trading-cluster-prod \
+  --service dashboard-prod \
+  --desired-count 1 \
+  --region eu-west-2 \
+  --profile default
+
+# Shut down 2 services 
+
+aws ecs update-service \
+  --cluster trading-cluster-prod \
+  --service trading-bot-prod \
+  --desired-count 0 \
+  --region eu-west-2 \
+  --profile default
+
+
+aws ecs update-service \
+  --cluster trading-cluster-prod \
+  --service dashboard-prod \
+  --desired-count 0 \
+  --region eu-west-2 \
+  --profile default
+
+# Check 2 service status 
+
+aws ecs describe-services \
+  --cluster trading-cluster-prod \
+  --services trading-bot-prod dashboard-prod \
+  --region eu-west-2 \
+  --profile default \
+  --query 'services[].{service:serviceName,desired:desiredCount,running:runningCount,pending:pendingCount,status:status}' \
+  --output table

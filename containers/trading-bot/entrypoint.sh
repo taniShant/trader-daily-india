@@ -81,10 +81,10 @@ echo "   Min Confidence: ${MIN_CONFIDENCE_THRESHOLD:-70}%"
 echo "   Max Daily Loss: ${MAX_DAILY_LOSS_PERCENT:-4}%"
 echo "   Max Position Size: ${MAX_POSITION_SIZE_PERCENT:-10}%"
 echo "   Watchlist Size: ${WATCHLIST_SIZE:-10}"
-echo "   Bedrock Default Model: ${BEDROCK_MODEL_ID:-anthropic.claude-3-haiku-20240307-v1:0}"
-echo "   Bedrock Fast Model: ${BEDROCK_FAST_MODEL_ID:-anthropic.claude-3-haiku-20240307-v1:0}"
-echo "   Bedrock Reasoning Model: ${BEDROCK_REASONING_MODEL_ID:-anthropic.claude-3-5-sonnet-20241022-v2:0}"
-echo "   Bedrock Deep Research Model: ${BEDROCK_DEEP_RESEARCH_MODEL_ID:-anthropic.claude-3-opus-20240229-v1:0}"
+echo "   Bedrock Default Model: ${BEDROCK_MODEL_ID:-anthropic.claude-3-7-sonnet-20250219-v1:0}"
+echo "   Bedrock Fast Model: ${BEDROCK_FAST_MODEL_ID:-anthropic.claude-3-7-sonnet-20250219-v1:0}"
+echo "   Bedrock Reasoning Model: ${BEDROCK_REASONING_MODEL_ID:-anthropic.claude-3-7-sonnet-20250219-v1:0}"
+echo "   Bedrock Deep Research Model: ${BEDROCK_DEEP_RESEARCH_MODEL_ID:-anthropic.claude-opus-4-6-v1}"
 echo "   Oracle Static IP: ${ORACLE_STATIC_IP:-${STATIC_IP:-80.225.242.6}}"
 if [ -n "$SCHEDULED_ACTION" ]; then
     echo "   Scheduled Action: $SCHEDULED_ACTION"
@@ -154,10 +154,10 @@ print(f'Capital: ₹{float(os.environ.get(\"CAPITAL\", 100000)):,.2f}')
 print(f'Min Confidence: {os.environ.get(\"MIN_CONFIDENCE_THRESHOLD\", \"70\")}%')
 print(f'Max Daily Loss: {os.environ.get(\"MAX_DAILY_LOSS_PERCENT\", \"4\")}%')
 print(f'Max Position Size: {os.environ.get(\"MAX_POSITION_SIZE_PERCENT\", \"10\")}%')
-print(f'Bedrock Default Model: {os.environ.get(\"BEDROCK_MODEL_ID\", \"anthropic.claude-3-haiku-20240307-v1:0\")}')
-print(f'Bedrock Fast Model: {os.environ.get(\"BEDROCK_FAST_MODEL_ID\", \"anthropic.claude-3-haiku-20240307-v1:0\")}')
-print(f'Bedrock Reasoning Model: {os.environ.get(\"BEDROCK_REASONING_MODEL_ID\", \"anthropic.claude-3-5-sonnet-20241022-v2:0\")}')
-print(f'Bedrock Deep Research Model: {os.environ.get(\"BEDROCK_DEEP_RESEARCH_MODEL_ID\", \"anthropic.claude-3-opus-20240229-v1:0\")}')
+print(f'Bedrock Default Model: {os.environ.get(\"BEDROCK_MODEL_ID\", \"anthropic.claude-3-7-sonnet-20250219-v1:0\")}')
+print(f'Bedrock Fast Model: {os.environ.get(\"BEDROCK_FAST_MODEL_ID\", \"anthropic.claude-3-7-sonnet-20250219-v1:0\")}')
+print(f'Bedrock Reasoning Model: {os.environ.get(\"BEDROCK_REASONING_MODEL_ID\", \"anthropic.claude-3-7-sonnet-20250219-v1:0\")}')
+print(f'Bedrock Deep Research Model: {os.environ.get(\"BEDROCK_DEEP_RESEARCH_MODEL_ID\", \"anthropic.claude-opus-4-6-v1\")}')
 print(f'Oracle Proxy: {os.environ.get(\"ORACLE_EXECUTION_PROXY_BASE_URL\", \"not configured\")}')
 print(f'Oracle Proxy Shared Secret: {\"✓ Present\" if os.environ.get(\"ORACLE_PROXY_SHARED_SECRET\") else \"✗ Missing/Not required in paper\"}')
 print(f'Sessions Table: {os.environ.get(\"SESSIONS_TABLE\", \"svc-trd-sessions-dev\")}')
@@ -187,10 +187,10 @@ try:
     max_daily_loss_percent = float(os.environ.get('MAX_DAILY_LOSS_PERCENT', 4))
     max_position_size_percent = float(os.environ.get('MAX_POSITION_SIZE_PERCENT', 10))
     watchlist_size = int(os.environ.get('WATCHLIST_SIZE', 10))
-    bedrock_model_id = os.environ.get('BEDROCK_MODEL_ID', 'anthropic.claude-3-haiku-20240307-v1:0')
-    bedrock_fast_model_id = os.environ.get('BEDROCK_FAST_MODEL_ID', 'anthropic.claude-3-haiku-20240307-v1:0')
-    bedrock_reasoning_model_id = os.environ.get('BEDROCK_REASONING_MODEL_ID', 'anthropic.claude-3-5-sonnet-20241022-v2:0')
-    bedrock_deep_research_model_id = os.environ.get('BEDROCK_DEEP_RESEARCH_MODEL_ID', 'anthropic.claude-3-opus-20240229-v1:0')
+    bedrock_model_id = os.environ.get('BEDROCK_MODEL_ID', 'anthropic.claude-3-7-sonnet-20250219-v1:0')
+    bedrock_fast_model_id = os.environ.get('BEDROCK_FAST_MODEL_ID', 'anthropic.claude-3-7-sonnet-20250219-v1:0')
+    bedrock_reasoning_model_id = os.environ.get('BEDROCK_REASONING_MODEL_ID', 'anthropic.claude-3-7-sonnet-20250219-v1:0')
+    bedrock_deep_research_model_id = os.environ.get('BEDROCK_DEEP_RESEARCH_MODEL_ID', 'anthropic.claude-opus-4-6-v1')
     bedrock_region = os.environ.get('BEDROCK_REGION', 'eu-west-2')
     static_ip = os.environ.get('ORACLE_STATIC_IP') or os.environ.get('STATIC_IP', '80.225.242.6')
     

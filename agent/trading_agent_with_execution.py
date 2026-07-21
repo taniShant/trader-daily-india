@@ -9,11 +9,12 @@ from strands import Agent
 from strands.models import BedrockModel
 from strands.tools.mcp import MCPClient
 from mcp import stdio_client, StdioServerParameters
+from agent.config import settings
 
 # Initialize model
 model = BedrockModel(
-    model_id="us.anthropic.claude-3-5-sonnet-20241022-v2:0",
-    region_name="us-east-1"
+    model_id=settings.bedrock.reasoning_model_id,
+    region_name=settings.bedrock.region,
 )
 
 async def create_trading_agent():

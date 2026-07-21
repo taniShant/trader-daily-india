@@ -29,6 +29,10 @@ def test_get_model_lazily_constructs_bedrock_model_by_task(monkeypatch):
     monkeypatch.setitem(sys.modules, "strands.models", fake_strands_models)
     monkeypatch.setattr(main_module, "models", {})
 
+    fake_session_module = types.ModuleType("agent.bedrock_session")
+    fake_session_module.build_bedrock_boto_session = lambda: None
+    monkeypatch.setitem(sys.modules, "agent.bedrock_session", fake_session_module)
+
     reasoning_model = main_module.get_model("reasoning")
     cached_reasoning_model = main_module.get_model("reasoning")
     deep_model = main_module.get_model("deep_research")

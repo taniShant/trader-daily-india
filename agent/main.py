@@ -88,13 +88,20 @@ def get_model(task_type: str = "default"):
     model_id = MODEL_IDS_BY_TASK.get(task_type, MODEL_ID)
     if task_type not in models:
         from strands.models import BedrockModel
+        from .bedrock_session import build_bedrock_boto_session
 
-        models[task_type] = BedrockModel(
-            model_id=model_id,
-            region_name=AWS_REGION,
-            temperature=0.2,
-            max_tokens=4096,
-        )
+        boto_session = build_bedrock_boto_session()
+        model_kwargs = {
+            "model_id": model_id,
+            "temperature": 0.2,
+            "max_tokens": 4096,
+        }
+        if boto_session is None:
+            model_kwargs["region_name"] = AWS_REGION
+        else:
+            model_kwargs["boto_session"] = boto_session
+
+        models[task_type] = BedrockModel(**model_kwargs)
     return models[task_type]
 
 

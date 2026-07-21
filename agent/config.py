@@ -19,11 +19,21 @@ class AwsConfig(BaseModel):
 class BedrockConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    model_id: str = "anthropic.claude-3-haiku-20240307-v1:0"
-    fast_model_id: str = "anthropic.claude-3-haiku-20240307-v1:0"
-    reasoning_model_id: str = "anthropic.claude-3-5-sonnet-20241022-v2:0"
-    deep_research_model_id: str = "anthropic.claude-3-opus-20240229-v1:0"
+    model_id: str = "anthropic.claude-3-7-sonnet-20250219-v1:0"
+    fast_model_id: str = "anthropic.claude-3-7-sonnet-20250219-v1:0"
+    reasoning_model_id: str = "anthropic.claude-3-7-sonnet-20250219-v1:0"
+    deep_research_model_id: str = "anthropic.claude-opus-4-6-v1"
     region: str = "eu-west-2"
+
+
+class CrossAccountBedrockConfig(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    enabled: bool = False
+    role_arn: str | None = None
+    external_id: str | None = None
+    region: str = "eu-west-2"
+    session_name: str = "trd-bedrock-runtime"
 
 
 class DynamoDbConfig(BaseModel):
@@ -98,6 +108,7 @@ class Settings(BaseModel):
     environment: str = "prod"
     aws: AwsConfig = Field(default_factory=AwsConfig)
     bedrock: BedrockConfig = Field(default_factory=BedrockConfig)
+    cross_account_bedrock: CrossAccountBedrockConfig = Field(default_factory=CrossAccountBedrockConfig)
     dynamodb: DynamoDbConfig = Field(default_factory=DynamoDbConfig)
     trading: TradingConfig = Field(default_factory=TradingConfig)
     oracle: OracleConfig = Field(default_factory=OracleConfig)
@@ -123,6 +134,7 @@ def _apply_env_overrides(config: dict) -> dict:
     config = dict(config)
     config.setdefault("aws", {})
     config.setdefault("bedrock", {})
+    config.setdefault("cross_account_bedrock", {})
     config.setdefault("dynamodb", {})
     config.setdefault("trading", {})
     config.setdefault("oracle", {})
@@ -139,6 +151,10 @@ def _apply_env_overrides(config: dict) -> dict:
         ("bedrock", "fast_model_id"): "BEDROCK_FAST_MODEL_ID",
         ("bedrock", "reasoning_model_id"): "BEDROCK_REASONING_MODEL_ID",
         ("bedrock", "deep_research_model_id"): "BEDROCK_DEEP_RESEARCH_MODEL_ID",
+        ("cross_account_bedrock", "role_arn"): "CROSS_ACCOUNT_BEDROCK_ROLE_ARN",
+        ("cross_account_bedrock", "external_id"): "CROSS_ACCOUNT_BEDROCK_EXTERNAL_ID",
+        ("cross_account_bedrock", "region"): "CROSS_ACCOUNT_BEDROCK_REGION",
+        ("cross_account_bedrock", "session_name"): "CROSS_ACCOUNT_BEDROCK_SESSION_NAME",
         ("dynamodb", "session_table"): "SESSIONS_TABLE",
         ("dynamodb", "trades_table"): "TRADES_TABLE",
         ("dynamodb", "learning_table"): "LEARNING_TABLE",
@@ -195,6 +211,10 @@ def _apply_env_overrides(config: dict) -> dict:
     config["apis"]["allow_simulated_news"] = _env_bool(
         "ALLOW_SIMULATED_NEWS",
         bool(config["apis"].get("allow_simulated_news", False)),
+    )
+    config["cross_account_bedrock"]["enabled"] = _env_bool(
+        "CROSS_ACCOUNT_BEDROCK_ENABLED",
+        bool(config["cross_account_bedrock"].get("enabled", False)),
     )
 
     return config

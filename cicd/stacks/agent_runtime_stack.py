@@ -64,6 +64,7 @@ class TradingAgentRuntimeStack(Stack):
         trading_config = config.get("trading", {})
         scheduled_tasks_config = config.get("scheduled_tasks", {})
         bedrock_config = config.get("bedrock", {})
+        cross_account_bedrock_config = config.get("cross_account_bedrock", {})
         icici_config = config.get("icici", {})
         oracle_config = config.get("oracle", {})
         apis_config = config.get("apis", {})
@@ -166,6 +167,14 @@ class TradingAgentRuntimeStack(Stack):
             "BEDROCK_REASONING_MODEL_ID": bedrock_reasoning_model,
             "BEDROCK_DEEP_RESEARCH_MODEL_ID": bedrock_deep_research_model,
             "BEDROCK_REGION": bedrock_region,
+            "CROSS_ACCOUNT_BEDROCK_ENABLED": str(cross_account_bedrock_config.get("enabled", False)),
+            "CROSS_ACCOUNT_BEDROCK_ROLE_ARN": cross_account_bedrock_config.get("role_arn", ""),
+            "CROSS_ACCOUNT_BEDROCK_EXTERNAL_ID": cross_account_bedrock_config.get("external_id", ""),
+            "CROSS_ACCOUNT_BEDROCK_REGION": cross_account_bedrock_config.get("region", bedrock_region),
+            "CROSS_ACCOUNT_BEDROCK_SESSION_NAME": cross_account_bedrock_config.get(
+                "session_name",
+                "trd-bedrock-runtime",
+            ),
             "SESSIONS_TABLE": session_table.table_name,
             "TRADES_TABLE": trades_table.table_name,
             "LEARNING_TABLE": learning_table.table_name,

@@ -1,0 +1,23 @@
+{
+  "environment": "prod",
+  "consumer": {
+    "account_id": "873660758628",
+    "region": "eu-west-2",
+    "ecs_task_role_name": "trd-prod-ecs-taskexecute-role"
+  },
+  "provider": {
+    "account_id": "632943041262",
+    "region": "eu-west-2",
+    "bedrock_invoke_role_name": "trd-bedrock-invoke-from-873-role"
+  },
+  "security": {
+    "external_id": "trd-bedrock-prod-632-from-873"
+  },
+  "bedrock": {
+    "model_ids": [
+      "anthropic.claude-3-7-sonnet-20250219-v1:0",
+      "anthropic.claude-sonnet-4-6",
+      "anthropic.claude-opus-4-6-v1"
+    ]
+  }
+}

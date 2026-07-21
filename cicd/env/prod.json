@@ -108,10 +108,17 @@
     "positions_table": "svc-trd-positions-prod"
   },
   "bedrock": {
-    "model_id": "anthropic.claude-3-haiku-20240307-v1:0",
-    "fast_model_id": "anthropic.claude-3-haiku-20240307-v1:0",
-    "reasoning_model_id": "anthropic.claude-3-5-sonnet-20241022-v2:0",
-    "deep_research_model_id": "anthropic.claude-3-opus-20240229-v1:0",
+    "model_id": "anthropic.claude-3-7-sonnet-20250219-v1:0",
+    "fast_model_id": "anthropic.claude-3-7-sonnet-20250219-v1:0",
+    "reasoning_model_id": "anthropic.claude-3-7-sonnet-20250219-v1:0",
+    "deep_research_model_id": "anthropic.claude-opus-4-6-v1",
     "region": "eu-west-2"
+  },
+  "cross_account_bedrock": {
+    "enabled": true,
+    "role_arn": "arn:aws:iam::632943041262:role/trd-bedrock-invoke-from-873-role",
+    "external_id": "trd-bedrock-prod-632-from-873",
+    "region": "eu-west-2",
+    "session_name": "trd-bedrock-runtime"
   }
 }
