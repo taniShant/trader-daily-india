@@ -162,5 +162,8 @@ class PreMarketScanner:
         
         # Fallback to default watchlist
         print("⚠️ No pre-market watchlist found, using default")
-        return ["RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK",
-                "SBIN", "BHARTIARTL", "KOTAKBANK", "BAJFINANCE", "ITC"]
+        # Previous broader fallback:
+        # ["RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK",
+        #  "SBIN", "BHARTIARTL", "KOTAKBANK", "BAJFINANCE", "ITC"]
+        return ["RELIANCE", "INFY", "ICICIBANK", "BHARTIARTL",
+                "MARUTI", "JSWSTEEL", "BAJAJFINSV", "ASIANPAINT"]

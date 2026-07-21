@@ -160,6 +160,82 @@ def consult_derivatives_analyst(stock_symbol: str) -> Dict[str, Any]:
     result = get_specialist_agents()["derivatives"](f"Analyze option chain for {stock_symbol}")
     return result if isinstance(result, dict) else {"analysis": str(result)[:500]}
 
+
+def _extract_text_from_content(content: Any) -> str:
+    """Extract model text from common Strands/Bedrock message content shapes."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for item in content:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict):
+                text = item.get("text")
+                if text:
+                    parts.append(str(text))
+        return "\n".join(parts)
+    if isinstance(content, dict):
+        return str(content.get("text") or content)
+    return str(content or "")
+
+
+def _agent_result_to_text(result: Any) -> str:
+    """Normalize Strands AgentResult and plain values into parseable text."""
+    if isinstance(result, str):
+        return result
+    if isinstance(result, dict):
+        return json.dumps(result)
+
+    structured_output = getattr(result, "structured_output", None)
+    if structured_output is not None:
+        if hasattr(structured_output, "model_dump_json"):
+            return structured_output.model_dump_json()
+        if hasattr(structured_output, "model_dump"):
+            return json.dumps(structured_output.model_dump())
+
+    message = getattr(result, "message", None)
+    if isinstance(message, dict):
+        return _extract_text_from_content(message.get("content"))
+
+    content = getattr(message, "content", None)
+    if content is not None:
+        return _extract_text_from_content(content)
+
+    return str(result)
+
+
+def _parse_recommendation_payload(result: Any) -> Dict[str, Any]:
+    """Parse a final trading recommendation from model output."""
+    if isinstance(result, dict):
+        return result
+
+    text = _agent_result_to_text(result)
+    try:
+        parsed = json.loads(text)
+        if isinstance(parsed, dict):
+            return parsed
+    except json.JSONDecodeError:
+        pass
+
+    import re
+
+    code_block_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, flags=re.DOTALL | re.IGNORECASE)
+    json_text = code_block_match.group(1) if code_block_match else None
+    if json_text is None:
+        json_match = re.search(r"\{.*?\}", text, flags=re.DOTALL)
+        json_text = json_match.group(0) if json_match else None
+
+    if json_text:
+        try:
+            parsed = json.loads(json_text)
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            pass
+
+    return {"action": "HOLD", "confidence": 50, "reasoning": text[:300], "risk_level": "HIGH"}
+
 # ============================================================
 # ORCHESTRATOR AGENT 
 # ============================================================
@@ -314,14 +390,22 @@ class TradingBot:
         try:
             self.watchlist = self.pre_market_scanner.get_watchlist()
             if not self.watchlist:
+                # Previous broader fallback:
+                # ["RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK",
+                #  "SBIN", "BHARTIARTL", "KOTAKBANK", "BAJFINANCE", "MARUTI", "ITC"]
                 self.watchlist = [
-                    "RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK",
-                    "SBIN", "BHARTIARTL", "KOTAKBANK", "BAJFINANCE", "MARUTI", "ITC"
+                    "RELIANCE", "INFY", "ICICIBANK", "BHARTIARTL",
+                    "MARUTI", "JSWSTEEL", "BAJAJFINSV", "ASIANPAINT"
                 ][:WATCHLIST_SIZE]
             print(f"📋 Watchlist ({len(self.watchlist)} stocks): {', '.join(self.watchlist)}")
         except Exception as e:
             print(f"Error loading watchlist: {e}")
-            self.watchlist = ["RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK", "MARUTI"][:WATCHLIST_SIZE]
+            # Previous emergency fallback:
+            # ["RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK", "MARUTI"]
+            self.watchlist = [
+                "RELIANCE", "INFY", "ICICIBANK", "BHARTIARTL",
+                "MARUTI", "JSWSTEEL", "BAJAJFINSV", "ASIANPAINT"
+            ][:WATCHLIST_SIZE]
     
     def _is_market_hours(self) -> bool:
         """Check if market is open (9:15 AM - 3:30 PM IST)."""
@@ -420,16 +504,7 @@ class TradingBot:
         
         try:
             result = get_orchestrator()(prompt)
-            
-            if isinstance(result, str):
-                import re
-                json_match = re.search(r'\{[^{}]*\}', result)
-                if json_match:
-                    result_dict = json.loads(json_match.group())
-                else:
-                    result_dict = {"action": "HOLD", "reasoning": result[:200]}
-            else:
-                result_dict = result
+            result_dict = _parse_recommendation_payload(result)
             
             # Adjust confidence based on learned patterns
             adjusted_confidence = self._adjust_confidence(result_dict.get("confidence", 50))

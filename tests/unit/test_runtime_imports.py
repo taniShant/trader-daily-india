@@ -57,4 +57,4 @@ def test_trading_bot_fallback_watchlist_includes_maruti():
     source = Path("agent/main.py").read_text()
 
     assert '"MARUTI"' in source
-    assert '"RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK", "MARUTI"' in source
+    assert '"MARUTI", "JSWSTEEL", "BAJAJFINSV", "ASIANPAINT"' in source

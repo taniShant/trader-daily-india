@@ -71,7 +71,7 @@
     "max_position_size_percent": 10,
     "min_confidence_threshold": 70,
     "analysis_interval_seconds": 180,
-    "watchlist_size": 10,
+    "watchlist_size": 8,
     "paper_trading": true
   },
   "vpc": {

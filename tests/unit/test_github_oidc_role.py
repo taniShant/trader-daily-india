@@ -43,8 +43,9 @@ def test_iam_stack_creates_github_actions_oidc_provider_when_not_configured():
     assert len(providers) == 1
 
 
-def test_github_deploy_role_trust_is_limited_to_repo_main_branch():
+def test_github_deploy_role_trust_is_limited_to_configured_deploy_branch():
     config = json.loads((ROOT / "cicd" / "env" / "prod.json").read_text())
+    deploy_branch = config["github"]["deploy_branch"]
     roles = resources_of_type("AWS::IAM::Role")
     role = next(
         role
@@ -58,5 +59,5 @@ def test_github_deploy_role_trust_is_limited_to_repo_main_branch():
     assert trust["Condition"]["StringEquals"]["token.actions.githubusercontent.com:aud"] == "sts.amazonaws.com"
     assert (
         trust["Condition"]["StringLike"]["token.actions.githubusercontent.com:sub"]
-        == "repo:taniShant/trader-daily-india:ref:refs/heads/main"
+        == f"repo:taniShant/trader-daily-india:ref:refs/heads/{deploy_branch}"
     )
