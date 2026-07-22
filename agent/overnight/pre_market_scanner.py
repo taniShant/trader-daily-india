@@ -25,6 +25,11 @@ class PreMarketScanner:
             for symbol in os.environ.get("WATCHLIST_EXCLUDED_SYMBOLS", "TCS,HDFCBANK,SBIN").split(",")
             if symbol.strip()
         }
+        self.required_symbols = [
+            resolve_symbol(symbol.strip()).canonical
+            for symbol in os.environ.get("WATCHLIST_REQUIRED_SYMBOLS", "MARUTI").split(",")
+            if symbol.strip()
+        ]
         self.dynamodb = boto3.resource('dynamodb', region_name=self.region)
         self.market_state_db = self.dynamodb.Table(self.market_state_table)
     
@@ -48,6 +53,57 @@ class PreMarketScanner:
 
     def _filter_excluded_symbols(self, symbols: List[str]) -> List[str]:
         return [symbol for symbol in symbols if not self._is_excluded(symbol)]
+
+    def _with_required_symbols(self, symbols: List[str]) -> List[str]:
+        """Keep configured must-watch symbols in the active trading list."""
+        result = []
+        for symbol in self._filter_excluded_symbols(symbols):
+            canonical = resolve_symbol(symbol).canonical
+            if canonical not in result:
+                result.append(canonical)
+
+        for symbol in self.required_symbols:
+            if symbol in self.excluded_symbols or symbol in result:
+                continue
+            if len(result) >= self.watchlist_size:
+                removable_index = next(
+                    (index for index in range(len(result) - 1, -1, -1) if result[index] not in self.required_symbols),
+                    None,
+                )
+                if removable_index is not None:
+                    result.pop(removable_index)
+            result.append(symbol)
+
+        return result[: self.watchlist_size]
+
+    def _with_required_candidates(self, candidates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        selected = candidates[: self.watchlist_size]
+        selected_symbols = {item["symbol"] for item in selected}
+
+        for required_symbol in self.required_symbols:
+            if required_symbol in self.excluded_symbols or required_symbol in selected_symbols:
+                continue
+            required_candidate = next(
+                (item for item in candidates if item["symbol"] == required_symbol),
+                None,
+            )
+            if required_candidate is None:
+                continue
+            if len(selected) >= self.watchlist_size:
+                removable_index = next(
+                    (
+                        index
+                        for index in range(len(selected) - 1, -1, -1)
+                        if selected[index]["symbol"] not in self.required_symbols
+                    ),
+                    None,
+                )
+                if removable_index is not None:
+                    selected.pop(removable_index)
+            selected.append(required_candidate)
+            selected_symbols.add(required_symbol)
+
+        return selected[: self.watchlist_size]
 
     def score_candidate(self, symbol: str, hist) -> Dict[str, Any] | None:
         """Score one stock using momentum, liquidity, and gap context."""
@@ -119,8 +175,8 @@ class PreMarketScanner:
         # Sort by total watchlist score (highest first)
         candidates.sort(key=lambda x: x["watchlist_score"], reverse=True)
         
-        # Return top N candidates
-        watchlist = candidates[:self.watchlist_size]
+        # Return top N candidates while keeping configured must-watch names.
+        watchlist = self._with_required_candidates(candidates)
         
         # Store in DynamoDB
         self._store_watchlist(watchlist)
@@ -169,12 +225,14 @@ class PreMarketScanner:
         
         watchlist = item.get("pre_market_watchlist", [])
         if watchlist:
-            return self._filter_excluded_symbols([w["symbol"] for w in watchlist])[: self.watchlist_size]
+            return self._with_required_symbols([w["symbol"] for w in watchlist])
         
         # Fallback to default watchlist
         print("⚠️ No pre-market watchlist found, using default")
         # Previous broader fallback:
         # ["RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK",
         #  "SBIN", "BHARTIARTL", "KOTAKBANK", "BAJFINANCE", "ITC"]
-        return ["RELIANCE", "INFY", "ICICIBANK", "BHARTIARTL",
-                "MARUTI", "JSWSTEEL", "BAJAJFINSV", "ASIANPAINT"]
+        return self._with_required_symbols([
+            "RELIANCE", "INFY", "ICICIBANK", "BHARTIARTL",
+            "MARUTI", "JSWSTEEL", "BAJAJFINSV", "ASIANPAINT"
+        ])
