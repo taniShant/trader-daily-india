@@ -9,7 +9,7 @@ import json
 import time
 import signal
 import sys
-from datetime import datetime, time as dt_time
+from datetime import datetime, time as dt_time, timezone
 from decimal import Decimal
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, asdict
@@ -67,6 +67,7 @@ print(f"   Max Position Size: {MAX_POSITION_SIZE_PERCENT}%")
 print(f"   Oracle Static IP: {ORACLE_STATIC_IP}")
 
 models = {}
+model_expirations = {}
 technical_agent = None
 sentiment_agent = None
 fundamental_agent = None
@@ -82,24 +83,81 @@ MODEL_IDS_BY_TASK = {
     "deep_research": DEEP_RESEARCH_MODEL_ID,
 }
 
+BEDROCK_SESSION_REFRESH_SKEW_SECONDS = 300
+
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _normalize_expiration(value: Any) -> datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
+    return None
+
+
+def _is_model_cache_valid(task_type: str) -> bool:
+    if task_type not in models:
+        return False
+
+    expiration = _normalize_expiration(model_expirations.get(task_type))
+    if expiration is None:
+        return True
+
+    seconds_remaining = (expiration - _utc_now()).total_seconds()
+    return seconds_remaining > BEDROCK_SESSION_REFRESH_SKEW_SECONDS
+
+
+def _is_cached_model_stale(task_type: str) -> bool:
+    return task_type in models and not _is_model_cache_valid(task_type)
+
+
+def _reset_agent_singletons() -> None:
+    global technical_agent, sentiment_agent, fundamental_agent, social_agent, derivatives_agent, orchestrator
+    technical_agent = None
+    sentiment_agent = None
+    fundamental_agent = None
+    social_agent = None
+    derivatives_agent = None
+    orchestrator = None
+
+
+def refresh_bedrock_runtime(reason: str = "manual") -> None:
+    """Clear cached Bedrock-backed agents so the next call gets fresh credentials."""
+    models.clear()
+    model_expirations.clear()
+    _reset_agent_singletons()
+    print(f"🔄 Refreshed Bedrock runtime cache ({reason})")
+
+
+def _is_expired_token_error(error: Exception) -> bool:
+    text = str(error)
+    return "ExpiredTokenException" in text or "security token included in the request is expired" in text
+
 
 def get_model(task_type: str = "default"):
     """Initialize Bedrock models lazily by task type so imports stay offline/testable."""
     model_id = MODEL_IDS_BY_TASK.get(task_type, MODEL_ID)
-    if task_type not in models:
+    if not _is_model_cache_valid(task_type):
         from strands.models import BedrockModel
-        from .bedrock_session import build_bedrock_boto_session
+        from .bedrock_session import build_bedrock_session_info
 
-        boto_session = build_bedrock_boto_session()
+        session_info = build_bedrock_session_info()
         model_kwargs = {
             "model_id": model_id,
             "temperature": 0.2,
             "max_tokens": 4096,
         }
-        if boto_session is None:
+        if session_info is None:
             model_kwargs["region_name"] = AWS_REGION
+            model_expirations.pop(task_type, None)
         else:
-            model_kwargs["boto_session"] = boto_session
+            model_kwargs["boto_session"] = session_info.boto_session
+            model_expirations[task_type] = session_info.expiration
 
         models[task_type] = BedrockModel(**model_kwargs)
     return models[task_type]
@@ -108,6 +166,9 @@ def get_model(task_type: str = "default"):
 def get_specialist_agents():
     """Initialize specialist agents lazily."""
     global technical_agent, sentiment_agent, fundamental_agent, social_agent, derivatives_agent
+
+    if _is_cached_model_stale("reasoning"):
+        refresh_bedrock_runtime("session_near_expiry")
 
     if technical_agent is None:
         from .specialists.technical import TechnicalAnalyst
@@ -236,6 +297,54 @@ def _parse_recommendation_payload(result: Any) -> Dict[str, Any]:
 
     return {"action": "HOLD", "confidence": 50, "reasoning": text[:300], "risk_level": "HIGH"}
 
+
+def _coerce_int(value: Any, default: int) -> int:
+    if value is None or value == "":
+        return default
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return default
+
+
+def _coerce_float(value: Any, default: float = 0.0) -> float:
+    if value is None or value == "":
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _has_missing_trade_prices(payload: Dict[str, Any]) -> bool:
+    return any(payload.get(field) in (None, "") for field in ["entry_price", "stop_loss", "target_price"])
+
+
+def _normalize_recommendation_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    normalized = dict(payload)
+    action = str(normalized.get("action") or "HOLD").upper()
+    reasoning = str(normalized.get("reasoning") or "")
+
+    if action in {"BUY", "SELL"} and _has_missing_trade_prices(normalized):
+        normalized["action"] = "HOLD"
+        normalized["risk_level"] = "HIGH"
+        normalized["confidence"] = min(_coerce_int(normalized.get("confidence"), 50), 50)
+        normalized["reasoning"] = (
+            f"{reasoning} Missing entry/stop/target prices; downgraded to HOLD for safety."
+        ).strip()
+    else:
+        normalized["action"] = action
+        normalized["confidence"] = _coerce_int(normalized.get("confidence"), 50)
+
+    normalized["entry_price"] = _coerce_float(normalized.get("entry_price"))
+    normalized["stop_loss"] = _coerce_float(normalized.get("stop_loss"))
+    normalized["target_price"] = _coerce_float(normalized.get("target_price"))
+    normalized["sentiment_score"] = _coerce_float(normalized.get("sentiment_score"))
+    normalized["risk_level"] = str(normalized.get("risk_level") or "MEDIUM").upper()
+    normalized["reasoning"] = str(normalized.get("reasoning") or "")
+    normalized["technical_summary"] = str(normalized.get("technical_summary") or "")
+    return normalized
+
 # ============================================================
 # ORCHESTRATOR AGENT 
 # ============================================================
@@ -243,6 +352,9 @@ def _parse_recommendation_payload(result: Any) -> Dict[str, Any]:
 def get_orchestrator():
     """Initialize the orchestrator lazily."""
     global orchestrator
+    if _is_cached_model_stale("reasoning"):
+        refresh_bedrock_runtime("session_near_expiry")
+
     if orchestrator is None:
         from strands import Agent, tool
         from .tools.market_data import get_live_quote, get_historical_data
@@ -502,25 +614,36 @@ class TradingBot:
         Call all specialist analysts, get live quote, and provide a final recommendation in JSON format.
         """
         
+        for attempt in range(2):
+            try:
+                result = get_orchestrator()(prompt)
+                break
+            except Exception as e:
+                if attempt == 0 and _is_expired_token_error(e):
+                    print("   🔄 Bedrock credentials expired; refreshing assumed-role session and retrying")
+                    refresh_bedrock_runtime("expired_token")
+                    continue
+                print(f"   ❌ Error: {e}")
+                return None
+
         try:
-            result = get_orchestrator()(prompt)
-            result_dict = _parse_recommendation_payload(result)
+            result_dict = _normalize_recommendation_payload(_parse_recommendation_payload(result))
             
             # Adjust confidence based on learned patterns
-            adjusted_confidence = self._adjust_confidence(result_dict.get("confidence", 50))
+            adjusted_confidence = self._adjust_confidence(result_dict["confidence"])
             
             return TradingSignal(
                 date=datetime.now().strftime("%Y-%m-%d"),
                 stock_symbol=stock_symbol,
-                action=result_dict.get("action", "HOLD"),
+                action=result_dict["action"],
                 confidence=min(100, max(0, adjusted_confidence)),
-                entry_price=float(result_dict.get("entry_price", 0.0)),
-                stop_loss=float(result_dict.get("stop_loss", 0.0)),
-                target_price=float(result_dict.get("target_price", 0.0)),
-                reasoning=result_dict.get("reasoning", "")[:300],
-                technical_summary=result_dict.get("technical_summary", "")[:200],
-                sentiment_score=float(result_dict.get("sentiment_score", 0.0)),
-                risk_level=result_dict.get("risk_level", "MEDIUM")
+                entry_price=result_dict["entry_price"],
+                stop_loss=result_dict["stop_loss"],
+                target_price=result_dict["target_price"],
+                reasoning=result_dict["reasoning"][:300],
+                technical_summary=result_dict["technical_summary"][:200],
+                sentiment_score=result_dict["sentiment_score"],
+                risk_level=result_dict["risk_level"]
             )
         except Exception as e:
             print(f"   ❌ Error: {e}")

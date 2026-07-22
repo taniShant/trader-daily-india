@@ -29,6 +29,7 @@ def make_scanner(*, watchlist_size=2, min_avg_volume=100000, min_price=20, item=
     scanner.watchlist_size = watchlist_size
     scanner.min_avg_volume = min_avg_volume
     scanner.min_price = min_price
+    scanner.excluded_symbols = {"TCS", "HDFCBANK", "SBIN"}
     scanner.market_state_db = FakeMarketStateTable(item=item)
     return scanner
 
@@ -118,6 +119,7 @@ def test_scan_stocks_sorts_by_watchlist_score_and_stores_reasoned_watchlist(monk
     assert stored["record_type"] == "watchlist"
     assert stored["watchlist_size"] == 2
     assert stored["pre_market_watchlist"][0]["symbol"] == "RELIANCE"
+    assert "TCS" not in [item["symbol"] for item in stored["pre_market_watchlist"]]
 
 
 def test_get_watchlist_returns_plain_symbols_for_trading_loop():
@@ -126,6 +128,7 @@ def test_get_watchlist_returns_plain_symbols_for_trading_loop():
             "date": "2026-07-05",
             "pre_market_watchlist": [
                 {"symbol": "RELIANCE", "watchlist_score": 75},
+                {"symbol": "SBIN", "watchlist_score": 70},
                 {"symbol": "INFY", "watchlist_score": 50},
             ],
         }
@@ -136,6 +139,17 @@ def test_get_watchlist_returns_plain_symbols_for_trading_loop():
         "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         "timestamp": "state#watchlist",
     }
+
+
+def test_default_fallback_watchlist_excludes_unwanted_symbols():
+    scanner = make_scanner(watchlist_size=8)
+
+    watchlist = scanner.get_watchlist()
+
+    assert "TCS" not in watchlist
+    assert "HDFCBANK" not in watchlist
+    assert "SBIN" not in watchlist
+    assert "MARUTI" in watchlist
 
 
 class FixedDatetime(datetime):

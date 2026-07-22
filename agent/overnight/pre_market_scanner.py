@@ -20,6 +20,11 @@ class PreMarketScanner:
         self.watchlist_size = int(os.environ.get("WATCHLIST_SIZE", 10))
         self.min_avg_volume = int(os.environ.get("PREMARKET_MIN_AVG_VOLUME", 100000))
         self.min_price = float(os.environ.get("PREMARKET_MIN_PRICE", 20))
+        self.excluded_symbols = {
+            symbol.strip().upper()
+            for symbol in os.environ.get("WATCHLIST_EXCLUDED_SYMBOLS", "TCS,HDFCBANK,SBIN").split(",")
+            if symbol.strip()
+        }
         self.dynamodb = boto3.resource('dynamodb', region_name=self.region)
         self.market_state_db = self.dynamodb.Table(self.market_state_table)
     
@@ -37,6 +42,12 @@ class PreMarketScanner:
             "CIPLA", "HEROMOTOCO", "TATASTEEL", "HINDALCO", "BPCL",
             "IOC", "M&M", "TMCV", "TMPV", "TATACONSUM"
         ]
+
+    def _is_excluded(self, symbol: str) -> bool:
+        return resolve_symbol(symbol).canonical in self.excluded_symbols
+
+    def _filter_excluded_symbols(self, symbols: List[str]) -> List[str]:
+        return [symbol for symbol in symbols if not self._is_excluded(symbol)]
 
     def score_candidate(self, symbol: str, hist) -> Dict[str, Any] | None:
         """Score one stock using momentum, liquidity, and gap context."""
@@ -90,7 +101,7 @@ class PreMarketScanner:
         """
         import yfinance as yf
 
-        stocks = self.get_nifty_stocks()
+        stocks = self._filter_excluded_symbols(self.get_nifty_stocks())
         candidates = []
         
         for stock in stocks:
@@ -158,7 +169,7 @@ class PreMarketScanner:
         
         watchlist = item.get("pre_market_watchlist", [])
         if watchlist:
-            return [w["symbol"] for w in watchlist]
+            return self._filter_excluded_symbols([w["symbol"] for w in watchlist])[: self.watchlist_size]
         
         # Fallback to default watchlist
         print("⚠️ No pre-market watchlist found, using default")

@@ -1,10 +1,10 @@
 import sys
 import types
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from agent.bedrock_session import build_bedrock_boto_session
+from agent.bedrock_session import build_bedrock_boto_session, build_bedrock_session_info
 from agent.config import CrossAccountBedrockConfig, load_settings
 
 
@@ -99,6 +99,47 @@ def test_bedrock_session_assumes_role_when_enabled(monkeypatch):
     ]
 
 
+def test_bedrock_session_info_preserves_sts_expiration(monkeypatch):
+    expiration = datetime.now(timezone.utc) + timedelta(minutes=30)
+
+    class FakeStsClient:
+        def assume_role(self, **kwargs):
+            return {
+                "Credentials": {
+                    "AccessKeyId": "access",
+                    "SecretAccessKey": "secret",
+                    "SessionToken": "token",
+                    "Expiration": expiration,
+                }
+            }
+
+    class FakeBoto3:
+        @staticmethod
+        def client(service_name):
+            assert service_name == "sts"
+            return FakeStsClient()
+
+        class Session:
+            def __init__(self, **kwargs):
+                self.region_name = kwargs["region_name"]
+
+    monkeypatch.setattr("agent.bedrock_session.boto3", FakeBoto3)
+
+    session_info = build_bedrock_session_info(
+        CrossAccountBedrockConfig(
+            enabled=True,
+            role_arn="arn:aws:iam::632943041262:role/trd-bedrock-invoke-from-873-role",
+            external_id="trd-bedrock-prod-632-from-873",
+            region="eu-west-2",
+            session_name="unit-test",
+        )
+    )
+
+    assert session_info is not None
+    assert session_info.boto_session.region_name == "eu-west-2"
+    assert session_info.expiration == expiration
+
+
 def test_get_model_keeps_single_account_behavior_when_cross_account_disabled(monkeypatch):
     import agent.main as main_module
 
@@ -114,7 +155,7 @@ def test_get_model_keeps_single_account_behavior_when_cross_account_disabled(mon
     monkeypatch.setattr(main_module, "models", {})
 
     fake_session_module = types.ModuleType("agent.bedrock_session")
-    fake_session_module.build_bedrock_boto_session = lambda: None
+    fake_session_module.build_bedrock_session_info = lambda: None
     monkeypatch.setitem(sys.modules, "agent.bedrock_session", fake_session_module)
 
     model = main_module.get_model("reasoning")
@@ -130,6 +171,7 @@ def test_get_model_uses_assumed_session_when_cross_account_enabled(monkeypatch):
 
     calls = []
     assumed_session = object()
+    expiration = datetime.now(timezone.utc) + timedelta(hours=1)
 
     class FakeBedrockModel:
         def __init__(self, **kwargs):
@@ -141,7 +183,10 @@ def test_get_model_uses_assumed_session_when_cross_account_enabled(monkeypatch):
     monkeypatch.setattr(main_module, "models", {})
 
     fake_session_module = types.ModuleType("agent.bedrock_session")
-    fake_session_module.build_bedrock_boto_session = lambda: assumed_session
+    fake_session_module.build_bedrock_session_info = lambda: types.SimpleNamespace(
+        boto_session=assumed_session,
+        expiration=expiration,
+    )
     monkeypatch.setitem(sys.modules, "agent.bedrock_session", fake_session_module)
 
     model = main_module.get_model("reasoning")
@@ -150,6 +195,45 @@ def test_get_model_uses_assumed_session_when_cross_account_enabled(monkeypatch):
     assert calls[0]["model_id"] == main_module.REASONING_MODEL_ID
     assert calls[0]["boto_session"] is assumed_session
     assert "region_name" not in calls[0]
+
+
+def test_get_model_refreshes_assumed_session_before_expiry(monkeypatch):
+    import agent.main as main_module
+
+    calls = []
+    sessions = [object(), object()]
+
+    class FakeBedrockModel:
+        def __init__(self, **kwargs):
+            calls.append(kwargs)
+
+    fake_strands_models = types.ModuleType("strands.models")
+    fake_strands_models.BedrockModel = FakeBedrockModel
+    monkeypatch.setitem(sys.modules, "strands.models", fake_strands_models)
+    monkeypatch.setattr(main_module, "models", {})
+    monkeypatch.setattr(main_module, "model_expirations", {})
+
+    expirations = [
+        datetime.now(timezone.utc) + timedelta(seconds=30),
+        datetime.now(timezone.utc) + timedelta(hours=1),
+    ]
+
+    def build_session_info():
+        return types.SimpleNamespace(
+            boto_session=sessions[len(calls)],
+            expiration=expirations[len(calls)],
+        )
+
+    fake_session_module = types.ModuleType("agent.bedrock_session")
+    fake_session_module.build_bedrock_session_info = build_session_info
+    monkeypatch.setitem(sys.modules, "agent.bedrock_session", fake_session_module)
+
+    first_model = main_module.get_model("reasoning")
+    second_model = main_module.get_model("reasoning")
+
+    assert first_model is not second_model
+    assert calls[0]["boto_session"] is sessions[0]
+    assert calls[1]["boto_session"] is sessions[1]
 
 
 def test_ecs_task_definition_exposes_cross_account_bedrock_env_vars():
