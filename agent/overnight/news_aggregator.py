@@ -14,6 +14,16 @@ from agent.overnight.state_store import get_daily_state, put_daily_state
 import requests
 from collections import deque
 
+
+def _safe_sentiment(value: Any, default: float = 0.0) -> float:
+    if value is None or value == "":
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
 class NewsAggregator:
     """
     Aggregates news from multiple sources.
@@ -352,7 +362,11 @@ class NewsAggregator:
             if len(realtime_updates) > 50:
                 realtime_updates = realtime_updates[-50:]
             item["realtime_news_updates"] = realtime_updates
-            item["latest_sentiment"] = news_data.get("sentiment_update", item.get("latest_sentiment", 0))
+            sentiment_update = news_data.get("sentiment_update")
+            item["latest_sentiment"] = _safe_sentiment(
+                sentiment_update,
+                _safe_sentiment(item.get("latest_sentiment"), 0.0),
+            )
             item["realtime_updated_at"] = news_data.get("timestamp")
         
         put_daily_state(self.market_state_db, today, "news", item)
@@ -377,7 +391,11 @@ class NewsAggregator:
             updates = updates[-50:]
         
         item["realtime_news_updates"] = updates
-        item["latest_sentiment"] = realtime_data.get("sentiment_update", item.get("latest_sentiment", 0))
+        sentiment_update = realtime_data.get("sentiment_update")
+        item["latest_sentiment"] = _safe_sentiment(
+            sentiment_update,
+            _safe_sentiment(item.get("latest_sentiment"), 0.0),
+        )
         item["realtime_updated_at"] = realtime_data["timestamp"]
         
         put_daily_state(self.market_state_db, today, "news", item)
@@ -386,7 +404,7 @@ class NewsAggregator:
         """Get the latest real-time sentiment score."""
         today = datetime.utcnow().strftime("%Y-%m-%d")
         item = get_daily_state(self.market_state_db, today, "news")
-        return item.get("latest_sentiment", 0.0)
+        return _safe_sentiment(item.get("latest_sentiment"), 0.0)
     
     def has_breaking_news(self) -> bool:
         """Check if there was breaking news in the last 3 minutes."""

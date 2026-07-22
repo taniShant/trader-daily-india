@@ -652,11 +652,12 @@ class TradingBot:
     def _adjust_confidence(self, base_confidence: int) -> int:
         """Adjust confidence based on current market conditions."""
         adjusted = base_confidence
+        current_sentiment = _coerce_float(self.current_sentiment)
         
         # Adjust based on news sentiment
-        if self.current_sentiment > 0.5:
+        if current_sentiment > 0.5:
             adjusted += 5
-        elif self.current_sentiment < -0.3:
+        elif current_sentiment < -0.3:
             adjusted -= 10
         
         # Adjust based on caution mode

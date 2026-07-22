@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 from agent.config import load_settings
-from agent.overnight.news_aggregator import NewsAggregator
+from agent.overnight.news_aggregator import NewsAggregator, _safe_sentiment
 from agent.tools.news_fetcher import NewsFetcher
 
 
@@ -67,3 +67,48 @@ def test_overnight_news_aggregator_uses_same_fallback_policy():
 
     assert simulated[0]["title"] == "fake company headline"
     assert simulated[0]["source_mode"] == "simulated"
+
+
+def test_news_sentiment_never_returns_none():
+    assert _safe_sentiment(None) == 0.0
+    assert _safe_sentiment("", default=0.2) == 0.2
+    assert _safe_sentiment("0.35") == 0.35
+
+
+def test_get_latest_sentiment_coerces_stored_null(monkeypatch):
+    aggregator = NewsAggregator.__new__(NewsAggregator)
+    aggregator.market_state_db = object()
+
+    monkeypatch.setattr(
+        "agent.overnight.news_aggregator.get_daily_state",
+        lambda table, date, kind: {"latest_sentiment": None},
+    )
+
+    assert aggregator.get_latest_sentiment() == 0.0
+
+
+def test_realtime_update_preserves_previous_sentiment_when_update_is_none(monkeypatch):
+    stored_items = []
+    aggregator = NewsAggregator.__new__(NewsAggregator)
+    aggregator.market_state_db = object()
+
+    monkeypatch.setattr(
+        "agent.overnight.news_aggregator.get_daily_state",
+        lambda table, date, kind: {"latest_sentiment": 0.25, "realtime_news_updates": []},
+    )
+    monkeypatch.setattr(
+        "agent.overnight.news_aggregator.put_daily_state",
+        lambda table, date, kind, item: stored_items.append(item),
+    )
+
+    aggregator._store_realtime_update(
+        {
+            "timestamp": "2026-07-22T08:00:00",
+            "new_news_count": 0,
+            "sentiment_update": None,
+            "has_breaking": False,
+            "new_news": [],
+        }
+    )
+
+    assert stored_items[0]["latest_sentiment"] == 0.25

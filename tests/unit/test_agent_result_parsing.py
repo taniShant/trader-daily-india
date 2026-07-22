@@ -170,3 +170,12 @@ def test_analyze_stock_refreshes_bedrock_runtime_after_expired_token(monkeypatch
     assert signal.action == "HOLD"
     assert len(calls) == 2
     assert refresh_reasons == ["expired_token"]
+
+
+def test_adjust_confidence_treats_missing_current_sentiment_as_neutral():
+    bot = main_module.TradingBot.__new__(main_module.TradingBot)
+    bot.current_sentiment = None
+    bot.temp_caution_mode = False
+    bot.confidence_adjuster = SimpleNamespace(get_adjustment_factor=lambda: 1.0)
+
+    assert bot._adjust_confidence(70) == 70
