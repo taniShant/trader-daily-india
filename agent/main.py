@@ -675,6 +675,17 @@ class TradingBot:
     
     def _execute_signal(self, signal: TradingSignal):
         """Execute or log a trading signal."""
+        if signal.action.upper() == "HOLD":
+            log_event(
+                "signal_hold",
+                symbol=signal.stock_symbol,
+                mode="paper" if self.paper_trading else "live",
+                confidence=signal.confidence,
+                reason=signal.reasoning[:200],
+            )
+            print(f"   ⏭️ Skipping HOLD {signal.stock_symbol} - no order required")
+            return
+
         if self.risk_manager.limits.min_confidence != self.min_confidence:
             self.risk_manager = self._build_risk_manager()
 
@@ -921,7 +932,9 @@ class TradingBot:
         # Analyze stocks in watchlist
         for stock in self.watchlist:
             signal = self._analyze_stock(stock)
-            if signal:
+            if signal and signal.action.upper() == "HOLD":
+                print(f"   ⏭️ Skipping HOLD {signal.stock_symbol} - continuing watchlist")
+            elif signal:
                 self._execute_signal(signal)
             time.sleep(1)
         

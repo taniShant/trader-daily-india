@@ -179,3 +179,34 @@ def test_adjust_confidence_treats_missing_current_sentiment_as_neutral():
     bot.confidence_adjuster = SimpleNamespace(get_adjustment_factor=lambda: 1.0)
 
     assert bot._adjust_confidence(70) == 70
+
+
+def test_execute_signal_skips_hold_before_contract_validation(monkeypatch):
+    events = []
+    bot = main_module.TradingBot.__new__(main_module.TradingBot)
+    bot.paper_trading = True
+
+    def fail_contract_conversion(signal):
+        raise AssertionError("HOLD should not be converted to execution contract")
+
+    monkeypatch.setattr(main_module, "log_event", lambda event_name, **kwargs: events.append((event_name, kwargs)))
+    bot._to_contract_signal = fail_contract_conversion
+
+    signal = main_module.TradingSignal(
+        date="2026-07-23",
+        stock_symbol="RELIANCE",
+        action="HOLD",
+        confidence=65,
+        entry_price=0.0,
+        stop_loss=0.0,
+        target_price=0.0,
+        reasoning="No actionable intraday setup.",
+        technical_summary="Missing technical data.",
+        sentiment_score=0.0,
+        risk_level="MEDIUM",
+    )
+
+    bot._execute_signal(signal)
+
+    assert events[0][0] == "signal_hold"
+    assert events[0][1]["symbol"] == "RELIANCE"
