@@ -317,7 +317,19 @@ def _coerce_float(value: Any, default: float = 0.0) -> float:
 
 
 def _has_missing_trade_prices(payload: Dict[str, Any]) -> bool:
-    return any(payload.get(field) in (None, "") for field in ["entry_price", "stop_loss", "target_price"])
+    missing_values = {"", "n/a", "na", "none", "null", "-"}
+    for field in ["entry_price", "stop_loss", "target_price"]:
+        value = payload.get(field)
+        if value is None:
+            return True
+        if isinstance(value, str) and value.strip().lower() in missing_values:
+            return True
+        try:
+            if float(value) <= 0:
+                return True
+        except (TypeError, ValueError):
+            return True
+    return False
 
 
 def _normalize_recommendation_payload(payload: Dict[str, Any]) -> Dict[str, Any]:

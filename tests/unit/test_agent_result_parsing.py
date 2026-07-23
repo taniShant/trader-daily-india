@@ -120,6 +120,49 @@ def test_analyze_stock_downgrades_directional_signal_with_missing_prices(monkeyp
     assert "downgraded to HOLD" in signal.reasoning
 
 
+def test_analyze_stock_downgrades_directional_signal_with_na_prices(monkeypatch):
+    result = SimpleNamespace(
+        message={
+            "role": "assistant",
+            "content": [
+                {
+                    "text": """
+                    {
+                      "action": "BUY",
+                      "confidence": 75,
+                      "entry_price": "N/A",
+                      "stop_loss": "N/A",
+                      "target_price": "N/A",
+                      "reasoning": "Fundamentals are strong but price data is unavailable.",
+                      "technical_summary": "Technical data unavailable.",
+                      "sentiment_score": 0,
+                      "risk_level": "MEDIUM"
+                    }
+                    """
+                }
+            ],
+        }
+    )
+
+    monkeypatch.setattr(main_module, "get_orchestrator", lambda: lambda prompt: result)
+
+    bot = main_module.TradingBot.__new__(main_module.TradingBot)
+    bot.current_sentiment = 0.0
+    bot.temp_caution_mode = False
+    bot.confidence_adjuster = SimpleNamespace(get_adjustment_factor=lambda: 1.0)
+
+    signal = bot._analyze_stock("HEROMOTOCO")
+
+    assert signal is not None
+    assert signal.action == "HOLD"
+    assert signal.confidence == 50
+    assert signal.entry_price == 0.0
+    assert signal.stop_loss == 0.0
+    assert signal.target_price == 0.0
+    assert signal.risk_level == "HIGH"
+    assert "downgraded to HOLD" in signal.reasoning
+
+
 def test_analyze_stock_refreshes_bedrock_runtime_after_expired_token(monkeypatch):
     result = SimpleNamespace(
         message={
