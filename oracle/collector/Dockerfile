@@ -2,10 +2,10 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY oracle/collector/requirements.txt .
+COPY collector/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY oracle/collector/app.py .
+COPY collector/app.py .
 
 ENV PYTHONUNBUFFERED=1
 ENV ORACLE_COLLECTOR_MODE=live

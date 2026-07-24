@@ -43,15 +43,16 @@
     "create_bucket": true
   },
   "icici": {
-    "api_key": "O6731z39in79bV=1U53K615238Q47GX7",
-    "secret_key": "59040P16966s175171c&OZ2370138J32",
-    "session_token": "9db40266-0c9b-4ebb-a751-953e2c0d0d44",
+    "api_key": "O6731z39in79bV=1U53K615238Q47GX7",  
+    "secret_key": "5916$+907W89i85z%Pb66t`286710164",
+    "session_token": "56448222",
     "static_ip": "80.225.242.6"
   },
   "oracle": {
     "static_ip": "80.225.242.6",
     "execution_proxy_base_url": "http://80.225.242.6:8080",
     "execution_proxy_health_url": "http://80.225.242.6:8080/health",
+    "execution_proxy_shared_secret": "Tript!r0y",
     "collector_base_url": "http://80.225.242.6:8090",
     "collector_health_url": "http://80.225.242.6:8090/health",
     "use_for_build": true,

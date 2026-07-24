@@ -65,14 +65,6 @@ require_real_deploy_env() {
   : "${ORACLE_PROXY_SHARED_SECRET:?Set ORACLE_PROXY_SHARED_SECRET before deploying}"
 }
 
-compose() {
-  if command -v docker-compose >/dev/null 2>&1; then
-    printf 'docker-compose'
-  else
-    printf 'docker compose'
-  fi
-}
-
 require_real_deploy_env
 
 echo "Oracle services deploy"
@@ -109,8 +101,7 @@ else
   printf '%s\n' "$ENV_FILE_CONTENT" | ssh ${SSH_OPTS} "${SSH_TARGET}" "cat > ${REMOTE_APP_DIR}/.env && chmod 600 ${REMOTE_APP_DIR}/.env"
 fi
 
-REMOTE_COMPOSE=$(compose)
-run "ssh ${SSH_OPTS} ${SSH_TARGET} 'cd ${REMOTE_APP_DIR} && ${REMOTE_COMPOSE} up -d --build --remove-orphans'"
+run "ssh ${SSH_OPTS} ${SSH_TARGET} 'cd ${REMOTE_APP_DIR} && if command -v docker-compose >/dev/null 2>&1; then docker-compose down --remove-orphans || true; docker-compose up -d --build --remove-orphans; else docker compose down --remove-orphans || true; docker compose up -d --build --remove-orphans; fi'"
 run "ssh ${SSH_OPTS} ${SSH_TARGET} 'curl -fsS http://127.0.0.1:${ORACLE_PROXY_PORT}/health'"
 run "ssh ${SSH_OPTS} ${SSH_TARGET} 'curl -fsS http://127.0.0.1:${ORACLE_COLLECTOR_PORT}/health'"
 

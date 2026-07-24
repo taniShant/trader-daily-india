@@ -64,3 +64,40 @@ def test_oracle_collector_mock_quote_and_ohlcv_endpoints(monkeypatch):
     assert candles.json()["latest_close"] > 0
     assert len(candles.json()["data"]) >= 8
     assert candles.json()["data"][-1]["volume"] > 0
+
+
+def test_oracle_collector_live_ohlcv_uses_breeze_datetime_format(monkeypatch):
+    load_collector_app(monkeypatch)
+    collector_module = sys.modules["oracle_collector_app_test"]
+    calls = []
+
+    class FakeBreeze:
+        def generate_session(self, **kwargs):
+            pass
+
+        def get_historical_data_v2(self, **kwargs):
+            calls.append(kwargs)
+            return {
+                "Success": [
+                    {
+                        "datetime": "2026-07-24T09:15:00.000Z",
+                        "open": "100",
+                        "high": "101",
+                        "low": "99",
+                        "close": "100.5",
+                        "volume": "12345",
+                    }
+                ]
+            }
+
+    client = collector_module.BreezeMarketDataClient.__new__(collector_module.BreezeMarketDataClient)
+    client.client = FakeBreeze()
+
+    payload = client.ohlcv("MARUTI", interval="5m", days=5)
+
+    assert payload["symbol"] == "MARUTI"
+    assert calls[0]["interval"] == "5minute"
+    assert calls[0]["from_date"].endswith(".000Z")
+    assert calls[0]["to_date"].endswith(".000Z")
+    assert "+" not in calls[0]["from_date"]
+    assert calls[0]["product_type"] == "cash"

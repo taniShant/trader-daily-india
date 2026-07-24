@@ -459,3 +459,5 @@ aws ecs describe-services \
   --profile default \
   --query 'services[].{service:serviceName,desired:desiredCount,running:runningCount,pending:pendingCount,status:status}' \
   --output table
+
+  LOGIN Oracle : ssh -i ~/.ssh/oracle-key.key ubuntu@80.225.242.6

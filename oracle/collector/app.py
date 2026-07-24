@@ -78,8 +78,8 @@ class BreezeMarketDataClient:
         from_date = to_date - timedelta(days=days)
         request = {
             "interval": breeze_interval,
-            "from_date": from_date.isoformat(timespec="seconds"),
-            "to_date": to_date.isoformat(timespec="seconds"),
+            "from_date": _breeze_datetime(from_date),
+            "to_date": _breeze_datetime(to_date),
             "stock_code": _breeze_stock_code(symbol),
             "exchange_code": "NSE",
             "product_type": "cash",
@@ -194,6 +194,10 @@ def _to_breeze_interval(interval: str) -> str:
         "30m": "30minute",
         "1d": "1day",
     }[interval]
+
+
+def _breeze_datetime(value: datetime) -> str:
+    return value.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
 
 def _success_payload(response: Any) -> Any:

@@ -80,6 +80,7 @@ class TradingAgentRuntimeStack(Stack):
         static_ip = oracle_config.get("static_ip", icici_config.get("static_ip"))
         oracle_proxy_base_url = oracle_config.get("execution_proxy_base_url", "")
         oracle_proxy_health_url = oracle_config.get("execution_proxy_health_url", "")
+        oracle_proxy_shared_secret = oracle_config.get("execution_proxy_shared_secret", "")
         oracle_collector_base_url = oracle_config.get("collector_base_url", "")
         oracle_collector_health_url = oracle_config.get("collector_health_url", "")
         bedrock_model = bedrock_config.get("model_id", "anthropic.claude-3-haiku-20240307-v1:0")
@@ -160,6 +161,7 @@ class TradingAgentRuntimeStack(Stack):
             "ORACLE_STATIC_IP": static_ip,
             "ORACLE_EXECUTION_PROXY_BASE_URL": oracle_proxy_base_url,
             "ORACLE_EXECUTION_PROXY_HEALTH_URL": oracle_proxy_health_url,
+            "ORACLE_PROXY_SHARED_SECRET": oracle_proxy_shared_secret,
             "ORACLE_COLLECTOR_BASE_URL": oracle_collector_base_url,
             "ORACLE_COLLECTOR_HEALTH_URL": oracle_collector_health_url,
             "BEDROCK_MODEL_ID": bedrock_model,

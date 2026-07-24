@@ -8,11 +8,14 @@ ENV PORT=8080
 
 WORKDIR /app
 
-COPY oracle/execution-proxy/requirements.txt ./requirements.txt
+COPY execution-proxy/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
-COPY oracle/execution-proxy/app.py ./app.py
+COPY execution-proxy/app.py ./app.py
+COPY execution-proxy/auth.py ./auth.py
+COPY execution-proxy/breeze_client.py ./breeze_client.py
+COPY execution-proxy/idempotency.py ./idempotency.py
 
 EXPOSE 8080
 
