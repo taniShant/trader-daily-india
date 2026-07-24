@@ -442,6 +442,7 @@ class TradingBot:
     """Continuous trading bot that runs throughout market hours."""
     
     def __init__(self):
+        from .alpha import IntradayAlphaScanner
         from .overnight.news_aggregator import NewsAggregator
         from .overnight.global_macro import GlobalMacroCollector
         from .overnight.pre_market_scanner import PreMarketScanner
@@ -474,6 +475,7 @@ class TradingBot:
         self.pre_market_scanner = PreMarketScanner()
         self.pattern_analyzer = PatternAnalyzer()
         self.confidence_adjuster = ConfidenceAdjuster()
+        self.alpha_scanner = IntradayAlphaScanner()
         
         self._setup_signal_handlers()
         self._update_watchlist()
@@ -619,10 +621,16 @@ class TradingBot:
     def _analyze_stock(self, stock_symbol: str) -> Optional[TradingSignal]:
         """Run multi-agent analysis for a single stock."""
         print(f"\n📊 Analyzing {stock_symbol}...")
+        alpha_context = self._get_alpha_context(stock_symbol)
         
         prompt = f"""
         Analyze {stock_symbol} for intraday trading.
         Current market sentiment: {self.current_sentiment}
+        Deterministic alpha scanner context: {alpha_context}
+        Treat the alpha scanner as the primary price/volume setup gate:
+        - If alpha action is HOLD or data_quality is unavailable, prefer HOLD unless live quote and technical tools provide valid prices.
+        - If alpha action is BUY/SELL, validate it against news, fundamentals, sentiment, derivatives, and risk.
+        - Do not issue BUY/SELL unless entry_price, stop_loss, and target_price are numeric.
         Call all specialist analysts, get live quote, and provide a final recommendation in JSON format.
         """
         
@@ -660,6 +668,26 @@ class TradingBot:
         except Exception as e:
             print(f"   ❌ Error: {e}")
             return None
+
+    def _get_alpha_context(self, stock_symbol: str) -> Dict[str, Any]:
+        try:
+            setup = self.alpha_scanner.analyze_symbol(stock_symbol)
+            context = setup.to_dict()
+            print(
+                f"   🔎 Alpha scanner: {context['action']} "
+                f"{context['symbol']} ({context['conviction']}%) - {context['setup']}"
+            )
+            return context
+        except Exception as e:
+            print(f"   ⚠️ Alpha scanner error for {stock_symbol}: {e}")
+            return {
+                "symbol": stock_symbol,
+                "action": "HOLD",
+                "conviction": 0,
+                "setup": "scanner_error",
+                "data_quality": "unavailable",
+                "reasons": [str(e)],
+            }
     
     def _adjust_confidence(self, base_confidence: int) -> int:
         """Adjust confidence based on current market conditions."""

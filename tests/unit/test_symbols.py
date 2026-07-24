@@ -10,6 +10,9 @@ from agent.tools.market_data import MarketDataProvider
 def test_symbol_mapping_normalizes_common_forms():
     assert canonical_symbol(" reliance ") == "RELIANCE"
     assert canonical_symbol("RELIANCE.NS") == "RELIANCE"
+    assert canonical_symbol("INFY.N") == "INFY"
+    assert canonical_symbol("INFY.BO") == "INFY"
+    assert yahoo_symbol("INFY.N") == "INFY.NS"
     assert yahoo_symbol("RELIANCE") == "RELIANCE.NS"
     assert breeze_stock_code("RELIANCE.NS") == "RELIANCE"
 

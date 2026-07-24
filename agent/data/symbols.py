@@ -79,7 +79,11 @@ SYMBOL_MASTER: dict[str, SymbolMapping] = {
 
 def canonical_symbol(symbol: str) -> str:
     cleaned = symbol.strip().upper()
+    if cleaned.endswith(".N"):
+        cleaned = cleaned[:-2]
     if cleaned.endswith(".NS"):
+        cleaned = cleaned[:-3]
+    if cleaned.endswith(".BO"):
         cleaned = cleaned[:-3]
     return _ALIASES.get(cleaned, cleaned)
 

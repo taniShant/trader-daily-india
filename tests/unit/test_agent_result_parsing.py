@@ -77,6 +77,64 @@ def test_analyze_stock_accepts_agent_result_object(monkeypatch):
     assert signal.risk_level == "HIGH"
 
 
+def test_analyze_stock_includes_alpha_context_in_prompt(monkeypatch):
+    prompts = []
+    result = SimpleNamespace(
+        message={
+            "role": "assistant",
+            "content": [
+                {
+                    "text": """
+                    {
+                      "action": "HOLD",
+                      "confidence": 65,
+                      "entry_price": 0,
+                      "stop_loss": 0,
+                      "target_price": 0,
+                      "reasoning": "Alpha scanner says no confirmed setup.",
+                      "technical_summary": "No breakout.",
+                      "sentiment_score": 0,
+                      "risk_level": "HIGH"
+                    }
+                    """
+                }
+            ],
+        }
+    )
+
+    def fake_orchestrator(prompt):
+        prompts.append(prompt)
+        return result
+
+    monkeypatch.setattr(main_module, "get_orchestrator", lambda: fake_orchestrator)
+
+    bot = main_module.TradingBot.__new__(main_module.TradingBot)
+    bot.current_sentiment = 0.0
+    bot.temp_caution_mode = False
+    bot.confidence_adjuster = SimpleNamespace(get_adjustment_factor=lambda: 1.0)
+    bot.alpha_scanner = SimpleNamespace(
+        analyze_symbol=lambda symbol: SimpleNamespace(
+            to_dict=lambda: {
+                "symbol": symbol,
+                "action": "BUY",
+                "conviction": 82,
+                "setup": "opening_range_breakout",
+                "data_quality": "ok",
+                "entry_price": 100.0,
+                "stop_loss": 98.0,
+                "target_price": 104.0,
+                "reasons": ["price broke opening range"],
+            }
+        )
+    )
+
+    signal = bot._analyze_stock("MARUTI")
+
+    assert signal is not None
+    assert "Deterministic alpha scanner context" in prompts[0]
+    assert "opening_range_breakout" in prompts[0]
+
+
 def test_analyze_stock_downgrades_directional_signal_with_missing_prices(monkeypatch):
     result = SimpleNamespace(
         message={
