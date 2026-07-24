@@ -17,7 +17,7 @@ Optional:
   ORACLE_HOST                         Default: 80.225.242.6
   ORACLE_USER                         Default: opc
   ORACLE_PROXY_MODE                   Default: mock
-  ORACLE_COLLECTOR_MODE               Default: mock
+  ORACLE_COLLECTOR_MODE               Default: live
   ORACLE_PROXY_PORT                   Default: 8080
   ORACLE_COLLECTOR_PORT               Default: 8090
   REMOTE_APP_DIR                      Default: /opt/trader/oracle
@@ -38,7 +38,7 @@ esac
 ORACLE_HOST="${ORACLE_HOST:-80.225.242.6}"
 ORACLE_USER="${ORACLE_USER:-opc}"
 ORACLE_PROXY_MODE="${ORACLE_PROXY_MODE:-mock}"
-ORACLE_COLLECTOR_MODE="${ORACLE_COLLECTOR_MODE:-mock}"
+ORACLE_COLLECTOR_MODE="${ORACLE_COLLECTOR_MODE:-live}"
 ORACLE_PROXY_PORT="${ORACLE_PROXY_PORT:-8080}"
 ORACLE_COLLECTOR_PORT="${ORACLE_COLLECTOR_PORT:-8090}"
 REMOTE_APP_DIR="${REMOTE_APP_DIR:-/opt/trader/oracle}"

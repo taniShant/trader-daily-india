@@ -8,6 +8,7 @@ def test_oracle_deploy_script_targets_static_ip_and_both_services():
     script = (ROOT / "oracle" / "scripts" / "deploy_oracle_services.sh").read_text()
 
     assert "ORACLE_HOST=\"${ORACLE_HOST:-80.225.242.6}\"" in script
+    assert "ORACLE_COLLECTOR_MODE=\"${ORACLE_COLLECTOR_MODE:-live}\"" in script
     assert "rsync -az --delete" in script
     assert "docker compose" in script
     assert "ORACLE_PROXY_SHARED_SECRET" in script

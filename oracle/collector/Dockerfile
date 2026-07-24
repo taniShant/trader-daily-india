@@ -8,7 +8,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY oracle/collector/app.py .
 
 ENV PYTHONUNBUFFERED=1
-ENV ORACLE_COLLECTOR_MODE=mock
+ENV ORACLE_COLLECTOR_MODE=live
 ENV ORACLE_STATIC_IP=80.225.242.6
 
 EXPOSE 8090

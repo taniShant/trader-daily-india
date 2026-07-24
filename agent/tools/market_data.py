@@ -8,6 +8,7 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 from strands import tool
 
+from agent.data.oracle_client import OracleCollectorClient
 from agent.data.market_data import (
     normalize_ohlcv_bars,
     normalize_quote,
@@ -22,7 +23,15 @@ class MarketDataProvider:
     
     def __init__(self):
         self.breeze = None
+        self.oracle_client = self._init_oracle_collector()
         self.use_breeze = self._init_breeze()
+
+    def _init_oracle_collector(self) -> OracleCollectorClient | None:
+        """Initialize Oracle collector client when AWS has a configured collector URL."""
+        base_url = os.environ.get("ORACLE_COLLECTOR_BASE_URL")
+        if not base_url:
+            return None
+        return OracleCollectorClient(base_url=base_url, timeout_seconds=5.0)
     
     def _init_breeze(self) -> bool:
         """Initialize Breeze Connect with credentials from environment."""
@@ -52,6 +61,18 @@ class MarketDataProvider:
     def get_live_quote(self, stock_symbol: str) -> Dict[str, Any]:
         """Get live quote for a stock."""
         canonical = canonical_symbol(stock_symbol)
+        oracle_client = getattr(self, "oracle_client", None)
+        if oracle_client is not None:
+            try:
+                payload = oracle_client.fetch_quote(canonical)
+                quote = normalize_quote(payload, symbol=canonical, source=payload.get("source", "oracle"))
+                quality = check_quote_quality(quote, require_volume=True)
+                if not quality.passed:
+                    return _quality_error(canonical, quality.reasons)
+                return quote_to_tool_payload(quote)
+            except Exception as e:
+                print(f"Oracle collector quote error for {stock_symbol}: {e}")
+
         if self.use_breeze and self.breeze:
             try:
                 response = self.breeze.get_quotes(
@@ -95,10 +116,39 @@ class MarketDataProvider:
         interval: str = "1d"
     ) -> Dict[str, Any]:
         """Get historical OHLCV data."""
+        canonical = canonical_symbol(stock_symbol)
+        oracle_client = getattr(self, "oracle_client", None)
+        if oracle_client is not None:
+            try:
+                payload = oracle_client.fetch_ohlcv(canonical, days=days, interval=interval)
+                source = payload.get("source") or _first_row_source(payload) or "oracle"
+                bars = normalize_ohlcv_bars(
+                    payload.get("data", []),
+                    symbol=canonical,
+                    interval=interval,
+                    source=source,
+                )
+                quality = check_ohlcv_quality(
+                    bars,
+                    symbol=canonical,
+                    interval=interval,
+                    min_bars=1,
+                    require_nonzero_volume=True,
+                )
+                if not quality.passed:
+                    return _quality_error(canonical, quality.reasons)
+                return ohlcv_bars_to_tool_payload(
+                    symbol=canonical,
+                    days=days,
+                    interval=interval,
+                    bars=bars,
+                )
+            except Exception as e:
+                print(f"Oracle collector OHLCV error for {stock_symbol}: {e}")
+
         try:
             import yfinance as yf
 
-            canonical = canonical_symbol(stock_symbol)
             ticker = yf.Ticker(yahoo_symbol(stock_symbol))
             hist = ticker.history(period=f"{days}d", interval=interval)
             
@@ -193,6 +243,14 @@ def _quality_error(symbol: str, reasons: list[str]) -> Dict[str, Any]:
         "error": "data_quality_failed",
         "reasons": reasons,
     }
+
+
+def _first_row_source(payload: dict[str, Any]) -> str | None:
+    rows = payload.get("data", [])
+    if rows and isinstance(rows[0], dict):
+        source = rows[0].get("source")
+        return str(source) if source else None
+    return None
 
 
 def _load_breeze_connect():

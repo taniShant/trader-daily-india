@@ -44,3 +44,23 @@ def test_oracle_collector_health_and_market_context_cache(monkeypatch):
     assert latest.status_code == 200
     assert latest.json()["macro"]["global_sentiment"] == "positive"
     assert latest.json()["sentiment_score"] == 0.35
+
+
+def test_oracle_collector_mock_quote_and_ohlcv_endpoints(monkeypatch):
+    client = TestClient(load_collector_app(monkeypatch))
+
+    quote = client.get("/quotes/MARUTI.NS")
+    candles = client.get("/ohlcv/MARUTI.NS", params={"days": 2, "interval": "5m"})
+
+    assert quote.status_code == 200
+    assert quote.json()["symbol"] == "MARUTI"
+    assert quote.json()["exchange"] == "NSE"
+    assert float(quote.json()["ltp"]) > 0
+    assert quote.json()["volume"] > 0
+
+    assert candles.status_code == 200
+    assert candles.json()["symbol"] == "MARUTI"
+    assert candles.json()["interval"] == "5m"
+    assert candles.json()["latest_close"] > 0
+    assert len(candles.json()["data"]) >= 8
+    assert candles.json()["data"][-1]["volume"] > 0

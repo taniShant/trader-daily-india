@@ -7,7 +7,7 @@ import requests
 
 
 class OracleCollectorError(RuntimeError):
-    """Raised when the Oracle collector cannot provide cached market context."""
+    """Raised when the Oracle collector cannot provide market data."""
 
 
 @dataclass(frozen=True)
@@ -16,8 +16,19 @@ class OracleCollectorClient:
     timeout_seconds: float = 10.0
 
     def fetch_market_context(self) -> dict[str, Any]:
+        payload = self._get_json("/market-context/latest")
+        return _normalize_context(payload, source="oracle")
+
+    def fetch_quote(self, symbol: str) -> dict[str, Any]:
+        return self._get_json(f"/quotes/{symbol}")
+
+    def fetch_ohlcv(self, symbol: str, *, days: int = 5, interval: str = "5m") -> dict[str, Any]:
+        return self._get_json(f"/ohlcv/{symbol}", params={"days": days, "interval": interval})
+
+    def _get_json(self, path: str, *, params: dict[str, Any] | None = None) -> dict[str, Any]:
         response = requests.get(
-            f"{self.base_url.rstrip('/')}/market-context/latest",
+            f"{self.base_url.rstrip('/')}{path}",
+            params=params,
             timeout=self.timeout_seconds,
         )
         if response.status_code >= 400:
@@ -25,7 +36,7 @@ class OracleCollectorClient:
         payload = response.json()
         if not isinstance(payload, dict):
             raise OracleCollectorError("Oracle collector returned non-object payload")
-        return _normalize_context(payload, source="oracle")
+        return payload
 
 
 def get_market_context_with_fallback(
