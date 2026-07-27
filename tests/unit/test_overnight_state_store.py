@@ -1,4 +1,5 @@
 from decimal import Decimal
+import math
 
 from agent.overnight.state_store import daily_state_key, decimalize, get_daily_state, put_daily_state
 
@@ -41,6 +42,25 @@ def test_put_daily_state_converts_floats_to_decimal_recursively():
     assert item["score"] == Decimal("0.25")
     assert item["nested"]["change"] == Decimal("-1.5")
     assert item["items"][0]["price"] == Decimal("100.1")
+
+
+def test_decimalize_replaces_non_finite_numbers_with_none():
+    item = decimalize(
+        {
+            "nan": math.nan,
+            "positive_infinity": math.inf,
+            "negative_infinity": -math.inf,
+            "decimal_nan": Decimal("NaN"),
+            "nested": [{"ok": 1.25, "bad": Decimal("Infinity")}],
+        }
+    )
+
+    assert item["nan"] is None
+    assert item["positive_infinity"] is None
+    assert item["negative_infinity"] is None
+    assert item["decimal_nan"] is None
+    assert item["nested"][0]["ok"] == Decimal("1.25")
+    assert item["nested"][0]["bad"] is None
 
 
 def test_get_daily_state_uses_composite_key():

@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+import math
 from decimal import Decimal
 from typing import Any
 
 
 def decimalize(value: Any) -> Any:
-    """Convert Python floats into DynamoDB-safe Decimals recursively."""
+    """Convert Python floats into DynamoDB-safe values recursively."""
     if isinstance(value, float):
+        if not math.isfinite(value):
+            return None
         return Decimal(str(value))
+    if isinstance(value, Decimal) and not value.is_finite():
+        return None
     if isinstance(value, list):
         return [decimalize(item) for item in value]
     if isinstance(value, dict):
