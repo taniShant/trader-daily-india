@@ -27,7 +27,7 @@ def test_prod_config_names_created_trading_subnets():
 
 
 def test_network_stack_creates_vpc_and_security_groups():
-    source = (ROOT / "cicd" / "stacks" / "platform_stack.py").read_text()
+    source = (ROOT / "cicd" / "cdk" / "stacks" / "platform_stack.py").read_text()
 
     assert "ec2.Vpc(" in source
     assert "vpc_name=vpc_name" in source
@@ -66,7 +66,7 @@ def test_runtime_text_does_not_describe_oracle_static_ip_as_aws_nat():
         ROOT / "agent" / "main.py",
         ROOT / "agent" / "mcp_integration.py",
         ROOT / "containers" / "trading-bot" / "entrypoint.sh",
-        ROOT / "cicd" / "stacks" / "agent_runtime_stack.py",
+        ROOT / "cicd" / "cdk" / "stacks" / "agent_runtime_stack.py",
     ]
 
     combined = "\n".join(path.read_text() for path in checked_files)

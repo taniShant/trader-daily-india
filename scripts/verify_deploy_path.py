@@ -36,7 +36,7 @@ def main() -> int:
     deploy = read(".github/workflows/deploy.yml")
     daily = read(".github/workflows/daily-trading.yml")
     app = read("app.py")
-    runtime_stack = read("cicd/stacks/agent_runtime_stack.py")
+    runtime_stack = read("cicd/cdk/stacks/agent_runtime_stack.py")
     config = json.loads(read("cicd/env/prod.json"))
 
     assert_contains(deploy, "name: Deploy AWS Trading System", ".github/workflows/deploy.yml")
@@ -60,8 +60,8 @@ def main() -> int:
     assert_not_contains(daily, "Analyze RELIANCE", ".github/workflows/daily-trading.yml")
 
     assert_contains(app, "TradingAgentRuntimeStack", "app.py")
-    assert_contains(runtime_stack, "ORACLE_EXECUTION_PROXY_BASE_URL", "cicd/stacks/agent_runtime_stack.py")
-    assert_contains(runtime_stack, "ORACLE_EXECUTION_PROXY_HEALTH_URL", "cicd/stacks/agent_runtime_stack.py")
+    assert_contains(runtime_stack, "ORACLE_EXECUTION_PROXY_BASE_URL", "cicd/cdk/stacks/agent_runtime_stack.py")
+    assert_contains(runtime_stack, "ORACLE_EXECUTION_PROXY_HEALTH_URL", "cicd/cdk/stacks/agent_runtime_stack.py")
 
     oracle = config.get("oracle", {})
     icici = config.get("icici", {})

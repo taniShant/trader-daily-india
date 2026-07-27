@@ -237,7 +237,7 @@ def test_get_model_refreshes_assumed_session_before_expiry(monkeypatch):
 
 
 def test_ecs_task_definition_exposes_cross_account_bedrock_env_vars():
-    stack_source = open("cicd/stacks/agent_runtime_stack.py", encoding="utf-8").read()
+    stack_source = open("cicd/cdk/stacks/agent_runtime_stack.py", encoding="utf-8").read()
 
     for env_name in [
         "CROSS_ACCOUNT_BEDROCK_ENABLED",

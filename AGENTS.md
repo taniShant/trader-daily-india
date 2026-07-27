@@ -59,7 +59,7 @@ This is a multi-agent trading system built with AWS CDK and Strands Agents frame
    - Pre-market watchlist generation
    - Pattern learning and confidence adjustment
 
-5. **Infrastructure** (`cicd/stacks/` and `app.py`):
+5. **Infrastructure** (`cicd/cdk/stacks/` and `app.py`):
    - AWS CDK stacks for Auth (Cognito), Storage (DynamoDB/S3), and Agent Runtime
    - ECS Fargate service for continuous trading bot execution
    - GitHub Actions for scheduled overnight processing

@@ -3,7 +3,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 ENTRYPOINT = ROOT / "containers" / "trading-bot" / "entrypoint.sh"
-AGENT_RUNTIME_STACK = ROOT / "cicd" / "stacks" / "agent_runtime_stack.py"
+AGENT_RUNTIME_STACK = ROOT / "cicd" / "cdk" / "stacks" / "agent_runtime_stack.py"
 
 
 def test_trading_entrypoint_does_not_require_icici_credentials_in_aws_paper_mode():

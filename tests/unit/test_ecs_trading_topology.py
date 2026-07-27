@@ -48,7 +48,7 @@ def ecs_services():
 
 
 def test_trading_bot_service_is_singleton_without_task_autoscaling():
-    source = (ROOT / "cicd" / "stacks" / "agent_runtime_stack.py").read_text()
+    source = (ROOT / "cicd" / "cdk" / "stacks" / "agent_runtime_stack.py").read_text()
 
     assert "TradingBotService" in source
     assert "desired_count=1" in source
@@ -89,7 +89,7 @@ def test_ecs_services_use_public_subnet_egress_without_nat_gateway():
 
 
 def test_agent_runtime_uses_single_iam_stack_role():
-    source = (ROOT / "cicd" / "stacks" / "agent_runtime_stack.py").read_text()
+    source = (ROOT / "cicd" / "cdk" / "stacks" / "agent_runtime_stack.py").read_text()
     template = agent_runtime_template()
     role_names = [
         resource["Properties"].get("RoleName")

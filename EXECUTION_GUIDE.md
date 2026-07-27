@@ -110,7 +110,7 @@ oracle/
     Dockerfile
     requirements.txt
   collector/
-  terraform/ or scripts/
+  cdk/ or scripts/
 
 tests/
   unit/
@@ -159,7 +159,7 @@ AWS networking distinction:
 
 EventBridge schedules:
 
-- Runtime schedules are defined in `cicd/stacks/agent_runtime_stack.py`.
+- Runtime schedules are defined in `cicd/cdk/stacks/agent_runtime_stack.py`.
 - Schedule expressions live in `cicd/env/prod.json` under `scheduled_tasks`.
 - `overnight_analysis` runs as one public-egress ECS Fargate task at 17:00 UTC on weekdays.
 - `market_open` runs as one public-egress ECS Fargate task at 03:45 UTC on weekdays.
@@ -170,7 +170,7 @@ EventBridge schedules:
 
 P0-WP05 decision:
 
-- AWS infrastructure and ECS services are owned by CDK: `app.py` and `cicd/stacks/*.py`.
+- AWS infrastructure and ECS services are owned by CDK: `app.py` and `cicd/cdk/stacks/*.py`.
 - GitHub Actions deploys AWS by building/pushing the trading bot and dashboard images, validating the deploy path, then running `cdk synth` and `cdk deploy --all`.
 - `.github/workflows/deploy.yml` is the active AWS deploy workflow.
 - `.github/workflows/daily-trading.yml` is a guard only. It must not invoke AgentCore or place/analyze trades. Runtime schedules will be added through CDK/EventBridge in `P2-WP06`.

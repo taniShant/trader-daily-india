@@ -19,8 +19,8 @@ from aws_cdk import App, Environment
 ROOT_DIR = Path(__file__).resolve().parent
 CICD_DIR = ROOT_DIR / "cicd"
 
-from cicd.stacks.platform_stack import PlatformStack
-from cicd.stacks.agent_runtime_stack import TradingAgentRuntimeStack
+from cicd.cdk.stacks.platform_stack import PlatformStack
+from cicd.cdk.stacks.agent_runtime_stack import TradingAgentRuntimeStack
 
 # ============================================================
 # LOAD CONFIGURATION FROM ENVIRONMENT FILE

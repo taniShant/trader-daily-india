@@ -143,10 +143,10 @@ trader-daily-india/
 ├── cicd/                    # CI/CD and infrastructure assets
 │   ├── env/                   # Environment configuration
 │   │   └── prod.json
-│   ├── stacks/                # CDK stacks (from above)
-│   │   ├── auth_stack.py
-│   │   ├── storage_stack.py
-│   │   └── agent_runtime_stack.py
+│   ├── cdk/             # Infrastructure modules
+│   │   └── stacks/            # CDK stacks (from above)
+│   │       ├── platform_stack.py
+│   │       └── agent_runtime_stack.py
 │   ├── ecstasks_unused/       # Legacy ECS task JSONs, not active deploy source
 │   │   ├── dashboard.json
 │   │   ├── overnight-analysis.json

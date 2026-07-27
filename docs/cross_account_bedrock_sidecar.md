@@ -14,7 +14,7 @@ It does not change the normal single-account deployment path. The default CDK ap
 
 ```text
 cicd/apps/cross_account_bedrock_app.py
-cicd/stacks/cross_account_bedrock_stack.py
+cicd/cdk/stacks/cross_account_bedrock_stack.py
 cicd/env/cross-account-bedrock.json
 tests/unit/test_cross_account_bedrock_stack.py
 docs/cross_account_bedrock_sidecar.md

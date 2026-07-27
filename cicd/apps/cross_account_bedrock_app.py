@@ -11,7 +11,7 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from cicd.stacks.cross_account_bedrock_stack import (
+from cicd.cdk.stacks.cross_account_bedrock_stack import (
     BedrockConsumerPermissionStack,
     BedrockProviderRoleStack,
 )
