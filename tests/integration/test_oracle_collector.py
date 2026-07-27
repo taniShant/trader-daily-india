@@ -97,7 +97,32 @@ def test_oracle_collector_live_ohlcv_uses_breeze_datetime_format(monkeypatch):
 
     assert payload["symbol"] == "MARUTI"
     assert calls[0]["interval"] == "5minute"
+    assert calls[0]["stock_code"] == "MARUTI"
+    assert calls[0]["from_date"].endswith("T03:45:00.000Z")
+    assert calls[0]["to_date"].endswith("T10:00:00.000Z")
     assert calls[0]["from_date"].endswith(".000Z")
     assert calls[0]["to_date"].endswith(".000Z")
     assert "+" not in calls[0]["from_date"]
     assert calls[0]["product_type"] == "cash"
+
+
+def test_oracle_collector_live_ohlcv_accepts_technical_lookback(monkeypatch):
+    client = TestClient(load_collector_app(monkeypatch))
+
+    candles = client.get("/ohlcv/MARUTI", params={"days": 60, "interval": "5m"})
+
+    assert candles.status_code == 200
+    assert candles.json()["symbol"] == "MARUTI"
+
+
+def test_oracle_collector_maps_nse_symbols_to_breeze_codes(monkeypatch):
+    load_collector_app(monkeypatch)
+    collector_module = sys.modules["oracle_collector_app_test"]
+
+    assert collector_module._breeze_stock_code("INFY") == "INFTEC"
+    assert collector_module._breeze_stock_code("ASIANPAINT") == "ASIPAI"
+    assert collector_module._breeze_stock_code("HCLTECH") == "HCLTEC"
+    assert collector_module._breeze_stock_code("DIVISLAB") == "DIVLAB"
+    assert collector_module._breeze_stock_code("BAJFINANCE") == "BAJFI"
+    assert collector_module._breeze_stock_code("EICHERMOT") == "EICMOT"
+    assert collector_module._breeze_stock_code("SUNPHARMA") == "SUNPHA"

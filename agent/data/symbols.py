@@ -66,11 +66,22 @@ _NIFTY_LARGE_CAPS = {
 }
 
 
+_BREEZE_STOCK_CODES = {
+    "INFY": "INFTEC",
+    "ASIANPAINT": "ASIPAI",
+    "HCLTECH": "HCLTEC",
+    "DIVISLAB": "DIVLAB",
+    "BAJFINANCE": "BAJFI",
+    "EICHERMOT": "EICMOT",
+    "SUNPHARMA": "SUNPHA",
+}
+
+
 SYMBOL_MASTER: dict[str, SymbolMapping] = {
     symbol: SymbolMapping(
         canonical=symbol,
         yahoo=f"{symbol}.NS",
-        breeze=symbol,
+        breeze=_BREEZE_STOCK_CODES.get(symbol, symbol),
         name=name,
     )
     for symbol, name in _NIFTY_LARGE_CAPS.items()

@@ -74,8 +74,7 @@ class BreezeMarketDataClient:
 
     def ohlcv(self, symbol: str, *, interval: str, days: int) -> dict[str, Any]:
         breeze_interval = _to_breeze_interval(interval)
-        to_date = datetime.now(timezone.utc)
-        from_date = to_date - timedelta(days=days)
+        from_date, to_date = _breeze_date_range(days=days, interval=interval)
         request = {
             "interval": breeze_interval,
             "from_date": _breeze_datetime(from_date),
@@ -134,7 +133,7 @@ def create_app() -> FastAPI:
     @app.get("/ohlcv/{symbol}")
     def ohlcv(
         symbol: str,
-        days: int = Query(default=5, ge=1, le=30),
+        days: int = Query(default=5, ge=1, le=90),
         interval: str = Query(default="5m"),
     ) -> dict[str, Any]:
         normalized_interval = _normalize_interval(interval)
@@ -166,7 +165,7 @@ def _canonical_symbol(symbol: str) -> str:
 
 
 def _breeze_stock_code(symbol: str) -> str:
-    return _canonical_symbol(symbol)
+    return _BREEZE_STOCK_CODES.get(_canonical_symbol(symbol), _canonical_symbol(symbol))
 
 
 def _normalize_interval(interval: str) -> str:
@@ -194,6 +193,19 @@ def _to_breeze_interval(interval: str) -> str:
         "30m": "30minute",
         "1d": "1day",
     }[interval]
+
+
+def _breeze_date_range(*, days: int, interval: str) -> tuple[datetime, datetime]:
+    now = datetime.now(timezone.utc)
+    if interval == "1d":
+        return now - timedelta(days=days), now
+
+    end_date = now.date()
+    start_date = (now - timedelta(days=days)).date()
+    return (
+        datetime(start_date.year, start_date.month, start_date.day, 3, 45, tzinfo=timezone.utc),
+        datetime(end_date.year, end_date.month, end_date.day, 10, 0, tzinfo=timezone.utc),
+    )
 
 
 def _breeze_datetime(value: datetime) -> str:
@@ -320,4 +332,15 @@ def _timestamp(payload: dict[str, Any]) -> str:
 _ALIASES = {
     "NESTLE": "NESTLEIND",
     "TATAMOTORS": "TMCV",
+}
+
+
+_BREEZE_STOCK_CODES = {
+    "INFY": "INFTEC",
+    "ASIANPAINT": "ASIPAI",
+    "HCLTECH": "HCLTEC",
+    "DIVISLAB": "DIVLAB",
+    "BAJFINANCE": "BAJFI",
+    "EICHERMOT": "EICMOT",
+    "SUNPHARMA": "SUNPHA",
 }

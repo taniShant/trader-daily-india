@@ -29,6 +29,18 @@ def test_symbol_mapping_handles_known_aliases_and_unknowns():
     assert unknown.breeze == "ABCDEF"
 
 
+def test_symbol_mapping_uses_verified_breeze_stock_codes_for_watchlist():
+    assert breeze_stock_code("INFY") == "INFTEC"
+    assert breeze_stock_code("ASIANPAINT") == "ASIPAI"
+    assert breeze_stock_code("HCLTECH") == "HCLTEC"
+    assert breeze_stock_code("DIVISLAB") == "DIVLAB"
+    assert breeze_stock_code("BAJFINANCE") == "BAJFI"
+    assert breeze_stock_code("EICHERMOT") == "EICMOT"
+    assert breeze_stock_code("SUNPHARMA") == "SUNPHA"
+    assert breeze_stock_code("MARUTI") == "MARUTI"
+    assert breeze_stock_code("ONGC") == "ONGC"
+
+
 def test_tata_motors_legacy_symbol_maps_to_current_yahoo_symbol():
     tata = resolve_symbol("TATAMOTORS")
 
