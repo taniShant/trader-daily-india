@@ -1,0 +1,154 @@
+from __future__ import annotations
+
+from decimal import Decimal, ROUND_HALF_UP
+
+from agent.contracts.execution import OrderSide
+from agent.signals.technical import TechnicalFeatures
+
+from .models import MicroTradeConfig, MicroTradePlan, MicroTradeSetup
+
+
+class MicroSetupDetector:
+    """Classifies 5-10 minute scalping setups without LLM calls."""
+
+    def __init__(self, config: MicroTradeConfig | None = None):
+        self.config = config or MicroTradeConfig()
+
+    def detect(self, features: TechnicalFeatures) -> MicroTradeSetup:
+        reasons: list[str] = []
+        close = Decimal(str(features.close))
+        atr = Decimal(str(max(features.atr, features.close * 0.001)))
+        atr_ratio = float(atr / close) if close > 0 else 1.0
+        extension = abs(features.close - features.vwap) / float(atr) if atr > 0 else 99.0
+
+        if atr_ratio < self.config.min_atr_ratio:
+            reasons.append("volatility too low for micro trade")
+        elif atr_ratio > self.config.max_atr_ratio:
+            reasons.append("volatility too high for micro trade")
+        else:
+            reasons.append("tradable micro volatility")
+
+        if features.relative_volume >= self.config.min_relative_volume:
+            reasons.append(f"relative volume confirmed {features.relative_volume:.2f}x")
+        else:
+            reasons.append(f"relative volume too weak {features.relative_volume:.2f}x")
+
+        if extension <= self.config.max_vwap_extension_atr:
+            reasons.append("price not overextended versus VWAP")
+        else:
+            reasons.append("price overextended versus VWAP")
+
+        action = "HOLD"
+        setup = "micro_monitor"
+        confidence = 50
+
+        bullish_orb = (
+            features.close > features.opening_range_high
+            and features.close > features.previous_high
+            and features.close > features.vwap
+            and features.macd >= features.macd_signal
+            and 50 <= features.rsi <= 72
+        )
+        bearish_orb = (
+            features.close < features.opening_range_low
+            and features.close < features.previous_low
+            and features.close < features.vwap
+            and features.macd <= features.macd_signal
+            and 28 <= features.rsi <= 50
+        )
+        bullish_vwap = (
+            features.close > features.vwap
+            and features.trend_bias == "bullish"
+            and features.relative_volume >= self.config.min_relative_volume
+            and 50 <= features.rsi <= 70
+        )
+        bearish_vwap = (
+            features.close < features.vwap
+            and features.trend_bias == "bearish"
+            and features.relative_volume >= self.config.min_relative_volume
+            and 30 <= features.rsi <= 50
+        )
+
+        tradable = (
+            self.config.min_atr_ratio <= atr_ratio <= self.config.max_atr_ratio
+            and features.relative_volume >= self.config.min_relative_volume
+            and extension <= self.config.max_vwap_extension_atr
+        )
+
+        if tradable and bullish_orb:
+            action = "BUY"
+            setup = "micro_opening_range_breakout"
+            confidence = 80
+            reasons.append("price broke opening range and previous high above VWAP")
+        elif tradable and bearish_orb:
+            action = "SELL"
+            setup = "micro_opening_range_breakdown"
+            confidence = 80
+            reasons.append("price broke opening range and previous low below VWAP")
+        elif tradable and bullish_vwap:
+            action = "BUY"
+            setup = "micro_vwap_momentum"
+            confidence = 74
+            reasons.append("bullish VWAP momentum with volume")
+        elif tradable and bearish_vwap:
+            action = "SELL"
+            setup = "micro_vwap_rejection"
+            confidence = 74
+            reasons.append("bearish VWAP rejection with volume")
+        else:
+            reasons.append("no confirmed micro setup")
+
+        if action in {"BUY", "SELL"}:
+            confidence = min(95, confidence + self._volume_bonus(features.relative_volume))
+
+        entry = close if action in {"BUY", "SELL"} else None
+        stop, target = self._prices(action, close) if entry is not None else (None, None)
+        return MicroTradeSetup(
+            symbol=features.symbol,
+            action=action if confidence >= self.config.min_confidence else "HOLD",
+            confidence=confidence,
+            setup=setup,
+            entry_price=entry,
+            stop_loss=stop,
+            target_price=target,
+            reasons=reasons[:8],
+            features=features.to_dict(),
+        )
+
+    def to_plan(self, setup: MicroTradeSetup, signal_id: str) -> MicroTradePlan:
+        if not setup.is_actionable:
+            raise ValueError("micro setup is not actionable")
+
+        return MicroTradePlan(
+            signal_id=signal_id,
+            symbol=setup.symbol,
+            side=OrderSide.BUY if setup.action == "BUY" else OrderSide.SELL,
+            entry_price=setup.entry_price,
+            stop_loss=setup.stop_loss,
+            target_price=setup.target_price,
+            confidence=setup.confidence,
+            max_hold_minutes=self.config.max_hold_minutes,
+            reasons=setup.reasons,
+            features=setup.features,
+        )
+
+    def _prices(self, action: str, entry: Decimal) -> tuple[Decimal, Decimal]:
+        if action == "BUY":
+            stop = entry * (Decimal("1") - self.config.stop_pct)
+            target = entry * (Decimal("1") + self.config.target_pct)
+        else:
+            stop = entry * (Decimal("1") + self.config.stop_pct)
+            target = entry * (Decimal("1") - self.config.target_pct)
+        return _money(stop), _money(target)
+
+    @staticmethod
+    def _volume_bonus(relative_volume: float) -> int:
+        if relative_volume >= 3.0:
+            return 10
+        if relative_volume >= 2.2:
+            return 6
+        return 0
+
+
+def _money(value: Decimal) -> Decimal:
+    return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)

@@ -295,6 +295,17 @@ This phase makes the news path auditable and non-simulated before live-money use
 | P10-WP03 | Live readiness review | Not started | checklist below | manual sign-off | All live gates pass, including Phase 10A production market-intelligence gates. |
 | P10-WP04 | Tiny-capital live pilot | Not started | deployed system | live pilot report | Strict capped live mode runs with full audit and square-off. |
 
+### Phase 11 - Intraday Micro-Trading Engine
+
+This phase adds a separate fast lane for 5-10 minute paper/live scalping. The LLM remains an analyst and context generator; live micro-entry decisions are deterministic, data-driven, risk-gated, and disabled by default until explicitly enabled.
+
+| ID | Work Package | Status | Primary Files | Required Tests | Definition Of Done |
+|---|---|---|---|---|---|
+| P11-WP01 | Add deterministic micro setup detector | Implemented | `agent/micro/models.py`, `agent/micro/setups.py`, `tests/unit/test_micro_trading.py` | Local: `python -m pytest tests/unit/test_micro_trading.py -q` -> passed. User VS Code verification pending. | VWAP momentum, opening-range breakout/breakdown, volume, ATR, RSI, and overextension rules produce BUY/SELL/HOLD without LLM calls. |
+| P11-WP02 | Add micro trading execution engine | Implemented | `agent/micro/engine.py`, `agent/micro/__init__.py`, `tests/unit/test_micro_trading.py` | Local: included in P11 focused suite. User VS Code verification pending. | Actionable micro setups become typed `TradeSignal`s, pass through `RiskManager`, and place orders through the existing paper/Oracle broker abstraction. |
+| P11-WP03 | Add micro runtime kill switch and ECS config | Implemented | `agent/main.py`, `cicd/env/prod.json`, `.env.example`, `cicd/cdk/stacks/agent_runtime_stack.py` | Local: py_compile and focused P11/agent tests passed. User VS Code verification pending. | `MICRO_TRADING_ENABLED=false` by default; enabling requires explicit config change and redeploy. |
+| P11-WP04 | Add micro position exit model | Implemented | `agent/micro/models.py`, `tests/unit/test_micro_trading.py` | Local: included in P11 focused suite. User VS Code verification pending. | Target, stop-loss, and max-hold time exits are deterministic and testable for BUY and SELL positions. |
+
 ## 8. Testing Strategy
 
 | Test Layer | Purpose | Examples |
@@ -351,7 +362,8 @@ Recommended order:
 10. `P10`: paper day and paper/backtest comparison.
 11. `P10A`: production market-intelligence hardening before live readiness.
 12. `P10B`: real-news-only production gate before live readiness.
-13. `P10`: live readiness review and tiny live pilot only after `P10A` and `P10B` gates pass.
+13. `P11`: micro-trading engine in disabled/paper mode, with deterministic backtests and paper evidence.
+14. `P10`: live readiness review and tiny live pilot only after `P10A`, `P10B`, and P11 micro-trading gates pass for any micro strategy.
 
 ## 11. Stable Progress Tracker
 
@@ -1035,6 +1047,17 @@ Test Result: Focused tests passed with 17 tests. py_compile passed. Smoke compil
 Notes / Next Step: Rebuild/push trading bot image and redeploy AgentRuntimeStack, then watch CloudWatch logs for a clean overnight analysis and pre-market scanner pass.
 ```
 
+```text
+Date: 2026-07-30
+Work Package: P11-WP01 through P11-WP04 - Intraday Micro-Trading Engine
+Status: Implemented
+Files Changed: agent/micro/__init__.py, agent/micro/models.py, agent/micro/setups.py, agent/micro/engine.py, agent/main.py, cicd/env/prod.json, .env.example, cicd/cdk/stacks/agent_runtime_stack.py, tests/unit/test_micro_trading.py, PROJECT_PLAN.md
+What Changed: Added a deterministic fast-lane micro trading engine for 5-10 minute intraday trades. The detector classifies opening-range breakout/breakdown and VWAP momentum/rejection setups using 1-minute OHLCV-derived technical features, relative volume, ATR, RSI, MACD, and VWAP extension. Actionable setups become typed TradeSignal contracts, pass through the existing RiskManager, and execute through the existing paper/Oracle Broker abstraction. Added target, stop-loss, and time-exit modelling for micro positions. Runtime integration is guarded by MICRO_TRADING_ENABLED=false by default, so production behavior does not change until explicitly enabled.
+Test Command: python -m py_compile agent/micro/__init__.py agent/micro/models.py agent/micro/setups.py agent/micro/engine.py agent/main.py cicd/cdk/stacks/agent_runtime_stack.py; python -m pytest tests/unit/test_micro_trading.py tests/unit/test_intraday_alpha.py tests/unit/test_agent_result_parsing.py -q
+Test Result: py_compile passed. Focused P11/alpha/agent regression suite passed with 19 tests.
+Notes / Next Step: User should run the focused pytest command from VS Code. Keep P11 work packages as Implemented until user confirms VS Code verification. Do not enable MICRO_TRADING_ENABLED for live or paper ECS until a dedicated micro backtest/paper run is reviewed.
+```
+
 ## 13. Plan Change Log
 
 Use this section only when the plan itself changes materially.
@@ -1071,5 +1094,12 @@ Approved By: User request in chat.
 Date: 2026-07-26
 Change: Added Phase 10B - Real News Only Production Gate with P10B-WP01.
 Reason: Current review found that parts of overnight/global news can still use simulated fallback content; production trading must either use real provider-backed news or clearly mark source data unavailable.
+Approved By: User request in chat.
+```
+
+```text
+Date: 2026-07-30
+Change: Added Phase 11 - Intraday Micro-Trading Engine.
+Reason: Live ECS observation showed the LLM analyst path is too slow for 5-10 minute micro trades; scalping needs a deterministic fast lane with LLMs kept out of the live entry path.
 Approved By: User request in chat.
 ```

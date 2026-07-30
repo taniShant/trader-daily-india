@@ -76,6 +76,10 @@
     "alpha_universe_size": 50,
     "deep_analysis_size": 8,
     "alpha_scan_workers": 8,
+    "micro_trading_enabled": true,
+    "micro_scan_interval_seconds": 30,
+    "micro_max_hold_minutes": 10,
+    "micro_min_confidence": 72,
     "paper_trading": true
   },
   "vpc": {

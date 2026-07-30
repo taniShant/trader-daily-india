@@ -62,6 +62,10 @@ WATCHLIST_SIZE = settings.trading.watchlist_size
 ALPHA_UNIVERSE_SIZE = _read_int_env("ALPHA_UNIVERSE_SIZE", max(40, WATCHLIST_SIZE))
 DEEP_ANALYSIS_SIZE = _read_int_env("DEEP_ANALYSIS_SIZE", WATCHLIST_SIZE)
 ALPHA_SCAN_WORKERS = _read_int_env("ALPHA_SCAN_WORKERS", 8)
+MICRO_TRADING_ENABLED = os.environ.get("MICRO_TRADING_ENABLED", "false").lower() == "true"
+MICRO_SCAN_INTERVAL_SECONDS = _read_int_env("MICRO_SCAN_INTERVAL_SECONDS", 30)
+MICRO_MAX_HOLD_MINUTES = _read_int_env("MICRO_MAX_HOLD_MINUTES", 10)
+MICRO_MIN_CONFIDENCE = _read_int_env("MICRO_MIN_CONFIDENCE", 72)
 
 # Oracle static IP (for reference/logging)
 ORACLE_STATIC_IP = settings.oracle.static_ip
@@ -81,6 +85,7 @@ print(f"   Max Position Size: {MAX_POSITION_SIZE_PERCENT}%")
 print(f"   Alpha Universe Size: {ALPHA_UNIVERSE_SIZE}")
 print(f"   Deep Analysis Size: {DEEP_ANALYSIS_SIZE}")
 print(f"   Alpha Scan Workers: {ALPHA_SCAN_WORKERS}")
+print(f"   Micro Trading Enabled: {MICRO_TRADING_ENABLED}")
 print(f"   Oracle Static IP: {ORACLE_STATIC_IP}")
 
 models = {}
@@ -487,6 +492,8 @@ class TradingBot:
         self.deep_analysis_size = DEEP_ANALYSIS_SIZE
         self.alpha_scan_workers = ALPHA_SCAN_WORKERS
         self._alpha_context_cache = {}
+        self.micro_trading_enabled = MICRO_TRADING_ENABLED
+        self.micro_engine = None
         self.current_sentiment = 0.0
         self.temp_caution_mode = False
         self.running = True
@@ -498,6 +505,7 @@ class TradingBot:
         self.market_clock = MarketClock()
         self.risk_manager = self._build_risk_manager()
         self.broker = get_broker(paper_trading=self.paper_trading)
+        self.micro_engine = self._build_micro_engine() if self.micro_trading_enabled else None
         self.position_monitor = PositionMonitor()
         
         # Initialize modules
@@ -539,6 +547,7 @@ class TradingBot:
         print(f"Alpha Universe Size: {self.alpha_universe_size}")
         print(f"Deep Analysis Size: {self.deep_analysis_size}")
         print(f"Alpha Scan Workers: {self.alpha_scan_workers}")
+        print(f"Micro Trading Enabled: {self.micro_trading_enabled}")
         print(f"Analysis Interval: {ANALYSIS_INTERVAL} seconds")
         print(f"Bedrock Fast Model: {FAST_MODEL_ID}")
         print(f"Bedrock Reasoning Model: {REASONING_MODEL_ID}")
@@ -606,6 +615,21 @@ class TradingBot:
                 min_confidence=self.min_confidence,
                 max_quantity_per_order=50,
             )
+        )
+
+    def _build_micro_engine(self):
+        from .micro import MicroTradeConfig, MicroTradingEngine
+        from .tools.market_data import get_market_data
+
+        return MicroTradingEngine(
+            market_data_provider=get_market_data(),
+            broker=self.broker,
+            risk_manager=self.risk_manager,
+            config=MicroTradeConfig(
+                enabled=True,
+                max_hold_minutes=MICRO_MAX_HOLD_MINUTES,
+                min_confidence=MICRO_MIN_CONFIDENCE,
+            ),
         )
 
     def _get_market_state_repository(self):
@@ -1164,6 +1188,8 @@ class TradingBot:
             self._monitor_positions()
             return
 
+        self._run_micro_trading_cycle()
+
         # Run a fast deterministic alpha pass first, then spend LLM calls only on the best setups.
         try:
             deep_candidates = self._select_deep_analysis_symbols()
@@ -1183,6 +1209,29 @@ class TradingBot:
             time.sleep(1)
         
         self._monitor_positions()
+
+    def _run_micro_trading_cycle(self) -> None:
+        if not self.micro_engine:
+            return
+
+        print("⚡ Running micro-trading fast lane...")
+        attempts = self.micro_engine.scan_once(
+            self._get_alpha_universe(),
+            risk_state=RiskState(
+                daily_pnl=Decimal(str(self.daily_pnl)),
+                consecutive_losses=self.consecutive_losses,
+                new_trades_allowed=self._is_new_trade_allowed(),
+            ),
+        )
+        executed = [attempt for attempt in attempts if attempt.executed]
+        actionable = [
+            attempt for attempt in attempts
+            if attempt.setup.action in {"BUY", "SELL"}
+        ]
+        print(
+            f"⚡ Micro lane: {len(attempts)} scanned, "
+            f"{len(actionable)} actionable, {len(executed)} executed"
+        )
     
     def run(self):
         """Main bot loop."""

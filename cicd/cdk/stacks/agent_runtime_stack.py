@@ -79,6 +79,10 @@ class TradingAgentRuntimeStack(Stack):
         alpha_universe_size = trading_config.get("alpha_universe_size", max(40, watchlist_size))
         deep_analysis_size = trading_config.get("deep_analysis_size", watchlist_size)
         alpha_scan_workers = trading_config.get("alpha_scan_workers", 8)
+        micro_trading_enabled = trading_config.get("micro_trading_enabled", False)
+        micro_scan_interval_seconds = trading_config.get("micro_scan_interval_seconds", 30)
+        micro_max_hold_minutes = trading_config.get("micro_max_hold_minutes", 10)
+        micro_min_confidence = trading_config.get("micro_min_confidence", 72)
         
         static_ip = oracle_config.get("static_ip", icici_config.get("static_ip"))
         oracle_proxy_base_url = oracle_config.get("execution_proxy_base_url", "")
@@ -104,6 +108,7 @@ class TradingAgentRuntimeStack(Stack):
         print(f"   Alpha Universe Size: {alpha_universe_size}")
         print(f"   Deep Analysis Size: {deep_analysis_size}")
         print(f"   Alpha Scan Workers: {alpha_scan_workers}")
+        print(f"   Micro Trading Enabled: {micro_trading_enabled}")
         print(f"   Oracle Static IP: {static_ip}")
         print(f"   Oracle Execution Proxy: {oracle_proxy_base_url}")
         print(f"   Oracle Collector: {oracle_collector_base_url}")
@@ -166,6 +171,10 @@ class TradingAgentRuntimeStack(Stack):
             "ALPHA_UNIVERSE_SIZE": str(alpha_universe_size),
             "DEEP_ANALYSIS_SIZE": str(deep_analysis_size),
             "ALPHA_SCAN_WORKERS": str(alpha_scan_workers),
+            "MICRO_TRADING_ENABLED": str(micro_trading_enabled),
+            "MICRO_SCAN_INTERVAL_SECONDS": str(micro_scan_interval_seconds),
+            "MICRO_MAX_HOLD_MINUTES": str(micro_max_hold_minutes),
+            "MICRO_MIN_CONFIDENCE": str(micro_min_confidence),
             "STATIC_IP": static_ip,
             "ORACLE_STATIC_IP": static_ip,
             "ORACLE_EXECUTION_PROXY_BASE_URL": oracle_proxy_base_url,
