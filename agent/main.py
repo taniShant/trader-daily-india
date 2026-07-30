@@ -548,6 +548,10 @@ class TradingBot:
         print(f"Deep Analysis Size: {self.deep_analysis_size}")
         print(f"Alpha Scan Workers: {self.alpha_scan_workers}")
         print(f"Micro Trading Enabled: {self.micro_trading_enabled}")
+        if self.micro_trading_enabled:
+            print(f"Micro Scan Interval: {MICRO_SCAN_INTERVAL_SECONDS} seconds")
+            print(f"Micro Max Hold: {MICRO_MAX_HOLD_MINUTES} minutes")
+            print(f"Micro Min Confidence: {MICRO_MIN_CONFIDENCE}%")
         print(f"Analysis Interval: {ANALYSIS_INTERVAL} seconds")
         print(f"Bedrock Fast Model: {FAST_MODEL_ID}")
         print(f"Bedrock Reasoning Model: {REASONING_MODEL_ID}")
@@ -1188,8 +1192,6 @@ class TradingBot:
             self._monitor_positions()
             return
 
-        self._run_micro_trading_cycle()
-
         # Run a fast deterministic alpha pass first, then spend LLM calls only on the best setups.
         try:
             deep_candidates = self._select_deep_analysis_symbols()
@@ -1208,6 +1210,23 @@ class TradingBot:
                 self._execute_signal(signal)
             time.sleep(1)
         
+        self._monitor_positions()
+
+    def _run_micro_market_cycle(self) -> None:
+        """Execute one fast micro-trading cycle during market hours."""
+        if not self._check_circuit_breakers():
+            return
+
+        if self._should_square_off():
+            self._square_off_all()
+            return
+
+        if not self._is_new_trade_allowed():
+            print("⏳ New-trade cutoff reached; monitoring existing micro positions only.")
+            self._monitor_positions()
+            return
+
+        self._run_micro_trading_cycle()
         self._monitor_positions()
 
     def _run_micro_trading_cycle(self) -> None:
@@ -1238,6 +1257,8 @@ class TradingBot:
         print("\n🚀 Trading Bot Started")
         print("📅 Monitoring market hours: 9:15 AM - 3:30 PM IST")
         print(f"⏱️  Analysis interval: {ANALYSIS_INTERVAL} seconds")
+        if self.micro_engine:
+            print(f"⚡ Micro scan interval: {MICRO_SCAN_INTERVAL_SECONDS} seconds")
         print(f"📝 Paper Trading Mode: {self.paper_trading}")
         
         # Run overnight analysis first
@@ -1247,10 +1268,16 @@ class TradingBot:
             try:
                 if self._is_market_hours():
                     self.cycle_count += 1
-                    self._record_heartbeat("market_cycle_start")
-                    self._run_market_hours_cycle()
-                    self._record_heartbeat("market_cycle_complete")
-                    time.sleep(ANALYSIS_INTERVAL)
+                    if self.micro_engine:
+                        self._record_heartbeat("micro_cycle_start")
+                        self._run_micro_market_cycle()
+                        self._record_heartbeat("micro_cycle_complete")
+                        time.sleep(MICRO_SCAN_INTERVAL_SECONDS)
+                    else:
+                        self._record_heartbeat("market_cycle_start")
+                        self._run_market_hours_cycle()
+                        self._record_heartbeat("market_cycle_complete")
+                        time.sleep(ANALYSIS_INTERVAL)
                 else:
                     self._record_heartbeat("waiting_for_market")
                     time.sleep(3600)  # Check every hour outside market hours
