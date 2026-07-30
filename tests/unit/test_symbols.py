@@ -30,10 +30,13 @@ def test_symbol_mapping_handles_known_aliases_and_unknowns():
 
 
 def test_symbol_mapping_uses_verified_breeze_stock_codes_for_watchlist():
+    assert breeze_stock_code("ADANIPORTS") == "ADAPOR"
     assert breeze_stock_code("RELIANCE") == "RELIND"
     assert breeze_stock_code("INFY") == "INFTEC"
     assert breeze_stock_code("ICICIBANK") == "ICICIBANK"
     assert breeze_stock_code("BHARTIARTL") == "BHAAIR"
+    assert breeze_stock_code("HEROMOTOCO") == "HERHON"
+    assert breeze_stock_code("TECHM") == "TECMAH"
     assert breeze_stock_code("ASIANPAINT") == "ASIPAI"
     assert breeze_stock_code("HCLTECH") == "HCLTEC"
     assert breeze_stock_code("DIVISLAB") == "DIVLAB"
