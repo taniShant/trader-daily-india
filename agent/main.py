@@ -23,7 +23,7 @@ from .execution.router import get_broker
 from .execution.square_off import square_off_positions
 from .observability import log_event
 from .risk import RiskLimits, RiskManager, RiskState
-from .storage import build_bot_heartbeat, market_state_repository
+from .storage import build_bot_heartbeat, market_state_repository, trading_audit_repositories
 from .time import MarketClock
 
 # ============================================================
@@ -316,6 +316,13 @@ def _coerce_float(value: Any, default: float = 0.0) -> float:
         return default
 
 
+def _optional_positive_decimal(value: Any) -> Decimal | None:
+    numeric = _coerce_float(value)
+    if numeric <= 0:
+        return None
+    return Decimal(str(numeric))
+
+
 def _has_missing_trade_prices(payload: Dict[str, Any]) -> bool:
     missing_values = {"", "n/a", "na", "none", "null", "-"}
     for field in ["entry_price", "stop_loss", "target_price"]:
@@ -433,6 +440,7 @@ class TradingSignal:
     technical_summary: str
     sentiment_score: float
     risk_level: str
+    signal_id: str = ""
 
 # ============================================================
 # TRADING BOT CLASS (Continuous Market Hours)
@@ -462,8 +470,10 @@ class TradingBot:
         self.temp_caution_mode = False
         self.running = True
         self.bot_id = os.environ.get("BOT_ID", "trading-bot")
+        self.current_session_id = f"{self.bot_id}-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}"
         self.cycle_count = 0
         self._market_state_repository = None
+        self._audit_repositories = None
         self.market_clock = MarketClock()
         self.risk_manager = self._build_risk_manager()
         self.broker = get_broker(paper_trading=self.paper_trading)
@@ -579,6 +589,11 @@ class TradingBot:
             self._market_state_repository = market_state_repository()
         return self._market_state_repository
 
+    def _get_audit_repositories(self):
+        if getattr(self, "_audit_repositories", None) is None:
+            self._audit_repositories = trading_audit_repositories()
+        return self._audit_repositories
+
     def _record_heartbeat(self, status: str) -> None:
         try:
             heartbeat = build_bot_heartbeat(
@@ -599,16 +614,19 @@ class TradingBot:
         """Convert current orchestrator signal shape into the risk contract."""
         action = SignalAction(signal.action.upper())
         risk_level = RiskLevel(signal.risk_level.upper())
+        entry_price = _optional_positive_decimal(signal.entry_price)
+        stop_loss = _optional_positive_decimal(signal.stop_loss)
+        target_price = _optional_positive_decimal(signal.target_price)
         return ContractTradeSignal(
-            signal_id=f"{signal.stock_symbol}-{signal.date}-{action}",
+            signal_id=signal.signal_id or f"{signal.stock_symbol}-{signal.date}-{action}",
             symbol=signal.stock_symbol,
             action=action,
             confidence=signal.confidence,
-            generated_at=datetime.utcnow(),
-            entry_price=Decimal(str(signal.entry_price)),
-            stop_loss=Decimal(str(signal.stop_loss)),
-            target_price=Decimal(str(signal.target_price)),
-            holding_window_minutes=30,
+            generated_at=datetime.now(timezone.utc),
+            entry_price=entry_price,
+            stop_loss=stop_loss,
+            target_price=target_price,
+            holding_window_minutes=30 if action != SignalAction.HOLD else None,
             risk_level=risk_level,
             sentiment_score=signal.sentiment_score,
             reasons=[signal.reasoning] if signal.reasoning else [],
@@ -617,6 +635,25 @@ class TradingBot:
                 "legacy_signal": asdict(signal),
             },
         )
+
+    def _record_signal_audit(self, signal: TradingSignal) -> ContractTradeSignal | None:
+        try:
+            contract_signal = self._to_contract_signal(signal)
+            self._get_audit_repositories().signals.put_signal(
+                contract_signal,
+                session_id=getattr(self, "current_session_id", None),
+            )
+            print(f"   🧾 Recorded signal audit for {signal.stock_symbol}")
+            return contract_signal
+        except Exception as e:
+            print(f"   ⚠️ Signal audit write failed for {signal.stock_symbol}: {e}")
+            return None
+
+    def _record_risk_decision(self, decision) -> None:
+        try:
+            self._get_audit_repositories().risk_events.put_decision(decision)
+        except Exception as e:
+            print(f"   ⚠️ Risk audit write failed for {decision.signal_id}: {e}")
     
     def _analyze_stock(self, stock_symbol: str) -> Optional[TradingSignal]:
         """Run multi-agent analysis for a single stock."""
@@ -663,7 +700,11 @@ class TradingBot:
                 reasoning=result_dict["reasoning"][:300],
                 technical_summary=result_dict["technical_summary"][:200],
                 sentiment_score=result_dict["sentiment_score"],
-                risk_level=result_dict["risk_level"]
+                risk_level=result_dict["risk_level"],
+                signal_id=(
+                    f"{stock_symbol}-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%f')}-"
+                    f"{result_dict['action']}"
+                ),
             )
         except Exception as e:
             print(f"   ❌ Error: {e}")
@@ -738,6 +779,7 @@ class TradingBot:
                 new_trades_allowed=self._is_new_trade_allowed(),
             ),
         )
+        self._record_risk_decision(risk_decision)
 
         if risk_decision.status == RiskDecisionStatus.REJECTED:
             reason = "; ".join(risk_decision.reasons)
@@ -972,6 +1014,8 @@ class TradingBot:
         # Analyze stocks in watchlist
         for stock in self.watchlist:
             signal = self._analyze_stock(stock)
+            if signal:
+                self._record_signal_audit(signal)
             if signal and signal.action.upper() == "HOLD":
                 print(f"   ⏭️ Skipping HOLD {signal.stock_symbol} - continuing watchlist")
             elif signal:

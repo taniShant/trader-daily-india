@@ -1,6 +1,8 @@
 from types import SimpleNamespace
 
 import agent.main as main_module
+from agent.risk import RiskLimits, RiskManager
+from decimal import Decimal
 
 
 def test_parse_recommendation_payload_from_strands_message_dict():
@@ -311,3 +313,80 @@ def test_execute_signal_skips_hold_before_contract_validation(monkeypatch):
 
     assert events[0][0] == "signal_hold"
     assert events[0][1]["symbol"] == "RELIANCE"
+
+
+def test_record_signal_audit_persists_hold_without_trade_prices():
+    signals = []
+    bot = main_module.TradingBot.__new__(main_module.TradingBot)
+    bot.paper_trading = True
+    bot.current_session_id = "session-1"
+    bot._audit_repositories = SimpleNamespace(
+        signals=SimpleNamespace(put_signal=lambda signal, session_id=None: signals.append((signal, session_id)))
+    )
+
+    signal = main_module.TradingSignal(
+        date="2026-07-30",
+        stock_symbol="RELIANCE",
+        action="HOLD",
+        confidence=65,
+        entry_price=0.0,
+        stop_loss=0.0,
+        target_price=0.0,
+        reasoning="No confirmed breakout.",
+        technical_summary="Mixed setup.",
+        sentiment_score=0.0,
+        risk_level="MEDIUM",
+        signal_id="sig-hold-1",
+    )
+
+    contract_signal = bot._record_signal_audit(signal)
+
+    assert contract_signal.signal_id == "sig-hold-1"
+    assert contract_signal.entry_price is None
+    assert signals[0][1] == "session-1"
+
+
+def test_execute_signal_records_rejected_risk_decision(monkeypatch):
+    risk_events = []
+    events = []
+    bot = main_module.TradingBot.__new__(main_module.TradingBot)
+    bot.paper_trading = True
+    bot.daily_pnl = 0.0
+    bot.consecutive_losses = 0
+    bot.min_confidence = 80
+    bot.risk_manager = RiskManager(
+        RiskLimits(
+            capital=Decimal("100000"),
+            max_daily_loss_percent=Decimal("4"),
+            max_position_size_percent=Decimal("10"),
+            min_confidence=80,
+        )
+    )
+    bot._is_new_trade_allowed = lambda: True
+    bot._audit_repositories = SimpleNamespace(
+        risk_events=SimpleNamespace(put_decision=lambda decision: risk_events.append(decision))
+    )
+
+    monkeypatch.setattr(main_module, "log_event", lambda event_name, **kwargs: events.append((event_name, kwargs)))
+
+    signal = main_module.TradingSignal(
+        date="2026-07-30",
+        stock_symbol="INFY",
+        action="SELL",
+        confidence=52,
+        entry_price=1185.0,
+        stop_loss=1195.0,
+        target_price=1166.0,
+        reasoning="Overbought pullback.",
+        technical_summary="RSI stretched.",
+        sentiment_score=0.0,
+        risk_level="MEDIUM",
+        signal_id="sig-sell-1",
+    )
+
+    bot._execute_signal(signal)
+
+    assert risk_events[0].signal_id == "sig-sell-1"
+    assert risk_events[0].status == main_module.RiskDecisionStatus.REJECTED
+    assert "confidence 52% below minimum 80%" in risk_events[0].reasons
+    assert events[0][0] == "risk_rejected"

@@ -460,4 +460,8 @@ aws ecs describe-services \
   --query 'services[].{service:serviceName,desired:desiredCount,running:runningCount,pending:pendingCount,status:status}' \
   --output table
 
-  LOGIN Oracle : ssh -i ~/.ssh/oracle-key.key ubuntu@80.225.242.6
+LOGIN Oracle : ssh -i ~/.ssh/oracle-key.key ubuntu@80.225.242.6
+
+DEPLOY Oracle: oracle/scripts/deploy_from_prod_config.sh  
+
+Test: curl http://80.225.242.6:8090/quotes/MARUTI

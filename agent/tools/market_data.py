@@ -128,6 +128,7 @@ class MarketDataProvider:
                     interval=interval,
                     source=source,
                 )
+                bars = _drop_zero_volume_bars(bars)
                 quality = check_ohlcv_quality(
                     bars,
                     symbol=canonical,
@@ -162,6 +163,7 @@ class MarketDataProvider:
                 interval=interval,
                 source="yfinance",
             )
+            bars = _drop_zero_volume_bars(bars)
             quality = check_ohlcv_quality(
                 bars,
                 symbol=canonical,
@@ -243,6 +245,11 @@ def _quality_error(symbol: str, reasons: list[str]) -> Dict[str, Any]:
         "error": "data_quality_failed",
         "reasons": reasons,
     }
+
+
+def _drop_zero_volume_bars(bars):
+    """Breeze can emit pre-open marker candles with zero volume."""
+    return [bar for bar in bars if bar.volume > 0]
 
 
 def _first_row_source(payload: dict[str, Any]) -> str | None:

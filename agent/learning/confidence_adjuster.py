@@ -50,6 +50,16 @@ class ConfidenceAdjuster:
             max((data.get("trades", 0) for data in rsi_patterns.values()), default=0),
             max((data.get("trades", 0) for data in sentiment_patterns.values()), default=0),
         )
+
+        if sample_size < 30:
+            self.adjustment = 0
+            print(
+                "📊 Confidence Adjustment: "
+                f"base={self.base_threshold}%, sample_size={sample_size}, "
+                f"new={self.base_threshold}%"
+            )
+            print("   Not enough historical trades to adjust confidence threshold")
+            return self.base_threshold
         
         if avg_win_rate > 70:
             # Patterns are working well - lower threshold to take more trades

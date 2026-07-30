@@ -26,7 +26,7 @@ def test_parse_company_announcement_normalizes_symbol_and_event_fields():
 
     assert announcement.symbol == "RELIANCE"
     assert announcement.yahoo_symbol == "RELIANCE.NS"
-    assert announcement.breeze_stock_code == "RELIANCE"
+    assert announcement.breeze_stock_code == "RELIND"
     assert announcement.category == AnnouncementCategory.ORDER_WIN
     assert announcement.impact == AnnouncementImpact.POSITIVE
     assert announcement.impact_score == 0.5

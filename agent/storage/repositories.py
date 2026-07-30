@@ -10,6 +10,7 @@ from agent.config import settings
 from agent.contracts.execution import Fill, OrderRequest, OrderStatus
 from agent.contracts.risk import RiskDecision
 from agent.contracts.signals import TradeSignal
+from agent.overnight.state_store import decimalize
 
 
 @dataclass(frozen=True)
@@ -172,7 +173,7 @@ class TradingAuditRepositories:
 
 
 def _model_item(model) -> dict[str, Any]:
-    return _dynamo_value(model.model_dump(mode="python"))
+    return decimalize(_dynamo_value(model.model_dump(mode="python")))
 
 
 def _dynamo_value(value):

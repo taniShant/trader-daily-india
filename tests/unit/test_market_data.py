@@ -193,6 +193,53 @@ def test_provider_prefers_oracle_collector_ohlcv():
     assert payload["data"][0]["source"] == "breeze"
 
 
+def test_provider_drops_zero_volume_marker_candles_from_oracle_ohlcv():
+    now = datetime.now(timezone.utc)
+
+    class FakeOracle:
+        def fetch_ohlcv(self, symbol, *, days, interval):
+            return {
+                "symbol": symbol,
+                "days": days,
+                "interval": interval,
+                "data": [
+                    {
+                        "symbol": symbol,
+                        "timestamp": now.replace(microsecond=0).isoformat(),
+                        "interval": interval,
+                        "open": "100",
+                        "high": "100",
+                        "low": "100",
+                        "close": "100",
+                        "volume": 0,
+                        "source": "breeze",
+                    },
+                    {
+                        "symbol": symbol,
+                        "timestamp": now.replace(microsecond=0).isoformat(),
+                        "interval": interval,
+                        "open": "101",
+                        "high": "103",
+                        "low": "100",
+                        "close": "102",
+                        "volume": 2500,
+                        "source": "breeze",
+                    },
+                ],
+            }
+
+    provider = MarketDataProvider.__new__(MarketDataProvider)
+    provider.oracle_client = FakeOracle()
+    provider.use_breeze = False
+    provider.breeze = None
+
+    payload = provider.get_historical_data("MARUTI.NS", days=5, interval="5m")
+
+    assert payload["latest_close"] == 102.0
+    assert len(payload["data"]) == 1
+    assert payload["data"][0]["volume"] == 2500
+
+
 def test_invalid_ohlcv_range_is_rejected():
     with pytest.raises(ValueError, match="within low/high"):
         normalize_ohlcv_bars(

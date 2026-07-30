@@ -119,10 +119,15 @@ def test_oracle_collector_maps_nse_symbols_to_breeze_codes(monkeypatch):
     load_collector_app(monkeypatch)
     collector_module = sys.modules["oracle_collector_app_test"]
 
+    assert collector_module._breeze_stock_code("RELIANCE") == "RELIND"
     assert collector_module._breeze_stock_code("INFY") == "INFTEC"
+    assert collector_module._breeze_stock_code("ICICIBANK") == "ICICIBANK"
+    assert collector_module._breeze_stock_code("BHARTIARTL") == "BHAAIR"
     assert collector_module._breeze_stock_code("ASIANPAINT") == "ASIPAI"
     assert collector_module._breeze_stock_code("HCLTECH") == "HCLTEC"
     assert collector_module._breeze_stock_code("DIVISLAB") == "DIVLAB"
     assert collector_module._breeze_stock_code("BAJFINANCE") == "BAJFI"
+    assert collector_module._breeze_stock_code("BAJAJFINSV") == "BAFINS"
     assert collector_module._breeze_stock_code("EICHERMOT") == "EICMOT"
     assert collector_module._breeze_stock_code("SUNPHARMA") == "SUNPHA"
+    assert collector_module._breeze_stock_code("JSWSTEEL") == "JSWSTE"
