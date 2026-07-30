@@ -76,6 +76,9 @@ class TradingAgentRuntimeStack(Stack):
         max_daily_loss_percent = trading_config.get("max_daily_loss_percent", 4)
         max_position_size_percent = trading_config.get("max_position_size_percent", 10)
         watchlist_size = trading_config.get("watchlist_size", 10)
+        alpha_universe_size = trading_config.get("alpha_universe_size", max(40, watchlist_size))
+        deep_analysis_size = trading_config.get("deep_analysis_size", watchlist_size)
+        alpha_scan_workers = trading_config.get("alpha_scan_workers", 8)
         
         static_ip = oracle_config.get("static_ip", icici_config.get("static_ip"))
         oracle_proxy_base_url = oracle_config.get("execution_proxy_base_url", "")
@@ -98,6 +101,9 @@ class TradingAgentRuntimeStack(Stack):
         print(f"   Max Daily Loss: {max_daily_loss_percent}%")
         print(f"   Max Position Size: {max_position_size_percent}%")
         print(f"   Watchlist Size: {watchlist_size}")
+        print(f"   Alpha Universe Size: {alpha_universe_size}")
+        print(f"   Deep Analysis Size: {deep_analysis_size}")
+        print(f"   Alpha Scan Workers: {alpha_scan_workers}")
         print(f"   Oracle Static IP: {static_ip}")
         print(f"   Oracle Execution Proxy: {oracle_proxy_base_url}")
         print(f"   Oracle Collector: {oracle_collector_base_url}")
@@ -157,6 +163,9 @@ class TradingAgentRuntimeStack(Stack):
             "MAX_DAILY_LOSS_PERCENT": str(max_daily_loss_percent),
             "MAX_POSITION_SIZE_PERCENT": str(max_position_size_percent),
             "WATCHLIST_SIZE": str(watchlist_size),
+            "ALPHA_UNIVERSE_SIZE": str(alpha_universe_size),
+            "DEEP_ANALYSIS_SIZE": str(deep_analysis_size),
+            "ALPHA_SCAN_WORKERS": str(alpha_scan_workers),
             "STATIC_IP": static_ip,
             "ORACLE_STATIC_IP": static_ip,
             "ORACLE_EXECUTION_PROXY_BASE_URL": oracle_proxy_base_url,

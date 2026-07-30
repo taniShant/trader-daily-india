@@ -9,6 +9,7 @@ import json
 import time
 import signal
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, time as dt_time, timezone
 from decimal import Decimal
 from typing import Dict, List, Any, Optional
@@ -30,6 +31,16 @@ from .time import MarketClock
 # CONFIGURATION FROM ENVIRONMENT VARIABLES
 # ============================================================
 
+
+def _read_int_env(name: str, default: int) -> int:
+    value = os.environ.get(name)
+    if value is None or value == "":
+        return default
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return default
+
 AWS_REGION = settings.aws.region
 MODEL_ID = settings.bedrock.model_id
 FAST_MODEL_ID = settings.bedrock.fast_model_id
@@ -48,6 +59,9 @@ MIN_CONFIDENCE = settings.trading.min_confidence_threshold
 MAX_DAILY_LOSS_PERCENT = settings.trading.max_daily_loss_percent
 MAX_POSITION_SIZE_PERCENT = settings.trading.max_position_size_percent
 WATCHLIST_SIZE = settings.trading.watchlist_size
+ALPHA_UNIVERSE_SIZE = _read_int_env("ALPHA_UNIVERSE_SIZE", max(40, WATCHLIST_SIZE))
+DEEP_ANALYSIS_SIZE = _read_int_env("DEEP_ANALYSIS_SIZE", WATCHLIST_SIZE)
+ALPHA_SCAN_WORKERS = _read_int_env("ALPHA_SCAN_WORKERS", 8)
 
 # Oracle static IP (for reference/logging)
 ORACLE_STATIC_IP = settings.oracle.static_ip
@@ -64,6 +78,9 @@ print(f"   Analysis Interval: {ANALYSIS_INTERVAL} seconds")
 print(f"   Min Confidence: {MIN_CONFIDENCE}%")
 print(f"   Max Daily Loss: {MAX_DAILY_LOSS_PERCENT}%")
 print(f"   Max Position Size: {MAX_POSITION_SIZE_PERCENT}%")
+print(f"   Alpha Universe Size: {ALPHA_UNIVERSE_SIZE}")
+print(f"   Deep Analysis Size: {DEEP_ANALYSIS_SIZE}")
+print(f"   Alpha Scan Workers: {ALPHA_SCAN_WORKERS}")
 print(f"   Oracle Static IP: {ORACLE_STATIC_IP}")
 
 models = {}
@@ -466,6 +483,10 @@ class TradingBot:
         self.max_daily_loss = CAPITAL * (MAX_DAILY_LOSS_PERCENT / 100)
         self.max_position_size = CAPITAL * (MAX_POSITION_SIZE_PERCENT / 100)
         self.watchlist = []
+        self.alpha_universe_size = ALPHA_UNIVERSE_SIZE
+        self.deep_analysis_size = DEEP_ANALYSIS_SIZE
+        self.alpha_scan_workers = ALPHA_SCAN_WORKERS
+        self._alpha_context_cache = {}
         self.current_sentiment = 0.0
         self.temp_caution_mode = False
         self.running = True
@@ -515,6 +536,9 @@ class TradingBot:
         print(f"Max Daily Loss: ₹{self.max_daily_loss:,.2f} ({MAX_DAILY_LOSS_PERCENT}%)")
         print(f"Max Position Size: ₹{self.max_position_size:,.2f} ({MAX_POSITION_SIZE_PERCENT}%)")
         print(f"Watchlist Size: {WATCHLIST_SIZE}")
+        print(f"Alpha Universe Size: {self.alpha_universe_size}")
+        print(f"Deep Analysis Size: {self.deep_analysis_size}")
+        print(f"Alpha Scan Workers: {self.alpha_scan_workers}")
         print(f"Analysis Interval: {ANALYSIS_INTERVAL} seconds")
         print(f"Bedrock Fast Model: {FAST_MODEL_ID}")
         print(f"Bedrock Reasoning Model: {REASONING_MODEL_ID}")
@@ -654,6 +678,126 @@ class TradingBot:
             self._get_audit_repositories().risk_events.put_decision(decision)
         except Exception as e:
             print(f"   ⚠️ Risk audit write failed for {decision.signal_id}: {e}")
+
+    @staticmethod
+    def _alpha_setup_rank(context: Dict[str, Any]) -> tuple:
+        """Rank deterministic setups before spending LLM calls."""
+        action = str(context.get("action") or "HOLD").upper()
+        data_quality = str(context.get("data_quality") or "").lower()
+        features = context.get("features") if isinstance(context.get("features"), dict) else {}
+        conviction = _coerce_int(context.get("conviction"), 0)
+        relative_volume = _coerce_float(features.get("relative_volume") or features.get("volume_ratio"))
+
+        data_score = 1 if data_quality == "ok" else 0
+        action_score = {"BUY": 3, "SELL": 3, "HOLD": 1}.get(action, 0)
+        return (data_score, action_score, conviction, relative_volume)
+
+    @staticmethod
+    def _dedupe_symbols(symbols: List[str]) -> List[str]:
+        from .data.symbols import resolve_symbol
+
+        result = []
+        seen = set()
+        for symbol in symbols:
+            try:
+                canonical = resolve_symbol(symbol).canonical
+            except Exception:
+                canonical = str(symbol).strip().upper()
+            if not canonical or canonical in seen:
+                continue
+            seen.add(canonical)
+            result.append(canonical)
+        return result
+
+    def _get_alpha_universe(self) -> List[str]:
+        """Build a broad but bounded universe for the fast deterministic scan."""
+        universe = list(self.watchlist)
+        try:
+            universe.extend(self.pre_market_scanner.get_nifty_stocks())
+        except Exception as e:
+            print(f"   ⚠️ Could not load broad alpha universe: {e}")
+
+        universe = self._dedupe_symbols(universe)
+        filter_excluded = getattr(self.pre_market_scanner, "_filter_excluded_symbols", None)
+        if callable(filter_excluded):
+            universe = self._dedupe_symbols(filter_excluded(universe))
+
+        return universe[: max(1, self.alpha_universe_size)]
+
+    def _scan_alpha_candidate(self, symbol: str) -> Dict[str, Any]:
+        setup = self.alpha_scanner.analyze_symbol(symbol)
+        return setup.to_dict()
+
+    def _select_deep_analysis_symbols(self) -> List[str]:
+        """Use alpha scanning to choose which symbols deserve full agent analysis."""
+        universe = self._get_alpha_universe()
+        self._alpha_context_cache = {}
+        if not universe:
+            return list(self.watchlist)
+
+        max_workers = max(1, min(self.alpha_scan_workers, len(universe)))
+        contexts = []
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_symbol = {
+                executor.submit(self._scan_alpha_candidate, symbol): symbol
+                for symbol in universe
+            }
+            for future in as_completed(future_to_symbol):
+                symbol = future_to_symbol[future]
+                try:
+                    context = future.result()
+                except Exception as e:
+                    context = {
+                        "symbol": symbol,
+                        "action": "HOLD",
+                        "conviction": 0,
+                        "setup": "scanner_error",
+                        "data_quality": "unavailable",
+                        "reasons": [str(e)],
+                    }
+                canonical = str(context.get("symbol") or symbol).upper()
+                context["symbol"] = canonical
+                self._alpha_context_cache[canonical] = context
+                contexts.append(context)
+
+        contexts.sort(key=self._alpha_setup_rank, reverse=True)
+        limit = max(1, min(self.deep_analysis_size, len(contexts)))
+        selected = contexts[:limit]
+        selected_symbols = {context["symbol"] for context in selected}
+
+        required_symbols = getattr(self.pre_market_scanner, "required_symbols", [])
+        for required_symbol in self._dedupe_symbols(required_symbols):
+            if required_symbol in selected_symbols or required_symbol not in self._alpha_context_cache:
+                continue
+            required_context = self._alpha_context_cache[required_symbol]
+            if len(selected) >= limit:
+                removable_index = next(
+                    (
+                        index
+                        for index in range(len(selected) - 1, -1, -1)
+                        if selected[index]["symbol"] not in required_symbols
+                    ),
+                    None,
+                )
+                if removable_index is not None:
+                    selected.pop(removable_index)
+            selected.append(required_context)
+            selected_symbols.add(required_symbol)
+
+        selected = selected[:limit]
+        summary = ", ".join(
+            f"{context['symbol']}:{context.get('action', 'HOLD')}:{context.get('conviction', 0)}:"
+            f"{context.get('data_quality', 'unknown')}"
+            for context in selected
+        )
+        print(
+            f"⚡ Alpha universe scan: {len(universe)} symbols -> "
+            f"{len(selected)} deep candidates"
+        )
+        if summary:
+            print(f"   Candidates: {summary}")
+
+        return [context["symbol"] for context in selected]
     
     def _analyze_stock(self, stock_symbol: str) -> Optional[TradingSignal]:
         """Run multi-agent analysis for a single stock."""
@@ -712,6 +856,15 @@ class TradingBot:
 
     def _get_alpha_context(self, stock_symbol: str) -> Dict[str, Any]:
         try:
+            cached_context = getattr(self, "_alpha_context_cache", {}).get(stock_symbol.upper())
+            if cached_context:
+                print(
+                    f"   🔎 Alpha scanner: {cached_context['action']} "
+                    f"{cached_context['symbol']} ({cached_context['conviction']}%) - "
+                    f"{cached_context['setup']}"
+                )
+                return cached_context
+
             setup = self.alpha_scanner.analyze_symbol(stock_symbol)
             context = setup.to_dict()
             print(
@@ -1011,8 +1164,15 @@ class TradingBot:
             self._monitor_positions()
             return
 
-        # Analyze stocks in watchlist
-        for stock in self.watchlist:
+        # Run a fast deterministic alpha pass first, then spend LLM calls only on the best setups.
+        try:
+            deep_candidates = self._select_deep_analysis_symbols()
+        except Exception as e:
+            print(f"⚠️ Alpha shortlist failed; falling back to watchlist: {e}")
+            self._alpha_context_cache = {}
+            deep_candidates = list(self.watchlist)
+
+        for stock in deep_candidates:
             signal = self._analyze_stock(stock)
             if signal:
                 self._record_signal_audit(signal)

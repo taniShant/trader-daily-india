@@ -425,7 +425,6 @@ aws ecs update-service \
   --region eu-west-2 \
   --profile default
 
-
 aws ecs update-service \
   --cluster trading-cluster-prod \
   --service dashboard-prod \

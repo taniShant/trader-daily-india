@@ -137,6 +137,91 @@ def test_analyze_stock_includes_alpha_context_in_prompt(monkeypatch):
     assert "opening_range_breakout" in prompts[0]
 
 
+def test_alpha_shortlist_selects_best_setups_before_deep_analysis():
+    bot = main_module.TradingBot.__new__(main_module.TradingBot)
+    bot.watchlist = ["AAA", "BBB"]
+    bot.alpha_universe_size = 4
+    bot.deep_analysis_size = 2
+    bot.alpha_scan_workers = 2
+    bot._alpha_context_cache = {}
+    bot.pre_market_scanner = SimpleNamespace(
+        get_nifty_stocks=lambda: ["AAA", "BBB", "CCC", "MARUTI"],
+        _filter_excluded_symbols=lambda symbols: symbols,
+        required_symbols=[],
+    )
+
+    contexts = {
+        "AAA": {"symbol": "AAA", "action": "HOLD", "conviction": 20, "setup": "monitor", "data_quality": "ok"},
+        "BBB": {"symbol": "BBB", "action": "BUY", "conviction": 82, "setup": "breakout", "data_quality": "ok"},
+        "CCC": {"symbol": "CCC", "action": "SELL", "conviction": 76, "setup": "breakdown", "data_quality": "ok"},
+        "MARUTI": {
+            "symbol": "MARUTI",
+            "action": "HOLD",
+            "conviction": 0,
+            "setup": "market_data_unavailable",
+            "data_quality": "unavailable",
+        },
+    }
+    bot.alpha_scanner = SimpleNamespace(
+        analyze_symbol=lambda symbol: SimpleNamespace(to_dict=lambda: contexts[symbol])
+    )
+
+    selected = bot._select_deep_analysis_symbols()
+
+    assert selected == ["BBB", "CCC"]
+    assert bot._alpha_context_cache["BBB"]["setup"] == "breakout"
+    assert bot._alpha_context_cache["CCC"]["setup"] == "breakdown"
+
+
+def test_alpha_shortlist_keeps_required_symbol_when_available():
+    bot = main_module.TradingBot.__new__(main_module.TradingBot)
+    bot.watchlist = ["AAA", "BBB"]
+    bot.alpha_universe_size = 4
+    bot.deep_analysis_size = 2
+    bot.alpha_scan_workers = 2
+    bot._alpha_context_cache = {}
+    bot.pre_market_scanner = SimpleNamespace(
+        get_nifty_stocks=lambda: ["AAA", "BBB", "CCC", "MARUTI"],
+        _filter_excluded_symbols=lambda symbols: symbols,
+        required_symbols=["MARUTI"],
+    )
+
+    contexts = {
+        "AAA": {"symbol": "AAA", "action": "HOLD", "conviction": 20, "setup": "monitor", "data_quality": "ok"},
+        "BBB": {"symbol": "BBB", "action": "BUY", "conviction": 82, "setup": "breakout", "data_quality": "ok"},
+        "CCC": {"symbol": "CCC", "action": "SELL", "conviction": 76, "setup": "breakdown", "data_quality": "ok"},
+        "MARUTI": {"symbol": "MARUTI", "action": "HOLD", "conviction": 55, "setup": "watch", "data_quality": "ok"},
+    }
+    bot.alpha_scanner = SimpleNamespace(
+        analyze_symbol=lambda symbol: SimpleNamespace(to_dict=lambda: contexts[symbol])
+    )
+
+    selected = bot._select_deep_analysis_symbols()
+
+    assert "MARUTI" in selected
+    assert len(selected) == 2
+
+
+def test_get_alpha_context_uses_cached_shortlist_context():
+    bot = main_module.TradingBot.__new__(main_module.TradingBot)
+    bot._alpha_context_cache = {
+        "MARUTI": {
+            "symbol": "MARUTI",
+            "action": "BUY",
+            "conviction": 81,
+            "setup": "cached_breakout",
+            "data_quality": "ok",
+        }
+    }
+    bot.alpha_scanner = SimpleNamespace(
+        analyze_symbol=lambda symbol: (_ for _ in ()).throw(AssertionError("scanner should not be called"))
+    )
+
+    context = bot._get_alpha_context("MARUTI")
+
+    assert context["setup"] == "cached_breakout"
+
+
 def test_analyze_stock_downgrades_directional_signal_with_missing_prices(monkeypatch):
     result = SimpleNamespace(
         message={

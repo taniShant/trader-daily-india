@@ -73,6 +73,9 @@
     "min_confidence_threshold": 70,
     "analysis_interval_seconds": 180,
     "watchlist_size": 8,
+    "alpha_universe_size": 50,
+    "deep_analysis_size": 8,
+    "alpha_scan_workers": 8,
     "paper_trading": true
   },
   "vpc": {
