@@ -41,6 +41,16 @@ def _read_int_env(name: str, default: int) -> int:
     except (TypeError, ValueError):
         return default
 
+
+def _read_float_env(name: str, default: float) -> float:
+    value = os.environ.get(name)
+    if value is None or value == "":
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
 AWS_REGION = settings.aws.region
 MODEL_ID = settings.bedrock.model_id
 FAST_MODEL_ID = settings.bedrock.fast_model_id
@@ -66,6 +76,9 @@ MICRO_TRADING_ENABLED = os.environ.get("MICRO_TRADING_ENABLED", "false").lower()
 MICRO_SCAN_INTERVAL_SECONDS = _read_int_env("MICRO_SCAN_INTERVAL_SECONDS", 30)
 MICRO_MAX_HOLD_MINUTES = _read_int_env("MICRO_MAX_HOLD_MINUTES", 10)
 MICRO_MIN_CONFIDENCE = _read_int_env("MICRO_MIN_CONFIDENCE", 72)
+MICRO_MIN_RELATIVE_VOLUME = _read_float_env("MICRO_MIN_RELATIVE_VOLUME", 1.5)
+MICRO_MAX_SYMBOLS_PER_CYCLE = _read_int_env("MICRO_MAX_SYMBOLS_PER_CYCLE", 40)
+MICRO_DIAGNOSTIC_TOP_N = _read_int_env("MICRO_DIAGNOSTIC_TOP_N", 5)
 
 # Oracle static IP (for reference/logging)
 ORACLE_STATIC_IP = settings.oracle.static_ip
@@ -338,6 +351,16 @@ def _coerce_float(value: Any, default: float = 0.0) -> float:
         return default
 
 
+def _format_feature(features: Dict[str, Any], name: str) -> str:
+    if name not in features or features.get(name) is None:
+        return "na"
+    value = features.get(name)
+    try:
+        return f"{float(value):.2f}"
+    except (TypeError, ValueError):
+        return str(value)
+
+
 def _optional_positive_decimal(value: Any) -> Decimal | None:
     numeric = _coerce_float(value)
     if numeric <= 0:
@@ -552,6 +575,8 @@ class TradingBot:
             print(f"Micro Scan Interval: {MICRO_SCAN_INTERVAL_SECONDS} seconds")
             print(f"Micro Max Hold: {MICRO_MAX_HOLD_MINUTES} minutes")
             print(f"Micro Min Confidence: {MICRO_MIN_CONFIDENCE}%")
+            print(f"Micro Min Relative Volume: {MICRO_MIN_RELATIVE_VOLUME:.2f}x")
+            print(f"Micro Symbols Per Cycle: {MICRO_MAX_SYMBOLS_PER_CYCLE}")
         print(f"Analysis Interval: {ANALYSIS_INTERVAL} seconds")
         print(f"Bedrock Fast Model: {FAST_MODEL_ID}")
         print(f"Bedrock Reasoning Model: {REASONING_MODEL_ID}")
@@ -633,6 +658,8 @@ class TradingBot:
                 enabled=True,
                 max_hold_minutes=MICRO_MAX_HOLD_MINUTES,
                 min_confidence=MICRO_MIN_CONFIDENCE,
+                min_relative_volume=MICRO_MIN_RELATIVE_VOLUME,
+                max_symbols_per_cycle=MICRO_MAX_SYMBOLS_PER_CYCLE,
             ),
         )
 
@@ -1251,6 +1278,49 @@ class TradingBot:
             f"⚡ Micro lane: {len(attempts)} scanned, "
             f"{len(actionable)} actionable, {len(executed)} executed"
         )
+        self._log_micro_diagnostics(attempts)
+
+    def _log_micro_diagnostics(self, attempts) -> None:
+        if not attempts or MICRO_DIAGNOSTIC_TOP_N <= 0:
+            return
+
+        if any(attempt.setup.action in {"BUY", "SELL"} for attempt in attempts):
+            candidates = [
+                attempt for attempt in attempts
+                if attempt.setup.action in {"BUY", "SELL"} or attempt.executed
+            ]
+            title = "⚡ Micro actionable detail"
+        else:
+            candidates = sorted(attempts, key=self._micro_attempt_rank, reverse=True)
+            title = "⚡ Micro nearest setups"
+
+        print(title + ":")
+        for attempt in candidates[:MICRO_DIAGNOSTIC_TOP_N]:
+            setup = attempt.setup
+            features = setup.features or {}
+            reasons = "; ".join(setup.reasons[:3])
+            if attempt.skipped_reason and attempt.skipped_reason not in reasons:
+                reasons = f"{reasons}; skipped={attempt.skipped_reason}"
+            print(
+                "   "
+                f"{setup.symbol}: {setup.action}/{setup.setup} conf={setup.confidence} "
+                f"rv={_format_feature(features, 'relative_volume')} "
+                f"rsi={_format_feature(features, 'rsi')} "
+                f"atr={_format_feature(features, 'atr')} "
+                f"close={_format_feature(features, 'close')} "
+                f"vwap={_format_feature(features, 'vwap')} "
+                f"trend={features.get('trend_bias', 'na')} "
+                f"reason={reasons}"
+            )
+
+    @staticmethod
+    def _micro_attempt_rank(attempt) -> tuple:
+        setup = attempt.setup
+        features = setup.features or {}
+        relative_volume = _coerce_float(features.get("relative_volume"), 0.0)
+        confidence = _coerce_int(setup.confidence, 0)
+        trend_score = 1 if features.get("trend_bias") in {"bullish", "bearish"} else 0
+        return (confidence, relative_volume, trend_score)
     
     def run(self):
         """Main bot loop."""

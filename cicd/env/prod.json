@@ -80,6 +80,9 @@
     "micro_scan_interval_seconds": 30,
     "micro_max_hold_minutes": 10,
     "micro_min_confidence": 72,
+    "micro_min_relative_volume": 1.5,
+    "micro_max_symbols_per_cycle": 40,
+    "micro_diagnostic_top_n": 5,
     "paper_trading": true
   },
   "vpc": {

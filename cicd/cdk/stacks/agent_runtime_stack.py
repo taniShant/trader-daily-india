@@ -83,6 +83,9 @@ class TradingAgentRuntimeStack(Stack):
         micro_scan_interval_seconds = trading_config.get("micro_scan_interval_seconds", 30)
         micro_max_hold_minutes = trading_config.get("micro_max_hold_minutes", 10)
         micro_min_confidence = trading_config.get("micro_min_confidence", 72)
+        micro_min_relative_volume = trading_config.get("micro_min_relative_volume", 1.5)
+        micro_max_symbols_per_cycle = trading_config.get("micro_max_symbols_per_cycle", 40)
+        micro_diagnostic_top_n = trading_config.get("micro_diagnostic_top_n", 5)
         
         static_ip = oracle_config.get("static_ip", icici_config.get("static_ip"))
         oracle_proxy_base_url = oracle_config.get("execution_proxy_base_url", "")
@@ -109,6 +112,8 @@ class TradingAgentRuntimeStack(Stack):
         print(f"   Deep Analysis Size: {deep_analysis_size}")
         print(f"   Alpha Scan Workers: {alpha_scan_workers}")
         print(f"   Micro Trading Enabled: {micro_trading_enabled}")
+        print(f"   Micro Symbols Per Cycle: {micro_max_symbols_per_cycle}")
+        print(f"   Micro Min Relative Volume: {micro_min_relative_volume}")
         print(f"   Oracle Static IP: {static_ip}")
         print(f"   Oracle Execution Proxy: {oracle_proxy_base_url}")
         print(f"   Oracle Collector: {oracle_collector_base_url}")
@@ -175,6 +180,9 @@ class TradingAgentRuntimeStack(Stack):
             "MICRO_SCAN_INTERVAL_SECONDS": str(micro_scan_interval_seconds),
             "MICRO_MAX_HOLD_MINUTES": str(micro_max_hold_minutes),
             "MICRO_MIN_CONFIDENCE": str(micro_min_confidence),
+            "MICRO_MIN_RELATIVE_VOLUME": str(micro_min_relative_volume),
+            "MICRO_MAX_SYMBOLS_PER_CYCLE": str(micro_max_symbols_per_cycle),
+            "MICRO_DIAGNOSTIC_TOP_N": str(micro_diagnostic_top_n),
             "STATIC_IP": static_ip,
             "ORACLE_STATIC_IP": static_ip,
             "ORACLE_EXECUTION_PROXY_BASE_URL": oracle_proxy_base_url,
