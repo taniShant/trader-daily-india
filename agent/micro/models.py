@@ -21,6 +21,8 @@ class MicroTradeConfig:
     min_atr_ratio: float = 0.0015
     max_atr_ratio: float = 0.025
     max_vwap_extension_atr: float = 2.0
+    min_continuation_relative_volume: float = 3.0
+    max_continuation_vwap_extension_atr: float = 18.0
     target_pct: Decimal = Decimal("0.004")
     stop_pct: Decimal = Decimal("0.002")
     max_symbols_per_cycle: int = 20

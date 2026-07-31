@@ -68,11 +68,33 @@ class MicroSetupDetector:
             and features.relative_volume >= self.config.min_relative_volume
             and 30 <= features.rsi <= 50
         )
+        bullish_continuation = (
+            features.close > features.vwap
+            and features.close > features.opening_range_high
+            and features.close > features.previous_high
+            and features.macd >= features.macd_signal
+            and features.trend_bias in {"bullish", "neutral"}
+            and features.relative_volume >= self.config.min_continuation_relative_volume
+            and 55 <= features.rsi <= 86
+        )
+        bearish_continuation = (
+            features.close < features.vwap
+            and features.close < features.opening_range_low
+            and features.close < features.previous_low
+            and features.macd <= features.macd_signal
+            and features.trend_bias in {"bearish", "neutral"}
+            and features.relative_volume >= self.config.min_continuation_relative_volume
+            and 14 <= features.rsi <= 45
+        )
 
         tradable = (
             self.config.min_atr_ratio <= atr_ratio <= self.config.max_atr_ratio
             and features.relative_volume >= self.config.min_relative_volume
             and extension <= self.config.max_vwap_extension_atr
+        )
+        continuation_tradable = (
+            self.config.min_atr_ratio <= atr_ratio <= self.config.max_atr_ratio
+            and extension <= self.config.max_continuation_vwap_extension_atr
         )
 
         if tradable and bullish_orb:
@@ -85,6 +107,16 @@ class MicroSetupDetector:
             setup = "micro_opening_range_breakdown"
             confidence = 80
             reasons.append("price broke opening range and previous low below VWAP")
+        elif continuation_tradable and bullish_continuation:
+            action = "BUY"
+            setup = "micro_volume_continuation"
+            confidence = 72
+            reasons.append("high-volume bullish continuation despite VWAP extension")
+        elif continuation_tradable and bearish_continuation:
+            action = "SELL"
+            setup = "micro_volume_continuation"
+            confidence = 72
+            reasons.append("high-volume bearish continuation despite VWAP extension")
         elif tradable and bullish_vwap:
             action = "BUY"
             setup = "micro_vwap_momentum"

@@ -61,6 +61,56 @@ def test_micro_detector_holds_when_volume_is_weak():
     assert "relative volume too weak" in " ".join(setup.reasons)
 
 
+def test_micro_detector_allows_high_volume_continuation_past_vwap_extension():
+    detector = MicroSetupDetector(MicroTradeConfig(min_confidence=72))
+    setup = detector.detect(
+        TechnicalFeatures(
+            symbol="BAJAJFINSV",
+            close=120.0,
+            vwap=110.0,
+            rsi=83.0,
+            macd=2.2,
+            macd_signal=1.4,
+            atr=1.0,
+            relative_volume=7.5,
+            opening_range_high=118.0,
+            opening_range_low=104.0,
+            previous_high=119.0,
+            previous_low=106.0,
+            trend_bias="neutral",
+        )
+    )
+
+    assert setup.action == "BUY"
+    assert setup.setup == "micro_volume_continuation"
+    assert setup.confidence >= 82
+    assert "high-volume bullish continuation" in " ".join(setup.reasons)
+
+
+def test_micro_detector_rejects_extreme_continuation_extension():
+    detector = MicroSetupDetector(MicroTradeConfig(min_confidence=72))
+    setup = detector.detect(
+        TechnicalFeatures(
+            symbol="BAJAJFINSV",
+            close=140.0,
+            vwap=110.0,
+            rsi=83.0,
+            macd=2.2,
+            macd_signal=1.4,
+            atr=1.0,
+            relative_volume=7.5,
+            opening_range_high=118.0,
+            opening_range_low=104.0,
+            previous_high=119.0,
+            previous_low=106.0,
+            trend_bias="neutral",
+        )
+    )
+
+    assert setup.action == "HOLD"
+    assert "price overextended versus VWAP" in " ".join(setup.reasons)
+
+
 def test_micro_position_exits_on_target_stop_and_time():
     opened_at = datetime(2026, 7, 30, 6, 0, tzinfo=timezone.utc)
     long_position = MicroTradePosition(
