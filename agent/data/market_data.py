@@ -41,6 +41,9 @@ def normalize_ohlcv_bars(
     """Convert provider-specific OHLCV rows into shared OHLCVBar contracts."""
     bars: list[OHLCVBar] = []
     for row in rows:
+        volume = _int_from_first(row, "volume", "Volume")
+        if volume < 0:
+            continue
         bars.append(
             OHLCVBar(
                 symbol=symbol,
@@ -51,7 +54,7 @@ def normalize_ohlcv_bars(
                 high=_decimal_from_first(row, "high", "High"),
                 low=_decimal_from_first(row, "low", "Low"),
                 close=_decimal_from_first(row, "close", "Close"),
-                volume=_int_from_first(row, "volume", "Volume"),
+                volume=volume,
                 source=source,
             )
         )

@@ -70,8 +70,6 @@ class MicroSetupDetector:
         )
         bullish_continuation = (
             features.close > features.vwap
-            and features.close > features.opening_range_high
-            and features.close > features.previous_high
             and features.macd >= features.macd_signal
             and features.trend_bias in {"bullish", "neutral"}
             and features.relative_volume >= self.config.min_continuation_relative_volume
@@ -79,8 +77,6 @@ class MicroSetupDetector:
         )
         bearish_continuation = (
             features.close < features.vwap
-            and features.close < features.opening_range_low
-            and features.close < features.previous_low
             and features.macd <= features.macd_signal
             and features.trend_bias in {"bearish", "neutral"}
             and features.relative_volume >= self.config.min_continuation_relative_volume
@@ -93,7 +89,7 @@ class MicroSetupDetector:
             and extension <= self.config.max_vwap_extension_atr
         )
         continuation_tradable = (
-            self.config.min_atr_ratio <= atr_ratio <= self.config.max_atr_ratio
+            self.config.min_continuation_atr_ratio <= atr_ratio <= self.config.max_atr_ratio
             and extension <= self.config.max_continuation_vwap_extension_atr
         )
 
@@ -111,11 +107,13 @@ class MicroSetupDetector:
             action = "BUY"
             setup = "micro_volume_continuation"
             confidence = 72
+            reasons.append("continuation volatility accepted for high relative volume")
             reasons.append("high-volume bullish continuation despite VWAP extension")
         elif continuation_tradable and bearish_continuation:
             action = "SELL"
             setup = "micro_volume_continuation"
             confidence = 72
+            reasons.append("continuation volatility accepted for high relative volume")
             reasons.append("high-volume bearish continuation despite VWAP extension")
         elif tradable and bullish_vwap:
             action = "BUY"

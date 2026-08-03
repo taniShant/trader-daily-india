@@ -111,6 +111,31 @@ def test_micro_detector_rejects_extreme_continuation_extension():
     assert "price overextended versus VWAP" in " ".join(setup.reasons)
 
 
+def test_micro_detector_allows_high_volume_continuation_with_lower_atr():
+    detector = MicroSetupDetector(MicroTradeConfig(min_confidence=72))
+    setup = detector.detect(
+        TechnicalFeatures(
+            symbol="ASIANPAINT",
+            close=2785.20,
+            vwap=2776.58,
+            rsi=67.11,
+            macd=1.8,
+            macd_signal=1.2,
+            atr=2.98,
+            relative_volume=3.58,
+            opening_range_high=2790.0,
+            opening_range_low=2760.0,
+            previous_high=2795.0,
+            previous_low=2755.0,
+            trend_bias="bullish",
+        )
+    )
+
+    assert setup.action == "BUY"
+    assert setup.setup == "micro_volume_continuation"
+    assert "continuation volatility accepted" in " ".join(setup.reasons)
+
+
 def test_micro_position_exits_on_target_stop_and_time():
     opened_at = datetime(2026, 7, 30, 6, 0, tzinfo=timezone.utc)
     long_position = MicroTradePosition(

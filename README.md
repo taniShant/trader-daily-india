@@ -449,6 +449,13 @@ aws ecs update-service \
   --region eu-west-2 \
   --profile default
 
+  aws ecs update-service \
+  --cluster trading-cluster-prod \
+  --service trading-bot-prod \
+  --force-new-deployment \
+  --region eu-west-2 \
+  --profile default
+
 # Check 2 service status 
 
 aws ecs describe-services \
