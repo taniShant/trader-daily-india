@@ -1054,6 +1054,7 @@ class TradingBot:
                     "target": signal.target_price,
                     "side": risk_decision.side,
                     "order_id": order_request.client_order_id,
+                    "signal_id": contract_signal.signal_id,
                     "status": status,
                     "opened_at": datetime.utcnow().isoformat(),
                     "timeout_minutes": contract_signal.holding_window_minutes or 30,
@@ -1108,6 +1109,8 @@ class TradingBot:
                 )
                 status = self.broker.square_off(symbol, abs(int(position["quantity"])))
                 if self._is_successful_order_status(status):
+                    exit_price = Decimal(str(quote["ltp"]))
+                    self._record_position_exit(symbol, position, exit_price, status, decision.reason)
                     print(f"   ✅ Position square-off triggered for {symbol}: {decision.reason}")
                     self.active_positions.pop(symbol, None)
                 else:
@@ -1134,6 +1137,8 @@ class TradingBot:
             position = self.active_positions.get(symbol, {})
             try:
                 if result.success:
+                    exit_price = self._position_exit_price(position)
+                    self._record_position_exit(symbol, position, exit_price, result.status, result.reason)
                     log_event(
                         "square_off_submitted",
                         symbol=symbol,
@@ -1162,6 +1167,89 @@ class TradingBot:
                 print(f"   ❌ Error squaring off {symbol}: {e}")
         
         self.active_positions.clear()
+
+    def _record_position_exit(
+        self,
+        symbol: str,
+        position: dict[str, Any],
+        exit_price: Decimal,
+        status: OrderStatus,
+        reason: str,
+    ) -> None:
+        try:
+            session_id = getattr(self, "current_session_id", None) or self.bot_id
+            now = datetime.now(timezone.utc)
+            quantity = int(position.get("quantity", 0))
+            absolute_quantity = abs(quantity)
+            if absolute_quantity <= 0:
+                return
+
+            entry_price = Decimal(str(position.get("entry_price")))
+            is_long = self._is_long_position(position)
+            realized_pnl = (
+                (exit_price - entry_price) * Decimal(absolute_quantity)
+                if is_long
+                else (entry_price - exit_price) * Decimal(absolute_quantity)
+            )
+            exit_action = "SELL" if is_long else "BUY"
+            signal_id = str(position.get("signal_id") or position.get("order_id") or f"exit-{symbol}")
+            order_id = str(position.get("order_id") or f"exit-{symbol}-{now.strftime('%Y%m%dT%H%M%S%f')}")
+
+            repos = self._get_audit_repositories()
+            repos.positions.put_snapshot(
+                PositionSnapshot(
+                    symbol=symbol,
+                    session_id=session_id,
+                    quantity=0,
+                    average_price=entry_price,
+                    last_price=exit_price,
+                    unrealized_pnl=Decimal("0"),
+                    updated_at=now,
+                    side="LONG" if is_long else "SHORT",
+                    status="CLOSED",
+                )
+            )
+            repos.pnl.put_trade_event(
+                TradeEventRecord(
+                    trade_id=f"micro-exit-{symbol}-{now.strftime('%Y%m%dT%H%M%S%f')}",
+                    date=now.date().isoformat(),
+                    timestamp=now,
+                    symbol=symbol,
+                    action=exit_action,
+                    price=exit_price,
+                    quantity=absolute_quantity,
+                    pnl=realized_pnl,
+                    session_id=session_id,
+                    signal_id=signal_id,
+                    order_id=order_id,
+                    status=status.value,
+                    source="paper" if self.paper_trading else "live",
+                    confidence=0,
+                )
+            )
+            print(
+                f"   🧾 Recorded exit audit for {symbol}: "
+                f"{reason}, pnl={realized_pnl:.2f}"
+            )
+        except Exception as e:
+            print(f"   ⚠️ Exit audit write failed for {symbol}: {e}")
+
+    @staticmethod
+    def _is_long_position(position: dict[str, Any]) -> bool:
+        side = str(position.get("side", "")).upper()
+        if side in {"BUY", "LONG"}:
+            return True
+        if side in {"SELL", "SHORT"}:
+            return False
+        return int(position.get("quantity", 0)) > 0
+
+    @staticmethod
+    def _position_exit_price(position: dict[str, Any]) -> Decimal:
+        for key in ("last_price", "current_price", "entry_price"):
+            value = position.get(key)
+            if value is not None:
+                return Decimal(str(value))
+        return Decimal("0")
     
     def _run_overnight_analysis(self):
         """Run overnight analysis (global macro + news + pre-market scan)."""
@@ -1344,6 +1432,7 @@ class TradingBot:
             "target": float(order.target_price) if order.target_price is not None else None,
             "side": order.side,
             "order_id": order.client_order_id,
+            "signal_id": order.signal_id,
             "status": attempt.order_status,
             "opened_at": datetime.now(timezone.utc).isoformat(),
             "timeout_minutes": attempt.signal.holding_window_minutes if attempt.signal else MICRO_MAX_HOLD_MINUTES,

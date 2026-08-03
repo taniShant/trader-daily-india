@@ -192,3 +192,68 @@ def test_micro_attempt_persists_dashboard_visible_audit_records():
     assert captured.trades[0].action == "BUY"
     assert captured.trades[0].price == Decimal("13620")
     assert bot.active_positions["MARUTI"]["order_id"] == "order-1"
+
+
+def test_position_exit_persists_closed_snapshot_and_realized_pnl():
+    bot = _bot_stub()
+    bot.bot_id = "bot-test"
+    bot.current_session_id = "session-test"
+    bot.paper_trading = True
+
+    captured = SimpleNamespace(positions=[], trades=[])
+    bot._audit_repositories = SimpleNamespace(
+        positions=SimpleNamespace(put_snapshot=captured.positions.append),
+        pnl=SimpleNamespace(put_trade_event=captured.trades.append),
+    )
+
+    bot._record_position_exit(
+        "ASIANPAINT",
+        {
+            "quantity": 2,
+            "entry_price": Decimal("2785.20"),
+            "side": OrderSide.BUY,
+            "order_id": "order-1",
+            "signal_id": "signal-1",
+        },
+        Decimal("2779.20"),
+        OrderStatus.FILLED,
+        "stop loss hit",
+    )
+
+    assert captured.positions[0].symbol == "ASIANPAINT"
+    assert captured.positions[0].quantity == 0
+    assert captured.positions[0].status == "CLOSED"
+    assert captured.trades[0].action == "SELL"
+    assert captured.trades[0].quantity == 2
+    assert captured.trades[0].pnl == Decimal("-12.00")
+
+
+def test_short_position_exit_pnl_is_positive_when_price_falls():
+    bot = _bot_stub()
+    bot.bot_id = "bot-test"
+    bot.current_session_id = "session-test"
+    bot.paper_trading = True
+
+    captured = SimpleNamespace(positions=[], trades=[])
+    bot._audit_repositories = SimpleNamespace(
+        positions=SimpleNamespace(put_snapshot=captured.positions.append),
+        pnl=SimpleNamespace(put_trade_event=captured.trades.append),
+    )
+
+    bot._record_position_exit(
+        "RELIANCE",
+        {
+            "quantity": -3,
+            "entry_price": Decimal("1400"),
+            "side": OrderSide.SELL,
+            "order_id": "order-2",
+            "signal_id": "signal-2",
+        },
+        Decimal("1395"),
+        OrderStatus.FILLED,
+        "target hit",
+    )
+
+    assert captured.positions[0].side == "SHORT"
+    assert captured.trades[0].action == "BUY"
+    assert captured.trades[0].pnl == Decimal("15")
