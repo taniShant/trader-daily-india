@@ -13,6 +13,7 @@ from agent.storage.repositories import (
     PositionsRepository,
     RiskEventsRepository,
     SignalsRepository,
+    TradeEventRecord,
 )
 
 
@@ -132,3 +133,33 @@ def test_position_and_pnl_repositories_persist_consistent_snapshots():
     assert pnl_table.items[0]["tradeId"] == "trade-1"
     assert pnl_table.items[0]["stock_symbol"] == "INFY"
     assert pnl_table.items[0]["pnl"] == Decimal("230")
+
+
+def test_pnl_repository_persists_dashboard_trade_event():
+    table = FakeTable()
+    timestamp = datetime(2026, 8, 3, 6, 45, tzinfo=timezone.utc)
+
+    PnlRepository(table).put_trade_event(
+        TradeEventRecord(
+            trade_id="micro-MARUTI-1",
+            date="2026-08-03",
+            timestamp=timestamp,
+            symbol="MARUTI",
+            action="BUY",
+            price=Decimal("13620"),
+            quantity=1,
+            pnl=Decimal("0"),
+            session_id="session-1",
+            signal_id="signal-1",
+            order_id="order-1",
+            status="FILLED",
+            source="paper",
+            confidence=82,
+        )
+    )
+
+    assert table.items[0]["tradeId"] == "micro-MARUTI-1"
+    assert table.items[0]["timestamp"] == "2026-08-03T06:45:00+00:00"
+    assert table.items[0]["stock_symbol"] == "MARUTI"
+    assert table.items[0]["action"] == "BUY"
+    assert table.items[0]["price"] == Decimal("13620")

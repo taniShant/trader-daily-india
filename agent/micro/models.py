@@ -27,6 +27,7 @@ class MicroTradeConfig:
     target_pct: Decimal = Decimal("0.004")
     stop_pct: Decimal = Decimal("0.002")
     max_symbols_per_cycle: int = 20
+    reentry_cooldown_seconds: int = 600
 
 
 @dataclass(frozen=True)

@@ -221,3 +221,171 @@ def test_micro_engine_places_paper_order_after_risk_approval():
     assert attempts[0].executed is True
     assert attempts[0].order_status == OrderStatus.FILLED
     assert broker.position_for("MARUTI") > 0
+
+
+def test_micro_engine_skips_duplicate_same_direction_position():
+    class Detector:
+        def detect(self, features):
+            return MicroTradeSetup(
+                symbol="ASIANPAINT",
+                action="BUY",
+                confidence=82,
+                setup="micro_volume_continuation",
+                entry_price=Decimal("2785.20"),
+                stop_loss=Decimal("2779.63"),
+                target_price=Decimal("2796.34"),
+                reasons=["test continuation"],
+                features=features.to_dict(),
+            )
+
+        def to_plan(self, setup, signal_id):
+            return MicroSetupDetector().to_plan(setup, signal_id)
+
+    provider = SimpleNamespace(
+        get_historical_data=lambda symbol, days, interval: {
+            "symbol": symbol,
+            "days": days,
+            "interval": interval,
+            "data": [
+                {"timestamp": "2026-08-03T05:45:00+00:00", "open": 2770, "high": 2780, "low": 2768, "close": 2775, "volume": 1000},
+                {"timestamp": "2026-08-03T05:46:00+00:00", "open": 2775, "high": 2788, "low": 2774, "close": 2785.2, "volume": 4000},
+            ],
+        }
+    )
+    broker = PaperBroker()
+    risk_manager = RiskManager(
+        RiskLimits(
+            capital=Decimal("100000"),
+            max_daily_loss_percent=Decimal("4"),
+            max_position_size_percent=Decimal("10"),
+            min_confidence=70,
+            max_quantity_per_order=50,
+        )
+    )
+    engine = MicroTradingEngine(
+        market_data_provider=provider,
+        broker=broker,
+        risk_manager=risk_manager,
+        config=MicroTradeConfig(enabled=True),
+        detector=Detector(),
+    )
+
+    first = engine.scan_once(["ASIANPAINT"], risk_state=RiskState(new_trades_allowed=True))[0]
+    second = engine.scan_once(["ASIANPAINT"], risk_state=RiskState(new_trades_allowed=True))[0]
+
+    assert first.executed is True
+    assert second.executed is False
+    assert second.skipped_reason.startswith("position_already_open:ASIANPAINT:")
+
+
+def test_micro_engine_applies_reentry_cooldown_after_square_off():
+    class Detector:
+        def detect(self, features):
+            return MicroTradeSetup(
+                symbol="ASIANPAINT",
+                action="BUY",
+                confidence=82,
+                setup="micro_volume_continuation",
+                entry_price=Decimal("2785.20"),
+                stop_loss=Decimal("2779.63"),
+                target_price=Decimal("2796.34"),
+                reasons=["test continuation"],
+                features=features.to_dict(),
+            )
+
+        def to_plan(self, setup, signal_id):
+            return MicroSetupDetector().to_plan(setup, signal_id)
+
+    provider = SimpleNamespace(
+        get_historical_data=lambda symbol, days, interval: {
+            "symbol": symbol,
+            "days": days,
+            "interval": interval,
+            "data": [
+                {"timestamp": "2026-08-03T05:45:00+00:00", "open": 2770, "high": 2780, "low": 2768, "close": 2775, "volume": 1000},
+                {"timestamp": "2026-08-03T05:46:00+00:00", "open": 2775, "high": 2788, "low": 2774, "close": 2785.2, "volume": 4000},
+            ],
+        }
+    )
+    broker = PaperBroker()
+    risk_manager = RiskManager(
+        RiskLimits(
+            capital=Decimal("100000"),
+            max_daily_loss_percent=Decimal("4"),
+            max_position_size_percent=Decimal("10"),
+            min_confidence=70,
+            max_quantity_per_order=50,
+        )
+    )
+    engine = MicroTradingEngine(
+        market_data_provider=provider,
+        broker=broker,
+        risk_manager=risk_manager,
+        config=MicroTradeConfig(enabled=True, reentry_cooldown_seconds=600),
+        detector=Detector(),
+    )
+
+    first = engine.scan_once(["ASIANPAINT"], risk_state=RiskState(new_trades_allowed=True))[0]
+    broker.square_off("ASIANPAINT", quantity=50)
+    second = engine.scan_once(["ASIANPAINT"], risk_state=RiskState(new_trades_allowed=True))[0]
+
+    assert first.executed is True
+    assert broker.position_for("ASIANPAINT") == 0
+    assert second.executed is False
+    assert second.skipped_reason.startswith("reentry_cooldown_active:ASIANPAINT:")
+
+
+def test_micro_engine_exits_existing_position_on_opposite_signal_without_reversing():
+    class Detector:
+        def detect(self, features):
+            return MicroTradeSetup(
+                symbol="ASIANPAINT",
+                action="SELL",
+                confidence=82,
+                setup="micro_volume_continuation",
+                entry_price=Decimal("2768.00"),
+                stop_loss=Decimal("2773.54"),
+                target_price=Decimal("2756.93"),
+                reasons=["test opposite continuation"],
+                features=features.to_dict(),
+            )
+
+        def to_plan(self, setup, signal_id):
+            return MicroSetupDetector().to_plan(setup, signal_id)
+
+    provider = SimpleNamespace(
+        get_historical_data=lambda symbol, days, interval: {
+            "symbol": symbol,
+            "days": days,
+            "interval": interval,
+            "data": [
+                {"timestamp": "2026-08-03T05:45:00+00:00", "open": 2785, "high": 2788, "low": 2770, "close": 2780, "volume": 1000},
+                {"timestamp": "2026-08-03T05:46:00+00:00", "open": 2780, "high": 2781, "low": 2767, "close": 2768, "volume": 4000},
+            ],
+        }
+    )
+    broker = PaperBroker()
+    broker.positions["ASIANPAINT"] = 12
+    risk_manager = RiskManager(
+        RiskLimits(
+            capital=Decimal("100000"),
+            max_daily_loss_percent=Decimal("4"),
+            max_position_size_percent=Decimal("10"),
+            min_confidence=70,
+            max_quantity_per_order=50,
+        )
+    )
+    engine = MicroTradingEngine(
+        market_data_provider=provider,
+        broker=broker,
+        risk_manager=risk_manager,
+        config=MicroTradeConfig(enabled=True, reentry_cooldown_seconds=600),
+        detector=Detector(),
+    )
+
+    attempt = engine.scan_once(["ASIANPAINT"], risk_state=RiskState(new_trades_allowed=True))[0]
+
+    assert attempt.executed is True
+    assert attempt.order_status == OrderStatus.FILLED
+    assert attempt.skipped_reason == "opposite_signal_exit:ASIANPAINT:12"
+    assert broker.position_for("ASIANPAINT") == 0

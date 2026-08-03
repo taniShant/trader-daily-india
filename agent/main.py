@@ -24,7 +24,13 @@ from .execution.router import get_broker
 from .execution.square_off import square_off_positions
 from .observability import log_event
 from .risk import RiskLimits, RiskManager, RiskState
-from .storage import build_bot_heartbeat, market_state_repository, trading_audit_repositories
+from .storage import (
+    PositionSnapshot,
+    TradeEventRecord,
+    build_bot_heartbeat,
+    market_state_repository,
+    trading_audit_repositories,
+)
 from .time import MarketClock
 
 # ============================================================
@@ -1278,7 +1284,112 @@ class TradingBot:
             f"⚡ Micro lane: {len(attempts)} scanned, "
             f"{len(actionable)} actionable, {len(executed)} executed"
         )
+        self._persist_micro_attempts(attempts)
         self._log_micro_diagnostics(attempts)
+
+    def _persist_micro_attempts(self, attempts) -> None:
+        for attempt in attempts:
+            if not any((attempt.signal, attempt.risk_decision, attempt.order, attempt.executed)):
+                continue
+
+            try:
+                self._persist_micro_attempt(attempt)
+            except Exception as e:
+                print(f"   ⚠️ Micro audit write failed for {attempt.symbol}: {e}")
+
+    def _persist_micro_attempt(self, attempt) -> None:
+        repos = self._get_audit_repositories()
+        session_id = getattr(self, "current_session_id", None) or self.bot_id
+
+        if attempt.signal:
+            repos.signals.put_signal(attempt.signal, session_id=session_id)
+
+        if attempt.risk_decision:
+            repos.risk_events.put_decision(attempt.risk_decision)
+
+        if not attempt.order:
+            return
+
+        status = attempt.order_status or OrderStatus.CREATED
+        broker_order_id = None
+        fills = []
+        get_fills = getattr(self.broker, "get_fills", None)
+        if callable(get_fills):
+            fills = get_fills(attempt.order.client_order_id)
+            if fills:
+                broker_order_id = fills[0].broker_order_id
+
+        repos.orders.put_order(attempt.order, status=status, broker_order_id=broker_order_id)
+        for fill in fills:
+            repos.fills.put_fill(fill)
+
+        if self._is_successful_order_status(status):
+            self._record_micro_position(attempt, fills, session_id)
+            self._record_micro_trade_event(attempt, fills, session_id, status)
+
+    def _record_micro_position(self, attempt, fills, session_id: str) -> None:
+        order = attempt.order
+        if not order:
+            return
+
+        fill_price = fills[-1].fill_price if fills else order.price
+        if fill_price is None:
+            return
+
+        signed_quantity = order.quantity if order.side.value == "BUY" else -order.quantity
+        self.active_positions[order.symbol] = {
+            "quantity": signed_quantity,
+            "entry_price": float(fill_price),
+            "stop_loss": float(order.stop_loss) if order.stop_loss is not None else None,
+            "target": float(order.target_price) if order.target_price is not None else None,
+            "side": order.side,
+            "order_id": order.client_order_id,
+            "status": attempt.order_status,
+            "opened_at": datetime.now(timezone.utc).isoformat(),
+            "timeout_minutes": attempt.signal.holding_window_minutes if attempt.signal else MICRO_MAX_HOLD_MINUTES,
+        }
+
+        snapshot = PositionSnapshot(
+            symbol=order.symbol,
+            session_id=session_id,
+            quantity=signed_quantity,
+            average_price=fill_price,
+            last_price=fill_price,
+            unrealized_pnl=Decimal("0"),
+            updated_at=datetime.now(timezone.utc),
+            side="LONG" if order.side.value == "BUY" else "SHORT",
+            status="OPEN",
+        )
+        self._get_audit_repositories().positions.put_snapshot(snapshot)
+
+    def _record_micro_trade_event(self, attempt, fills, session_id: str, status: OrderStatus) -> None:
+        order = attempt.order
+        if not order:
+            return
+
+        fill_price = fills[-1].fill_price if fills else order.price
+        if fill_price is None:
+            return
+
+        now = datetime.now(timezone.utc)
+        source = fills[-1].source if fills else "broker"
+        trade = TradeEventRecord(
+            trade_id=f"micro-{order.symbol}-{now.strftime('%Y%m%dT%H%M%S%f')}",
+            date=now.date().isoformat(),
+            timestamp=now,
+            symbol=order.symbol,
+            action=order.side.value,
+            price=fill_price,
+            quantity=order.quantity,
+            pnl=Decimal("0"),
+            session_id=session_id,
+            signal_id=order.signal_id,
+            order_id=order.client_order_id,
+            status=status.value,
+            source=source,
+            confidence=attempt.signal.confidence if attempt.signal else 0,
+        )
+        self._get_audit_repositories().pnl.put_trade_event(trade)
 
     def _log_micro_diagnostics(self, attempts) -> None:
         if not attempts or MICRO_DIAGNOSTIC_TOP_N <= 0:

@@ -22,6 +22,7 @@ class MicroTradeAttempt:
     setup: MicroTradeSetup
     signal: TradeSignal | None = None
     risk_decision: RiskDecision | None = None
+    order: OrderRequest | None = None
     order_status: OrderStatus | None = None
     skipped_reason: str | None = None
 
@@ -56,6 +57,7 @@ class MicroTradingEngine:
         self.risk_manager = risk_manager
         self.config = config or MicroTradeConfig()
         self.detector = detector or MicroSetupDetector(self.config)
+        self._last_execution_at: dict[str, datetime] = {}
 
     def scan_once(
         self,
@@ -98,6 +100,14 @@ class MicroTradingEngine:
 
         signal_id = _signal_id(setup.symbol, setup.action)
         plan = self.detector.to_plan(setup, signal_id=signal_id)
+        position_attempt = self._handle_existing_position(plan, setup)
+        if position_attempt is not None:
+            return position_attempt
+
+        cooldown_skip = self._cooldown_skip_reason(plan.symbol)
+        if cooldown_skip:
+            return MicroTradeAttempt(symbol=symbol, setup=setup, skipped_reason=cooldown_skip)
+
         signal = self._to_signal(plan)
         risk_decision = self.risk_manager.evaluate(signal, risk_state)
         if risk_decision.status == RiskDecisionStatus.REJECTED:
@@ -111,13 +121,72 @@ class MicroTradingEngine:
 
         order = self._to_order(plan, risk_decision)
         order_status = self.broker.place_order(order)
+        if order_status in {
+            OrderStatus.SUBMITTED,
+            OrderStatus.ACCEPTED,
+            OrderStatus.PARTIALLY_FILLED,
+            OrderStatus.FILLED,
+        }:
+            self._last_execution_at[plan.symbol] = datetime.now(timezone.utc)
         return MicroTradeAttempt(
             symbol=symbol,
             setup=setup,
             signal=signal,
             risk_decision=risk_decision,
+            order=order,
             order_status=order_status,
         )
+
+    def _handle_existing_position(
+        self,
+        plan: MicroTradePlan,
+        setup: MicroTradeSetup,
+    ) -> MicroTradeAttempt | None:
+        position_for = getattr(self.broker, "position_for", None)
+        if not callable(position_for):
+            return None
+
+        current_position = int(position_for(plan.symbol) or 0)
+        if current_position == 0:
+            return None
+
+        if (current_position > 0 and plan.side.value == "BUY") or (
+            current_position < 0 and plan.side.value == "SELL"
+        ):
+            return MicroTradeAttempt(
+                symbol=plan.symbol,
+                setup=setup,
+                skipped_reason=f"position_already_open:{plan.symbol}:{current_position}",
+            )
+
+        order_status = self.broker.square_off(plan.symbol, abs(current_position))
+        if order_status in {
+            OrderStatus.SUBMITTED,
+            OrderStatus.ACCEPTED,
+            OrderStatus.PARTIALLY_FILLED,
+            OrderStatus.FILLED,
+        }:
+            self._last_execution_at[plan.symbol] = datetime.now(timezone.utc)
+        return MicroTradeAttempt(
+            symbol=plan.symbol,
+            setup=setup,
+            order_status=order_status,
+            skipped_reason=f"opposite_signal_exit:{plan.symbol}:{current_position}",
+        )
+
+    def _cooldown_skip_reason(self, symbol: str) -> str | None:
+        if self.config.reentry_cooldown_seconds <= 0:
+            return None
+
+        last_execution = self._last_execution_at.get(symbol)
+        if last_execution is None:
+            return None
+
+        elapsed = (datetime.now(timezone.utc) - last_execution).total_seconds()
+        if elapsed < self.config.reentry_cooldown_seconds:
+            remaining = int(self.config.reentry_cooldown_seconds - elapsed)
+            return f"reentry_cooldown_active:{symbol}:{remaining}s"
+        return None
 
     @staticmethod
     def _to_signal(plan: MicroTradePlan) -> TradeSignal:

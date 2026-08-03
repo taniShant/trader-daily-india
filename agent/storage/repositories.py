@@ -100,6 +100,42 @@ class PnlRecord:
         }
 
 
+@dataclass(frozen=True)
+class TradeEventRecord:
+    trade_id: str
+    date: str
+    timestamp: datetime
+    symbol: str
+    action: str
+    price: Decimal
+    quantity: int
+    pnl: Decimal
+    session_id: str
+    signal_id: str
+    order_id: str
+    status: str
+    source: str
+    confidence: int
+
+    def to_item(self) -> dict[str, Any]:
+        return {
+            "tradeId": self.trade_id,
+            "date": self.date,
+            "timestamp": _utc_iso(self.timestamp),
+            "stock_symbol": self.symbol,
+            "action": self.action,
+            "price": self.price,
+            "quantity": self.quantity,
+            "pnl": self.pnl,
+            "session_id": self.session_id,
+            "signal_id": self.signal_id,
+            "order_id": self.order_id,
+            "status": self.status,
+            "source": self.source,
+            "confidence": self.confidence,
+        }
+
+
 class SignalsRepository:
     def __init__(self, table):
         self.table = table
@@ -160,6 +196,9 @@ class PnlRepository:
 
     def put_pnl(self, pnl: PnlRecord) -> None:
         self.table.put_item(Item=pnl.to_item())
+
+    def put_trade_event(self, trade: TradeEventRecord) -> None:
+        self.table.put_item(Item=decimalize(trade.to_item()))
 
 
 @dataclass(frozen=True)
