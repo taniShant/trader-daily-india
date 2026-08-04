@@ -59,6 +59,14 @@ class TradingConfig(BaseModel):
     min_confidence_threshold: int = Field(default=70, ge=0, le=100)
     analysis_interval_seconds: int = Field(default=180, gt=0)
     watchlist_size: int = Field(default=10, gt=0)
+    micro_trading_enabled: bool = False
+    micro_scan_interval_seconds: int = Field(default=30, gt=0)
+    micro_max_hold_minutes: int = Field(default=10, gt=0)
+    micro_min_confidence: int = Field(default=72, ge=0, le=100)
+    micro_min_relative_volume: float = Field(default=1.5, gt=0)
+    micro_min_continuation_relative_volume: float = Field(default=3.0, gt=0)
+    micro_max_symbols_per_cycle: int = Field(default=40, gt=0)
+    micro_diagnostic_top_n: int = Field(default=5, ge=0)
     paper_trading: bool = True
 
 
@@ -191,6 +199,17 @@ def _apply_env_overrides(config: dict) -> dict:
         "MIN_CONFIDENCE_THRESHOLD": ("trading", "min_confidence_threshold", int),
         "ANALYSIS_INTERVAL_SECONDS": ("trading", "analysis_interval_seconds", int),
         "WATCHLIST_SIZE": ("trading", "watchlist_size", int),
+        "MICRO_SCAN_INTERVAL_SECONDS": ("trading", "micro_scan_interval_seconds", int),
+        "MICRO_MAX_HOLD_MINUTES": ("trading", "micro_max_hold_minutes", int),
+        "MICRO_MIN_CONFIDENCE": ("trading", "micro_min_confidence", int),
+        "MICRO_MIN_RELATIVE_VOLUME": ("trading", "micro_min_relative_volume", float),
+        "MICRO_MIN_CONTINUATION_RELATIVE_VOLUME": (
+            "trading",
+            "micro_min_continuation_relative_volume",
+            float,
+        ),
+        "MICRO_MAX_SYMBOLS_PER_CYCLE": ("trading", "micro_max_symbols_per_cycle", int),
+        "MICRO_DIAGNOSTIC_TOP_N": ("trading", "micro_diagnostic_top_n", int),
     }
     for env_name, (section, key, caster) in numeric_env_map.items():
         if os.environ.get(env_name):
@@ -199,6 +218,10 @@ def _apply_env_overrides(config: dict) -> dict:
     config["trading"]["paper_trading"] = _env_bool(
         "PAPER_TRADING",
         bool(config["trading"].get("paper_trading", True)),
+    )
+    config["trading"]["micro_trading_enabled"] = _env_bool(
+        "MICRO_TRADING_ENABLED",
+        bool(config["trading"].get("micro_trading_enabled", False)),
     )
     config["oracle"]["use_for_build"] = _env_bool(
         "ORACLE_USE_FOR_BUILD",

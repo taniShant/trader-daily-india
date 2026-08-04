@@ -136,6 +136,36 @@ def test_micro_detector_allows_high_volume_continuation_with_lower_atr():
     assert "continuation volatility accepted" in " ".join(setup.reasons)
 
 
+def test_micro_detector_uses_configured_continuation_volume_threshold():
+    detector = MicroSetupDetector(
+        MicroTradeConfig(
+            min_confidence=72,
+            min_relative_volume=1.2,
+            min_continuation_relative_volume=1.6,
+        )
+    )
+    setup = detector.detect(
+        TechnicalFeatures(
+            symbol="MARUTI",
+            close=14180.0,
+            vwap=14100.0,
+            rsi=64.0,
+            macd=2.0,
+            macd_signal=1.2,
+            atr=8.0,
+            relative_volume=1.8,
+            opening_range_high=14240.0,
+            opening_range_low=14060.0,
+            previous_high=14250.0,
+            previous_low=14080.0,
+            trend_bias="bullish",
+        )
+    )
+
+    assert setup.action == "BUY"
+    assert setup.setup == "micro_volume_continuation"
+
+
 def test_micro_position_exits_on_target_stop_and_time():
     opened_at = datetime(2026, 7, 30, 6, 0, tzinfo=timezone.utc)
     long_position = MicroTradePosition(

@@ -16,6 +16,8 @@ def test_loads_prod_json_oracle_values_without_env_overrides(monkeypatch):
     assert settings.oracle.execution_proxy_base_url == "http://80.225.242.6:8080"
     assert settings.oracle.collector_base_url == "http://80.225.242.6:8090"
     assert settings.trading.paper_trading is True
+    assert settings.trading.micro_min_relative_volume == 1.2
+    assert settings.trading.micro_min_continuation_relative_volume == 1.6
 
 
 def test_environment_overrides_take_precedence(monkeypatch):
@@ -27,6 +29,7 @@ def test_environment_overrides_take_precedence(monkeypatch):
     monkeypatch.setenv("BEDROCK_DEEP_RESEARCH_MODEL_ID", "deep-model")
     monkeypatch.setenv("PAPER_TRADING", "false")
     monkeypatch.setenv("CAPITAL", "250000")
+    monkeypatch.setenv("MICRO_MIN_CONTINUATION_RELATIVE_VOLUME", "1.7")
     monkeypatch.setenv("TRADES_TABLE", "trades-test")
 
     settings = load_settings("prod", include_env=True)
@@ -39,6 +42,7 @@ def test_environment_overrides_take_precedence(monkeypatch):
     assert settings.bedrock.deep_research_model_id == "deep-model"
     assert settings.trading.paper_trading is False
     assert settings.trading.capital == 250000
+    assert settings.trading.micro_min_continuation_relative_volume == 1.7
     assert settings.dynamodb.trades_table == "trades-test"
 
 

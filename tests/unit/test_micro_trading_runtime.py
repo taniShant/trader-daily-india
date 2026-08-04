@@ -87,6 +87,45 @@ def test_micro_diagnostics_prints_nearest_hold_setups(capsys):
     assert "rsi=61.20" in output
 
 
+def test_micro_rejection_summary_prints_reason_counts(capsys):
+    bot = _bot_stub()
+
+    def attempt(symbol, reasons, relative_volume):
+        return type(
+            "Attempt",
+            (),
+            {
+                "setup": MicroTradeSetup(
+                    symbol=symbol,
+                    action="HOLD",
+                    confidence=50,
+                    setup="micro_monitor",
+                    entry_price=None,
+                    stop_loss=None,
+                    target_price=None,
+                    reasons=reasons,
+                    features={"relative_volume": relative_volume},
+                ),
+                "executed": False,
+                "skipped_reason": "no_actionable_micro_setup",
+            },
+        )()
+
+    bot._log_micro_rejection_summary(
+        [
+            attempt("MARUTI", ["relative volume too weak 0.90x"], 0.9),
+            attempt("RELIANCE", ["price overextended versus VWAP"], 1.4),
+            attempt("INFY", ["tradable micro volatility"], 1.3),
+        ]
+    )
+
+    output = capsys.readouterr().out
+    assert "Micro rejection summary" in output
+    assert "volume_failed=1" in output
+    assert "continuation_volume_failed=3" in output
+    assert "vwap_extension_failed=1" in output
+
+
 def test_micro_attempt_persists_dashboard_visible_audit_records():
     bot = _bot_stub()
     bot.bot_id = "bot-test"

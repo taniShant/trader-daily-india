@@ -84,6 +84,10 @@ class TradingAgentRuntimeStack(Stack):
         micro_max_hold_minutes = trading_config.get("micro_max_hold_minutes", 10)
         micro_min_confidence = trading_config.get("micro_min_confidence", 72)
         micro_min_relative_volume = trading_config.get("micro_min_relative_volume", 1.5)
+        micro_min_continuation_relative_volume = trading_config.get(
+            "micro_min_continuation_relative_volume",
+            3.0,
+        )
         micro_max_symbols_per_cycle = trading_config.get("micro_max_symbols_per_cycle", 40)
         micro_diagnostic_top_n = trading_config.get("micro_diagnostic_top_n", 5)
         
@@ -114,6 +118,7 @@ class TradingAgentRuntimeStack(Stack):
         print(f"   Micro Trading Enabled: {micro_trading_enabled}")
         print(f"   Micro Symbols Per Cycle: {micro_max_symbols_per_cycle}")
         print(f"   Micro Min Relative Volume: {micro_min_relative_volume}")
+        print(f"   Micro Continuation Min Relative Volume: {micro_min_continuation_relative_volume}")
         print(f"   Oracle Static IP: {static_ip}")
         print(f"   Oracle Execution Proxy: {oracle_proxy_base_url}")
         print(f"   Oracle Collector: {oracle_collector_base_url}")
@@ -181,6 +186,7 @@ class TradingAgentRuntimeStack(Stack):
             "MICRO_MAX_HOLD_MINUTES": str(micro_max_hold_minutes),
             "MICRO_MIN_CONFIDENCE": str(micro_min_confidence),
             "MICRO_MIN_RELATIVE_VOLUME": str(micro_min_relative_volume),
+            "MICRO_MIN_CONTINUATION_RELATIVE_VOLUME": str(micro_min_continuation_relative_volume),
             "MICRO_MAX_SYMBOLS_PER_CYCLE": str(micro_max_symbols_per_cycle),
             "MICRO_DIAGNOSTIC_TOP_N": str(micro_diagnostic_top_n),
             "STATIC_IP": static_ip,

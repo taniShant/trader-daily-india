@@ -78,13 +78,14 @@ WATCHLIST_SIZE = settings.trading.watchlist_size
 ALPHA_UNIVERSE_SIZE = _read_int_env("ALPHA_UNIVERSE_SIZE", max(40, WATCHLIST_SIZE))
 DEEP_ANALYSIS_SIZE = _read_int_env("DEEP_ANALYSIS_SIZE", WATCHLIST_SIZE)
 ALPHA_SCAN_WORKERS = _read_int_env("ALPHA_SCAN_WORKERS", 8)
-MICRO_TRADING_ENABLED = os.environ.get("MICRO_TRADING_ENABLED", "false").lower() == "true"
-MICRO_SCAN_INTERVAL_SECONDS = _read_int_env("MICRO_SCAN_INTERVAL_SECONDS", 30)
-MICRO_MAX_HOLD_MINUTES = _read_int_env("MICRO_MAX_HOLD_MINUTES", 10)
-MICRO_MIN_CONFIDENCE = _read_int_env("MICRO_MIN_CONFIDENCE", 72)
-MICRO_MIN_RELATIVE_VOLUME = _read_float_env("MICRO_MIN_RELATIVE_VOLUME", 1.5)
-MICRO_MAX_SYMBOLS_PER_CYCLE = _read_int_env("MICRO_MAX_SYMBOLS_PER_CYCLE", 40)
-MICRO_DIAGNOSTIC_TOP_N = _read_int_env("MICRO_DIAGNOSTIC_TOP_N", 5)
+MICRO_TRADING_ENABLED = settings.trading.micro_trading_enabled
+MICRO_SCAN_INTERVAL_SECONDS = settings.trading.micro_scan_interval_seconds
+MICRO_MAX_HOLD_MINUTES = settings.trading.micro_max_hold_minutes
+MICRO_MIN_CONFIDENCE = settings.trading.micro_min_confidence
+MICRO_MIN_RELATIVE_VOLUME = settings.trading.micro_min_relative_volume
+MICRO_MIN_CONTINUATION_RELATIVE_VOLUME = settings.trading.micro_min_continuation_relative_volume
+MICRO_MAX_SYMBOLS_PER_CYCLE = settings.trading.micro_max_symbols_per_cycle
+MICRO_DIAGNOSTIC_TOP_N = settings.trading.micro_diagnostic_top_n
 
 # Oracle static IP (for reference/logging)
 ORACLE_STATIC_IP = settings.oracle.static_ip
@@ -582,6 +583,7 @@ class TradingBot:
             print(f"Micro Max Hold: {MICRO_MAX_HOLD_MINUTES} minutes")
             print(f"Micro Min Confidence: {MICRO_MIN_CONFIDENCE}%")
             print(f"Micro Min Relative Volume: {MICRO_MIN_RELATIVE_VOLUME:.2f}x")
+            print(f"Micro Continuation Min Relative Volume: {MICRO_MIN_CONTINUATION_RELATIVE_VOLUME:.2f}x")
             print(f"Micro Symbols Per Cycle: {MICRO_MAX_SYMBOLS_PER_CYCLE}")
         print(f"Analysis Interval: {ANALYSIS_INTERVAL} seconds")
         print(f"Bedrock Fast Model: {FAST_MODEL_ID}")
@@ -665,6 +667,7 @@ class TradingBot:
                 max_hold_minutes=MICRO_MAX_HOLD_MINUTES,
                 min_confidence=MICRO_MIN_CONFIDENCE,
                 min_relative_volume=MICRO_MIN_RELATIVE_VOLUME,
+                min_continuation_relative_volume=MICRO_MIN_CONTINUATION_RELATIVE_VOLUME,
                 max_symbols_per_cycle=MICRO_MAX_SYMBOLS_PER_CYCLE,
             ),
         )
@@ -1372,8 +1375,62 @@ class TradingBot:
             f"⚡ Micro lane: {len(attempts)} scanned, "
             f"{len(actionable)} actionable, {len(executed)} executed"
         )
+        self._log_micro_rejection_summary(attempts)
         self._persist_micro_attempts(attempts)
         self._log_micro_diagnostics(attempts)
+
+    def _log_micro_rejection_summary(self, attempts) -> None:
+        if not attempts:
+            return
+
+        summary = {
+            "data_unavailable": 0,
+            "volume_failed": 0,
+            "continuation_volume_failed": 0,
+            "volatility_failed": 0,
+            "vwap_extension_failed": 0,
+            "confidence_failed": 0,
+            "position_or_cooldown": 0,
+            "other_hold": 0,
+        }
+        for attempt in attempts:
+            setup = attempt.setup
+            if setup.action in {"BUY", "SELL"}:
+                if setup.confidence < MICRO_MIN_CONFIDENCE:
+                    summary["confidence_failed"] += 1
+                continue
+
+            reason_text = " ".join([*(setup.reasons or []), attempt.skipped_reason or ""]).lower()
+            features = setup.features or {}
+            relative_volume = _coerce_float(features.get("relative_volume"), 0.0)
+            classified = False
+
+            if "market_data_unavailable" in reason_text or "micro_setup_error" in reason_text:
+                summary["data_unavailable"] += 1
+                classified = True
+            if "position_" in reason_text or "cooldown" in reason_text:
+                summary["position_or_cooldown"] += 1
+                classified = True
+            if relative_volume and relative_volume < MICRO_MIN_RELATIVE_VOLUME:
+                summary["volume_failed"] += 1
+                classified = True
+            if relative_volume and relative_volume < MICRO_MIN_CONTINUATION_RELATIVE_VOLUME:
+                summary["continuation_volume_failed"] += 1
+                classified = True
+            if "volatility too" in reason_text:
+                summary["volatility_failed"] += 1
+                classified = True
+            if "overextended versus vwap" in reason_text:
+                summary["vwap_extension_failed"] += 1
+                classified = True
+            if setup.confidence < MICRO_MIN_CONFIDENCE and setup.setup != "micro_monitor":
+                summary["confidence_failed"] += 1
+                classified = True
+            if not classified:
+                summary["other_hold"] += 1
+
+        details = ", ".join(f"{key}={value}" for key, value in summary.items() if value)
+        print(f"⚡ Micro rejection summary: {details or 'none'}")
 
     def _persist_micro_attempts(self, attempts) -> None:
         for attempt in attempts:
