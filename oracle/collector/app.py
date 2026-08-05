@@ -331,17 +331,24 @@ def _timestamp(payload: dict[str, Any]) -> str:
 
 _ALIASES = {
     "NESTLE": "NESTLEIND",
-    "TATAMOTORS": "TMCV",
+    "TATAMOTORS": "TATAMOTORS",
+    "TMCV": "TATAMOTORS",
+    "TMPV": "TATAMOTORS",
 }
 
 
 _BREEZE_STOCK_CODES = {
     "ADANIPORTS": "ADAPOR",
     "RELIANCE": "RELIND",
+    "HDFCBANK": "HDFBAN",
     "INFY": "INFTEC",
     "ICICIBANK": "ICICIBANK",
     "BHARTIARTL": "BHAAIR",
+    "KOTAKBANK": "KOTMAH",
+    "AXISBANK": "AXIBAN",
+    "LT": "LARTOU",
     "HEROMOTOCO": "HERHON",
+    "TITAN": "TITIND",
     "TECHM": "TECMAH",
     "ASIANPAINT": "ASIPAI",
     "HCLTECH": "HCLTEC",
@@ -351,4 +358,12 @@ _BREEZE_STOCK_CODES = {
     "EICHERMOT": "EICMOT",
     "SUNPHARMA": "SUNPHA",
     "JSWSTEEL": "JSWSTE",
+    "M&M": "MAHMAH",
+    "TATAMOTORS": "TATMOT",
+    "TATASTEEL": "TATSTE",
+    "HINDALCO": "HINDAL",
+    "BRITANNIA": "BRIIND",
+    "DRREDDY": "DRREDD",
+    "COALINDIA": "COALIN",
+    "BAJAJ-AUTO": "BAAUTO",
 }

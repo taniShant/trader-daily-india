@@ -60,8 +60,7 @@ _NIFTY_LARGE_CAPS = {
     "BPCL": "Bharat Petroleum",
     "IOC": "Indian Oil Corporation",
     "M&M": "Mahindra and Mahindra",
-    "TMCV": "Tata Motors Commercial Vehicles",
-    "TMPV": "Tata Motors Passenger Vehicles",
+    "TATAMOTORS": "Tata Motors",
     "TATACONSUM": "Tata Consumer Products",
 }
 
@@ -69,10 +68,15 @@ _NIFTY_LARGE_CAPS = {
 _BREEZE_STOCK_CODES = {
     "ADANIPORTS": "ADAPOR",
     "RELIANCE": "RELIND",
+    "HDFCBANK": "HDFBAN",
     "INFY": "INFTEC",
     "ICICIBANK": "ICICIBANK",
     "BHARTIARTL": "BHAAIR",
+    "KOTAKBANK": "KOTMAH",
+    "AXISBANK": "AXIBAN",
+    "LT": "LARTOU",
     "HEROMOTOCO": "HERHON",
+    "TITAN": "TITIND",
     "TECHM": "TECMAH",
     "ASIANPAINT": "ASIPAI",
     "HCLTECH": "HCLTEC",
@@ -82,6 +86,14 @@ _BREEZE_STOCK_CODES = {
     "EICHERMOT": "EICMOT",
     "SUNPHARMA": "SUNPHA",
     "JSWSTEEL": "JSWSTE",
+    "M&M": "MAHMAH",
+    "TATAMOTORS": "TATMOT",
+    "TATASTEEL": "TATSTE",
+    "HINDALCO": "HINDAL",
+    "BRITANNIA": "BRIIND",
+    "DRREDDY": "DRREDD",
+    "COALINDIA": "COALIN",
+    "BAJAJ-AUTO": "BAAUTO",
 }
 
 
@@ -126,8 +138,13 @@ def breeze_stock_code(symbol: str) -> str:
     return resolve_symbol(symbol).breeze
 
 
+def is_supported_intraday_symbol(symbol: str) -> bool:
+    return canonical_symbol(symbol) in SYMBOL_MASTER
+
+
 _ALIASES = {
     "NESTLE": "NESTLEIND",
-    "M&M.NS": "M&M",
-    "TATAMOTORS": "TMCV",
+    "TATAMOTORS": "TATAMOTORS",
+    "TMCV": "TATAMOTORS",
+    "TMPV": "TATAMOTORS",
 }

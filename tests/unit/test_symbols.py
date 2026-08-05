@@ -2,7 +2,13 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 from agent.contracts.execution import OrderRequest, OrderSide, OrderType
-from agent.data.symbols import breeze_stock_code, canonical_symbol, resolve_symbol, yahoo_symbol
+from agent.data.symbols import (
+    breeze_stock_code,
+    canonical_symbol,
+    is_supported_intraday_symbol,
+    resolve_symbol,
+    yahoo_symbol,
+)
 from agent.execution.oracle_breeze_client import _order_to_proxy_payload
 from agent.tools.market_data import MarketDataProvider
 
@@ -33,9 +39,14 @@ def test_symbol_mapping_uses_verified_breeze_stock_codes_for_watchlist():
     assert breeze_stock_code("ADANIPORTS") == "ADAPOR"
     assert breeze_stock_code("RELIANCE") == "RELIND"
     assert breeze_stock_code("INFY") == "INFTEC"
+    assert breeze_stock_code("HDFCBANK") == "HDFBAN"
     assert breeze_stock_code("ICICIBANK") == "ICICIBANK"
     assert breeze_stock_code("BHARTIARTL") == "BHAAIR"
+    assert breeze_stock_code("KOTAKBANK") == "KOTMAH"
+    assert breeze_stock_code("AXISBANK") == "AXIBAN"
+    assert breeze_stock_code("LT") == "LARTOU"
     assert breeze_stock_code("HEROMOTOCO") == "HERHON"
+    assert breeze_stock_code("TITAN") == "TITIND"
     assert breeze_stock_code("TECHM") == "TECMAH"
     assert breeze_stock_code("ASIANPAINT") == "ASIPAI"
     assert breeze_stock_code("HCLTECH") == "HCLTEC"
@@ -45,16 +56,35 @@ def test_symbol_mapping_uses_verified_breeze_stock_codes_for_watchlist():
     assert breeze_stock_code("EICHERMOT") == "EICMOT"
     assert breeze_stock_code("SUNPHARMA") == "SUNPHA"
     assert breeze_stock_code("JSWSTEEL") == "JSWSTE"
+    assert breeze_stock_code("M&M") == "MAHMAH"
+    assert breeze_stock_code("TATAMOTORS") == "TATMOT"
+    assert breeze_stock_code("TMCV") == "TATMOT"
+    assert breeze_stock_code("TMPV") == "TATMOT"
+    assert breeze_stock_code("TATASTEEL") == "TATSTE"
+    assert breeze_stock_code("HINDALCO") == "HINDAL"
+    assert breeze_stock_code("BRITANNIA") == "BRIIND"
+    assert breeze_stock_code("DRREDDY") == "DRREDD"
+    assert breeze_stock_code("COALINDIA") == "COALIN"
+    assert breeze_stock_code("BAJAJ-AUTO") == "BAAUTO"
     assert breeze_stock_code("MARUTI") == "MARUTI"
     assert breeze_stock_code("ONGC") == "ONGC"
 
 
-def test_tata_motors_legacy_symbol_maps_to_current_yahoo_symbol():
+def test_tata_motors_legacy_symbols_map_to_icici_tata_motors_code():
     tata = resolve_symbol("TATAMOTORS")
+    tmc = resolve_symbol("TMCV")
+    tmp = resolve_symbol("TMPV")
 
-    assert tata.canonical == "TMCV"
-    assert tata.yahoo == "TMCV.NS"
-    assert tata.breeze == "TMCV"
+    assert tata.canonical == "TATAMOTORS"
+    assert tata.yahoo == "TATAMOTORS.NS"
+    assert tata.breeze == "TATMOT"
+    assert tmc.canonical == "TATAMOTORS"
+    assert tmp.canonical == "TATAMOTORS"
+    assert is_supported_intraday_symbol("TATAMOTORS") is True
+    assert is_supported_intraday_symbol("TMCV") is True
+    assert is_supported_intraday_symbol("TMPV") is True
+    assert is_supported_intraday_symbol("M&M") is True
+    assert is_supported_intraday_symbol("MARUTI") is True
 
 
 def test_market_data_uses_canonical_symbol_for_breeze_quote():

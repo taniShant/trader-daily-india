@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from typing import List, Dict, Any
 import boto3
 
-from agent.data.symbols import resolve_symbol
+from agent.data.symbols import is_supported_intraday_symbol, resolve_symbol
 from agent.overnight.state_store import get_daily_state, put_daily_state
 
 class PreMarketScanner:
@@ -45,11 +45,12 @@ class PreMarketScanner:
             "DRREDDY", "BRITANNIA", "EICHERMOT", "COALINDIA", "DIVISLAB",
             "SBILIFE", "HDFCLIFE", "UPL", "BAJAJ-AUTO", "SHREECEM",
             "CIPLA", "HEROMOTOCO", "TATASTEEL", "HINDALCO", "BPCL",
-            "IOC", "M&M", "TMCV", "TMPV", "TATACONSUM"
+            "IOC", "M&M", "TATAMOTORS", "TATACONSUM"
         ]
 
     def _is_excluded(self, symbol: str) -> bool:
-        return resolve_symbol(symbol).canonical in self.excluded_symbols
+        canonical = resolve_symbol(symbol).canonical
+        return canonical in self.excluded_symbols or not is_supported_intraday_symbol(canonical)
 
     def _filter_excluded_symbols(self, symbols: List[str]) -> List[str]:
         return [symbol for symbol in symbols if not self._is_excluded(symbol)]

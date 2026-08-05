@@ -5,7 +5,7 @@ from .market_data import (
     ohlcv_bars_to_tool_payload,
     quote_to_tool_payload,
 )
-from .symbols import SymbolMapping, breeze_stock_code, canonical_symbol, resolve_symbol, yahoo_symbol
+from .symbols import SymbolMapping, breeze_stock_code, canonical_symbol, is_supported_intraday_symbol, resolve_symbol, yahoo_symbol
 from .quality import (
     DataQualityResult,
     SourceQualityResult,
@@ -87,6 +87,7 @@ __all__ = [
     "fetch_nse_rss_announcements",
     "fetch_regulatory_rss",
     "infer_regulatory_impact",
+    "is_supported_intraday_symbol",
     "normalize_bse_announcement",
     "normalize_nse_announcement",
     "normalize_official_announcements",

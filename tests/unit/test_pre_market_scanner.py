@@ -145,6 +145,26 @@ def test_get_watchlist_returns_plain_symbols_for_trading_loop():
     }
 
 
+def test_get_watchlist_normalizes_tata_motors_aliases_and_keeps_icici_mapped_names():
+    scanner = make_scanner(
+        watchlist_size=4,
+        item={
+            "date": "2026-07-05",
+            "pre_market_watchlist": [
+                {"symbol": "TMCV", "watchlist_score": 90},
+                {"symbol": "TMPV", "watchlist_score": 85},
+                {"symbol": "M&M", "watchlist_score": 80},
+                {"symbol": "RELIANCE", "watchlist_score": 70},
+                {"symbol": "INFY", "watchlist_score": 60},
+            ],
+        },
+    )
+
+    watchlist = scanner.get_watchlist()
+
+    assert watchlist == ["TATAMOTORS", "M&M", "RELIANCE", "MARUTI"]
+
+
 def test_default_fallback_watchlist_excludes_unwanted_symbols():
     scanner = make_scanner(watchlist_size=8)
 
