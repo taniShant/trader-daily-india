@@ -174,3 +174,53 @@ def test_signed_proxy_order_delegates_to_execution_client(monkeypatch):
     assert response.json()["broker_order_id"] == "fake-broker-1"
     assert len(recorder.orders) == 1
     assert recorder.orders[0].symbol == "RELIANCE"
+    assert recorder.orders[0].exchange == "NSE"
+
+
+def test_signed_proxy_order_always_executes_on_nse(monkeypatch):
+    app = load_proxy_app(monkeypatch)
+
+    class RecordingClient:
+        def __init__(self):
+            self.orders = []
+
+        def place_order(self, order):
+            self.orders.append(order)
+            return sys.modules["breeze_client"].ExecutionResult(
+                success=True,
+                status="ACCEPTED",
+                client_order_id=order.client_order_id,
+                broker_order_id="fake-broker-2",
+                symbol=order.symbol,
+                exchange=order.exchange,
+                side=order.side.value,
+                order_type=order.order_type.value,
+                quantity=order.quantity,
+                price=order.price,
+                mode="mock",
+                message="recorded",
+                accepted_at="2026-07-02T00:00:00+00:00",
+            )
+
+    recorder = RecordingClient()
+    app.state.execution_client = recorder
+    client = TestClient(app)
+    body, headers = signed_request(
+        {
+            "client_order_id": "signed-order-nse-only",
+            "symbol": "ADANIPORTS",
+            "exchange": "BSE",
+            "side": "BUY",
+            "order_type": "LIMIT",
+            "quantity": 3,
+            "price": 1690.0,
+        },
+        nonce="breeze-boundary-2",
+    )
+
+    response = client.post("/orders", content=body, headers=headers)
+
+    assert response.status_code == 202
+    assert response.json()["exchange"] == "NSE"
+    assert len(recorder.orders) == 1
+    assert recorder.orders[0].exchange == "NSE"

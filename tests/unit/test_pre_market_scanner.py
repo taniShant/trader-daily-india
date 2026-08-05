@@ -64,7 +64,7 @@ def test_score_candidate_includes_reason_scores_and_symbol_mappings():
 
     assert candidate["symbol"] == "RELIANCE"
     assert candidate["yahoo_symbol"] == "RELIANCE.NS"
-    assert candidate["breeze_stock_code"] == "RELIND"
+    assert candidate["breeze_stock_code"] == "RELIANCE"
     assert candidate["direction_bias"] == "bullish"
     assert candidate["volume_ratio"] > 1
     assert candidate["watchlist_score"] > 0

@@ -98,12 +98,30 @@ def test_oracle_collector_live_ohlcv_uses_breeze_datetime_format(monkeypatch):
     assert payload["symbol"] == "MARUTI"
     assert calls[0]["interval"] == "5minute"
     assert calls[0]["stock_code"] == "MARUTI"
-    assert calls[0]["from_date"].endswith("T03:45:00.000Z")
-    assert calls[0]["to_date"].endswith("T10:00:00.000Z")
+    assert calls[0]["from_date"].endswith("T09:15:00.000Z")
     assert calls[0]["from_date"].endswith(".000Z")
     assert calls[0]["to_date"].endswith(".000Z")
     assert "+" not in calls[0]["from_date"]
     assert calls[0]["product_type"] == "cash"
+
+
+def test_oracle_collector_breeze_intraday_range_uses_india_market_wall_clock(monkeypatch):
+    load_collector_app(monkeypatch)
+    collector_module = sys.modules["oracle_collector_app_test"]
+
+    during_market = collector_module.datetime(2026, 8, 5, 6, 5, tzinfo=collector_module.timezone.utc)
+    after_market = collector_module.datetime(2026, 8, 5, 12, 0, tzinfo=collector_module.timezone.utc)
+    before_market = collector_module.datetime(2026, 8, 5, 2, 0, tzinfo=collector_module.timezone.utc)
+
+    start, end = collector_module._breeze_date_range(days=1, interval="1m", now=during_market)
+    assert collector_module._breeze_datetime(start).endswith("T09:15:00.000Z")
+    assert collector_module._breeze_datetime(end).endswith("T11:35:00.000Z")
+
+    _, end = collector_module._breeze_date_range(days=1, interval="1m", now=after_market)
+    assert collector_module._breeze_datetime(end).endswith("T15:30:00.000Z")
+
+    _, end = collector_module._breeze_date_range(days=1, interval="1m", now=before_market)
+    assert collector_module._breeze_datetime(end).endswith("T09:15:00.000Z")
 
 
 def test_oracle_collector_live_ohlcv_accepts_technical_lookback(monkeypatch):
@@ -120,22 +138,23 @@ def test_oracle_collector_maps_nse_symbols_to_breeze_codes(monkeypatch):
     collector_module = sys.modules["oracle_collector_app_test"]
 
     assert collector_module._breeze_stock_code("ADANIPORTS") == "ADAPOR"
-    assert collector_module._breeze_stock_code("RELIANCE") == "RELIND"
-    assert collector_module._breeze_stock_code("INFY") == "INFTEC"
+    assert collector_module._breeze_stock_code("RELIANCE") == "RELIANCE"
+    assert collector_module._breeze_stock_code("INFY") == "INFY"
     assert collector_module._breeze_stock_code("HDFCBANK") == "HDFBAN"
-    assert collector_module._breeze_stock_code("ICICIBANK") == "ICICIBANK"
-    assert collector_module._breeze_stock_code("BHARTIARTL") == "BHAAIR"
+    assert collector_module._breeze_stock_code("ICICIBANK") == "ICICIBAN"
+    assert collector_module._breeze_stock_code("BHARTIARTL") == "BHAART"
     assert collector_module._breeze_stock_code("KOTAKBANK") == "KOTMAH"
+    assert collector_module._breeze_stock_code("BAJFINANCE") == "BAJFIN"
+    assert collector_module._breeze_stock_code("HINDUNILVR") == "HINLEV"
     assert collector_module._breeze_stock_code("AXISBANK") == "AXIBAN"
     assert collector_module._breeze_stock_code("LT") == "LARTOU"
     assert collector_module._breeze_stock_code("HEROMOTOCO") == "HERHON"
-    assert collector_module._breeze_stock_code("TITAN") == "TITIND"
+    assert collector_module._breeze_stock_code("TITAN") == "TITAN"
     assert collector_module._breeze_stock_code("TECHM") == "TECMAH"
     assert collector_module._breeze_stock_code("ASIANPAINT") == "ASIPAI"
     assert collector_module._breeze_stock_code("HCLTECH") == "HCLTEC"
     assert collector_module._breeze_stock_code("DIVISLAB") == "DIVLAB"
-    assert collector_module._breeze_stock_code("BAJFINANCE") == "BAJFI"
-    assert collector_module._breeze_stock_code("BAJAJFINSV") == "BAFINS"
+    assert collector_module._breeze_stock_code("BAJAJFINSV") == "BAJFSV"
     assert collector_module._breeze_stock_code("EICHERMOT") == "EICMOT"
     assert collector_module._breeze_stock_code("SUNPHARMA") == "SUNPHA"
     assert collector_module._breeze_stock_code("JSWSTEEL") == "JSWSTE"
@@ -145,7 +164,24 @@ def test_oracle_collector_maps_nse_symbols_to_breeze_codes(monkeypatch):
     assert collector_module._breeze_stock_code("TMPV") == "TATMOT"
     assert collector_module._breeze_stock_code("TATASTEEL") == "TATSTE"
     assert collector_module._breeze_stock_code("HINDALCO") == "HINDAL"
-    assert collector_module._breeze_stock_code("BRITANNIA") == "BRIIND"
+    assert collector_module._breeze_stock_code("BRITANNIA") == "BRITAN"
     assert collector_module._breeze_stock_code("DRREDDY") == "DRREDD"
     assert collector_module._breeze_stock_code("COALINDIA") == "COALIN"
     assert collector_module._breeze_stock_code("BAJAJ-AUTO") == "BAAUTO"
+    assert collector_module._breeze_stock_code("MARUTI") == "MARUTI"
+    assert collector_module._breeze_stock_code("WIPRO") == "WIPRO"
+    assert collector_module._breeze_stock_code("ONGC") == "ONGC"
+    assert collector_module._breeze_stock_code("NTPC") == "NTPC"
+    assert collector_module._breeze_stock_code("POWERGRID") == "POWGRID"
+    assert collector_module._breeze_stock_code("ULTRACEMCO") == "ULTECO"
+    assert collector_module._breeze_stock_code("GRASIM") == "GRAIND"
+    assert collector_module._breeze_stock_code("NESTLEIND") == "NESIND"
+    assert collector_module._breeze_stock_code("INDUSINDBK") == "INDBAN"
+    assert collector_module._breeze_stock_code("SBILIFE") == "SBILIF"
+    assert collector_module._breeze_stock_code("HDFCLIFE") == "HDFLIF"
+    assert collector_module._breeze_stock_code("UPL") == "UPLLTD"
+    assert collector_module._breeze_stock_code("SHREECEM") == "SHRCEM"
+    assert collector_module._breeze_stock_code("CIPLA") == "CIPLA"
+    assert collector_module._breeze_stock_code("BPCL") == "BPCL"
+    assert collector_module._breeze_stock_code("IOC") == "IOC"
+    assert collector_module._breeze_stock_code("TATACONSUM") == "TATGLO"

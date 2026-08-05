@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
@@ -195,21 +196,31 @@ def _to_breeze_interval(interval: str) -> str:
     }[interval]
 
 
-def _breeze_date_range(*, days: int, interval: str) -> tuple[datetime, datetime]:
-    now = datetime.now(timezone.utc)
+INDIA_TZ = ZoneInfo("Asia/Kolkata")
+
+
+def _breeze_date_range(*, days: int, interval: str, now: datetime | None = None) -> tuple[datetime, datetime]:
+    now = now or datetime.now(timezone.utc)
     if interval == "1d":
         return now - timedelta(days=days), now
 
-    end_date = now.date()
-    start_date = (now - timedelta(days=days)).date()
+    now_ist = now.astimezone(INDIA_TZ)
+    market_start = time(9, 15)
+    market_close = time(15, 30)
+    end_time = min(max(now_ist.time(), market_start), market_close)
+    end_date = now_ist.date()
+    start_date = (now_ist - timedelta(days=days)).date()
     return (
-        datetime(start_date.year, start_date.month, start_date.day, 3, 45, tzinfo=timezone.utc),
-        datetime(end_date.year, end_date.month, end_date.day, 10, 0, tzinfo=timezone.utc),
+        datetime.combine(start_date, market_start, tzinfo=INDIA_TZ),
+        datetime.combine(end_date, end_time, tzinfo=INDIA_TZ),
     )
 
 
 def _breeze_datetime(value: datetime) -> str:
-    return value.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    # Breeze historical APIs interpret the clock fields as Indian market
+    # wall-clock time even when the string uses a Z suffix.
+    value_ist = value.astimezone(INDIA_TZ)
+    return value_ist.strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
 
 def _success_payload(response: Any) -> Any:
@@ -339,22 +350,23 @@ _ALIASES = {
 
 _BREEZE_STOCK_CODES = {
     "ADANIPORTS": "ADAPOR",
-    "RELIANCE": "RELIND",
+    "RELIANCE": "RELIANCE",
     "HDFCBANK": "HDFBAN",
-    "INFY": "INFTEC",
-    "ICICIBANK": "ICICIBANK",
-    "BHARTIARTL": "BHAAIR",
+    "INFY": "INFY",
+    "ICICIBANK": "ICICIBAN",
+    "BHARTIARTL": "BHAART",
     "KOTAKBANK": "KOTMAH",
     "AXISBANK": "AXIBAN",
+    "BAJFINANCE": "BAJFIN",
+    "HINDUNILVR": "HINLEV",
     "LT": "LARTOU",
     "HEROMOTOCO": "HERHON",
-    "TITAN": "TITIND",
+    "TITAN": "TITAN",
     "TECHM": "TECMAH",
     "ASIANPAINT": "ASIPAI",
     "HCLTECH": "HCLTEC",
     "DIVISLAB": "DIVLAB",
-    "BAJFINANCE": "BAJFI",
-    "BAJAJFINSV": "BAFINS",
+    "BAJAJFINSV": "BAJFSV",
     "EICHERMOT": "EICMOT",
     "SUNPHARMA": "SUNPHA",
     "JSWSTEEL": "JSWSTE",
@@ -362,8 +374,25 @@ _BREEZE_STOCK_CODES = {
     "TATAMOTORS": "TATMOT",
     "TATASTEEL": "TATSTE",
     "HINDALCO": "HINDAL",
-    "BRITANNIA": "BRIIND",
+    "BRITANNIA": "BRITAN",
     "DRREDDY": "DRREDD",
     "COALINDIA": "COALIN",
     "BAJAJ-AUTO": "BAAUTO",
+    "MARUTI": "MARUTI",
+    "WIPRO": "WIPRO",
+    "ONGC": "ONGC",
+    "NTPC": "NTPC",
+    "POWERGRID": "POWGRID",
+    "ULTRACEMCO": "ULTECO",
+    "GRASIM": "GRAIND",
+    "NESTLEIND": "NESIND",
+    "INDUSINDBK": "INDBAN",
+    "SBILIFE": "SBILIF",
+    "HDFCLIFE": "HDFLIF",
+    "UPL": "UPLLTD",
+    "SHREECEM": "SHRCEM",
+    "CIPLA": "CIPLA",
+    "BPCL": "BPCL",
+    "IOC": "IOC",
+    "TATACONSUM": "TATGLO",
 }

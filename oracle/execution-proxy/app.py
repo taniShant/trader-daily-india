@@ -138,7 +138,7 @@ def to_proxy_order(order: MockOrderRequest) -> ProxyOrder:
     return ProxyOrder(
         client_order_id=order.client_order_id,
         symbol=order.symbol,
-        exchange=order.exchange,
+        exchange="NSE",
         side=order.side,
         order_type=order.order_type,
         quantity=order.quantity,
