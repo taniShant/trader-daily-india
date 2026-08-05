@@ -77,7 +77,7 @@
     "deep_analysis_size": 8,
     "alpha_scan_workers": 8,
     "micro_trading_enabled": true,
-    "micro_scan_interval_seconds": 30,
+    "micro_scan_interval_seconds": 60,
     "micro_max_hold_minutes": 10,
     "micro_min_confidence": 68,
     "micro_min_relative_volume": 1.2,
