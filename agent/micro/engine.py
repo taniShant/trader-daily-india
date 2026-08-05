@@ -90,6 +90,10 @@ class MicroTradingEngine:
                 return MicroTradeAttempt(symbol=symbol, setup=setup, skipped_reason=setup.reasons[0])
 
             features = compute_technical_features(payload)
+            stale_reason = self._stale_candle_reason(features)
+            if stale_reason:
+                setup = _hold_setup(symbol, stale_reason)
+                return MicroTradeAttempt(symbol=symbol, setup=setup, skipped_reason=stale_reason)
             setup = self.detector.detect(features)
         except Exception as exc:
             setup = _hold_setup(symbol, f"micro_setup_error:{exc}")
@@ -119,6 +123,16 @@ class MicroTradingEngine:
                 skipped_reason="; ".join(risk_decision.reasons),
             )
 
+        live_stop_skip = self._live_stop_skip_reason(plan)
+        if live_stop_skip:
+            return MicroTradeAttempt(
+                symbol=symbol,
+                setup=setup,
+                signal=signal,
+                risk_decision=risk_decision,
+                skipped_reason=live_stop_skip,
+            )
+
         order = self._to_order(plan, risk_decision)
         order_status = self.broker.place_order(order)
         if order_status in {
@@ -136,6 +150,42 @@ class MicroTradingEngine:
             order=order,
             order_status=order_status,
         )
+
+    def _stale_candle_reason(self, features) -> str | None:
+        latest_timestamp = getattr(features, "latest_timestamp", None)
+        if latest_timestamp is None:
+            return "stale_or_missing_candle_timestamp"
+        if latest_timestamp.tzinfo is None:
+            latest_timestamp = latest_timestamp.replace(tzinfo=timezone.utc)
+
+        age_seconds = (datetime.now(timezone.utc) - latest_timestamp.astimezone(timezone.utc)).total_seconds()
+        if age_seconds < -60:
+            return f"future_candle_timestamp:{latest_timestamp.isoformat()}"
+        if age_seconds > self.config.max_candle_age_seconds:
+            return f"stale_candle:{int(age_seconds)}s"
+        return None
+
+    def _live_stop_skip_reason(self, plan: MicroTradePlan) -> str | None:
+        quote_fetcher = getattr(self.market_data_provider, "get_live_quote", None)
+        if not callable(quote_fetcher):
+            return None
+
+        try:
+            quote = quote_fetcher(plan.symbol)
+        except Exception as exc:
+            return f"live_quote_unavailable_before_entry:{exc}"
+        if not isinstance(quote, dict) or quote.get("error"):
+            return f"live_quote_unavailable_before_entry:{quote.get('error', 'invalid_quote') if isinstance(quote, dict) else 'invalid_quote'}"
+
+        ltp_value = quote.get("ltp") or quote.get("last_price") or quote.get("price")
+        if ltp_value is None:
+            return "live_quote_unavailable_before_entry:missing_ltp"
+        live_price = Decimal(str(ltp_value))
+        if plan.side.value == "BUY" and live_price <= plan.stop_loss:
+            return f"live_price_already_below_stop:{live_price}"
+        if plan.side.value == "SELL" and live_price >= plan.stop_loss:
+            return f"live_price_already_above_stop:{live_price}"
+        return None
 
     def _handle_existing_position(
         self,

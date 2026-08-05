@@ -84,6 +84,7 @@ MICRO_MAX_HOLD_MINUTES = settings.trading.micro_max_hold_minutes
 MICRO_MIN_CONFIDENCE = settings.trading.micro_min_confidence
 MICRO_MIN_RELATIVE_VOLUME = settings.trading.micro_min_relative_volume
 MICRO_MIN_CONTINUATION_RELATIVE_VOLUME = settings.trading.micro_min_continuation_relative_volume
+MICRO_MAX_CANDLE_AGE_SECONDS = settings.trading.micro_max_candle_age_seconds
 MICRO_MAX_SYMBOLS_PER_CYCLE = settings.trading.micro_max_symbols_per_cycle
 MICRO_DIAGNOSTIC_TOP_N = settings.trading.micro_diagnostic_top_n
 
@@ -584,6 +585,7 @@ class TradingBot:
             print(f"Micro Min Confidence: {MICRO_MIN_CONFIDENCE}%")
             print(f"Micro Min Relative Volume: {MICRO_MIN_RELATIVE_VOLUME:.2f}x")
             print(f"Micro Continuation Min Relative Volume: {MICRO_MIN_CONTINUATION_RELATIVE_VOLUME:.2f}x")
+            print(f"Micro Max Candle Age: {MICRO_MAX_CANDLE_AGE_SECONDS} seconds")
             print(f"Micro Symbols Per Cycle: {MICRO_MAX_SYMBOLS_PER_CYCLE}")
         print(f"Analysis Interval: {ANALYSIS_INTERVAL} seconds")
         print(f"Bedrock Fast Model: {FAST_MODEL_ID}")
@@ -668,6 +670,7 @@ class TradingBot:
                 min_confidence=MICRO_MIN_CONFIDENCE,
                 min_relative_volume=MICRO_MIN_RELATIVE_VOLUME,
                 min_continuation_relative_volume=MICRO_MIN_CONTINUATION_RELATIVE_VOLUME,
+                max_candle_age_seconds=MICRO_MAX_CANDLE_AGE_SECONDS,
                 max_symbols_per_cycle=MICRO_MAX_SYMBOLS_PER_CYCLE,
             ),
         )
@@ -1408,6 +1411,9 @@ class TradingBot:
             if "market_data_unavailable" in reason_text or "micro_setup_error" in reason_text:
                 summary["data_unavailable"] += 1
                 classified = True
+            if "stale_candle" in reason_text or "candle_timestamp" in reason_text:
+                summary["data_unavailable"] += 1
+                classified = True
             if "position_" in reason_text or "cooldown" in reason_text:
                 summary["position_or_cooldown"] += 1
                 classified = True
@@ -1567,6 +1573,8 @@ class TradingBot:
                 f"close={_format_feature(features, 'close')} "
                 f"vwap={_format_feature(features, 'vwap')} "
                 f"trend={features.get('trend_bias', 'na')} "
+                f"candle={features.get('latest_timestamp', 'na')} "
+                f"source={features.get('latest_source', 'na')} "
                 f"reason={reasons}"
             )
 

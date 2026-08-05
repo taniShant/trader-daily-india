@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any
 
 import pandas as pd
@@ -24,9 +25,14 @@ class TechnicalFeatures:
     previous_high: float
     previous_low: float
     trend_bias: str
+    latest_timestamp: datetime | None = None
+    latest_source: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return self.__dict__.copy()
+        payload = self.__dict__.copy()
+        if self.latest_timestamp is not None:
+            payload["latest_timestamp"] = self.latest_timestamp.isoformat()
+        return payload
 
 
 def compute_technical_features(payload_or_bars: dict[str, Any] | list[OHLCVBar]) -> TechnicalFeatures:
@@ -51,6 +57,7 @@ def compute_technical_features(payload_or_bars: dict[str, Any] | list[OHLCVBar])
     relative_volume = volume.iloc[-1] / avg_volume if avg_volume > 0 else 0
     opening_slice = df.head(min(3, len(df)))
     previous = df.iloc[-2]
+    latest = df.iloc[-1]
     latest_close = float(close.iloc[-1])
 
     return TechnicalFeatures(
@@ -67,6 +74,8 @@ def compute_technical_features(payload_or_bars: dict[str, Any] | list[OHLCVBar])
         previous_high=round(float(previous["high"]), 4),
         previous_low=round(float(previous["low"]), 4),
         trend_bias=_trend_bias(latest_close, float(vwap), float(rsi), float(macd_line), float(macd_signal)),
+        latest_timestamp=_latest_timestamp(latest),
+        latest_source=str(latest.get("source")) if latest.get("source") is not None else None,
     )
 
 
@@ -119,3 +128,20 @@ def _trend_bias(close: float, vwap: float, rsi: float, macd: float, macd_signal:
     if bearish:
         return "bearish"
     return "neutral"
+
+
+def _latest_timestamp(row) -> datetime | None:
+    value = row.get("timestamp")
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.astimezone(timezone.utc) if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    try:
+        parsed = pd.to_datetime(value)
+    except Exception:
+        return None
+    if pd.isna(parsed):
+        return None
+    if parsed.tzinfo is None:
+        return parsed.to_pydatetime().replace(tzinfo=timezone.utc)
+    return parsed.to_pydatetime().astimezone(timezone.utc)

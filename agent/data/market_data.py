@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Iterable
+from zoneinfo import ZoneInfo
 
 from agent.contracts.market import OHLCVBar, Quote
 
@@ -153,5 +154,8 @@ def _coerce_timestamp(value: Any) -> datetime:
     if hasattr(value, "to_pydatetime"):
         return _coerce_timestamp(value.to_pydatetime())
     if isinstance(value, str):
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            return parsed.replace(tzinfo=ZoneInfo("Asia/Kolkata")).astimezone(timezone.utc)
+        return parsed
     raise ValueError(f"Unsupported timestamp value: {value!r}")

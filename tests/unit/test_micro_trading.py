@@ -9,6 +9,10 @@ from agent.risk import RiskLimits, RiskManager, RiskState
 from agent.signals.technical import TechnicalFeatures
 
 
+def _fresh_timestamp(minutes_ago: int) -> str:
+    return (datetime.now(timezone.utc) - timedelta(minutes=minutes_ago)).isoformat()
+
+
 def test_micro_detector_flags_clean_breakout_buy():
     detector = MicroSetupDetector(MicroTradeConfig(min_confidence=72))
     setup = detector.detect(
@@ -241,7 +245,7 @@ def test_micro_engine_places_paper_order_after_risk_approval():
         market_data_provider=provider,
         broker=broker,
         risk_manager=risk_manager,
-        config=MicroTradeConfig(enabled=True),
+        config=MicroTradeConfig(enabled=True, max_candle_age_seconds=999999999),
         detector=Detector(),
     )
 
@@ -296,7 +300,7 @@ def test_micro_engine_skips_duplicate_same_direction_position():
         market_data_provider=provider,
         broker=broker,
         risk_manager=risk_manager,
-        config=MicroTradeConfig(enabled=True),
+        config=MicroTradeConfig(enabled=True, max_candle_age_seconds=999999999),
         detector=Detector(),
     )
 
@@ -351,7 +355,7 @@ def test_micro_engine_applies_reentry_cooldown_after_square_off():
         market_data_provider=provider,
         broker=broker,
         risk_manager=risk_manager,
-        config=MicroTradeConfig(enabled=True, reentry_cooldown_seconds=600),
+        config=MicroTradeConfig(enabled=True, reentry_cooldown_seconds=600, max_candle_age_seconds=999999999),
         detector=Detector(),
     )
 
@@ -409,7 +413,7 @@ def test_micro_engine_exits_existing_position_on_opposite_signal_without_reversi
         market_data_provider=provider,
         broker=broker,
         risk_manager=risk_manager,
-        config=MicroTradeConfig(enabled=True, reentry_cooldown_seconds=600),
+        config=MicroTradeConfig(enabled=True, reentry_cooldown_seconds=600, max_candle_age_seconds=999999999),
         detector=Detector(),
     )
 
@@ -419,3 +423,90 @@ def test_micro_engine_exits_existing_position_on_opposite_signal_without_reversi
     assert attempt.order_status == OrderStatus.FILLED
     assert attempt.skipped_reason == "opposite_signal_exit:ASIANPAINT:12"
     assert broker.position_for("ASIANPAINT") == 0
+
+
+def test_micro_engine_skips_stale_candles():
+    provider = SimpleNamespace(
+        get_historical_data=lambda symbol, days, interval: {
+            "symbol": symbol,
+            "days": days,
+            "interval": interval,
+            "data": [
+                {"timestamp": "2026-07-30T03:45:00+00:00", "open": 100, "high": 101, "low": 99, "close": 100, "volume": 1000},
+                {"timestamp": "2026-07-30T03:46:00+00:00", "open": 100, "high": 111, "low": 100, "close": 110, "volume": 2500},
+            ],
+        }
+    )
+    engine = MicroTradingEngine(
+        market_data_provider=provider,
+        broker=PaperBroker(),
+        risk_manager=RiskManager(
+            RiskLimits(
+                capital=Decimal("100000"),
+                max_daily_loss_percent=Decimal("4"),
+                max_position_size_percent=Decimal("10"),
+                min_confidence=70,
+            )
+        ),
+        config=MicroTradeConfig(enabled=True, max_candle_age_seconds=180),
+    )
+
+    attempt = engine.scan_once(["MARUTI"], risk_state=RiskState(new_trades_allowed=True))[0]
+
+    assert attempt.executed is False
+    assert attempt.setup.action == "HOLD"
+    assert attempt.setup.setup == "micro_data_unavailable"
+    assert attempt.skipped_reason.startswith("stale_candle:")
+
+
+def test_micro_engine_skips_entry_when_live_quote_has_crossed_stop():
+    class Detector:
+        def detect(self, features):
+            return MicroTradeSetup(
+                symbol="JSWSTEEL",
+                action="SELL",
+                confidence=82,
+                setup="micro_volume_continuation",
+                entry_price=Decimal("100"),
+                stop_loss=Decimal("101"),
+                target_price=Decimal("98"),
+                reasons=["test short continuation"],
+                features=features.to_dict(),
+            )
+
+        def to_plan(self, setup, signal_id):
+            return MicroSetupDetector().to_plan(setup, signal_id)
+
+    provider = SimpleNamespace(
+        get_historical_data=lambda symbol, days, interval: {
+            "symbol": symbol,
+            "days": days,
+            "interval": interval,
+            "data": [
+                {"timestamp": _fresh_timestamp(2), "open": 102, "high": 103, "low": 100, "close": 102, "volume": 1000},
+                {"timestamp": _fresh_timestamp(1), "open": 102, "high": 102, "low": 99, "close": 100, "volume": 3000},
+            ],
+        },
+        get_live_quote=lambda symbol: {"symbol": symbol, "ltp": 101.5},
+    )
+    engine = MicroTradingEngine(
+        market_data_provider=provider,
+        broker=PaperBroker(),
+        risk_manager=RiskManager(
+            RiskLimits(
+                capital=Decimal("100000"),
+                max_daily_loss_percent=Decimal("4"),
+                max_position_size_percent=Decimal("10"),
+                min_confidence=70,
+            )
+        ),
+        config=MicroTradeConfig(enabled=True),
+        detector=Detector(),
+    )
+
+    attempt = engine.scan_once(["JSWSTEEL"], risk_state=RiskState(new_trades_allowed=True))[0]
+
+    assert attempt.executed is False
+    assert attempt.signal is not None
+    assert attempt.risk_decision is not None
+    assert attempt.skipped_reason == "live_price_already_above_stop:101.5"
