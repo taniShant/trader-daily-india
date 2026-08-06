@@ -45,7 +45,7 @@
   "icici": {
     "api_key": "O6731z39in79bV=1U53K615238Q47GX7",  
     "secret_key": "5916$+907W89i85z%Pb66t`286710164",
-    "session_token": "56588471",
+    "session_token": "56609072",
     "static_ip": "80.225.242.6"
   },
   "oracle": {
@@ -77,7 +77,7 @@
     "deep_analysis_size": 8,
     "alpha_scan_workers": 8,
     "micro_trading_enabled": true,
-    "micro_scan_interval_seconds": 60,
+    "micro_scan_interval_seconds": 90,
     "micro_max_hold_minutes": 10,
     "micro_min_confidence": 68,
     "micro_min_relative_volume": 1.2,
