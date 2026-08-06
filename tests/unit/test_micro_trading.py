@@ -65,7 +65,7 @@ def test_micro_detector_holds_when_volume_is_weak():
     assert "relative volume too weak" in " ".join(setup.reasons)
 
 
-def test_micro_detector_allows_high_volume_continuation_past_vwap_extension():
+def test_micro_detector_rejects_stretched_high_volume_continuation():
     detector = MicroSetupDetector(MicroTradeConfig(min_confidence=72))
     setup = detector.detect(
         TechnicalFeatures(
@@ -85,10 +85,34 @@ def test_micro_detector_allows_high_volume_continuation_past_vwap_extension():
         )
     )
 
+    assert setup.action == "HOLD"
+    assert "continuation extension too stretched" in " ".join(setup.reasons)
+
+
+def test_micro_detector_allows_controlled_high_volume_continuation():
+    detector = MicroSetupDetector(MicroTradeConfig(min_confidence=72))
+    setup = detector.detect(
+        TechnicalFeatures(
+            symbol="BAJAJFINSV",
+            close=113.0,
+            vwap=110.0,
+            rsi=68.0,
+            macd=2.2,
+            macd_signal=1.4,
+            atr=1.0,
+            relative_volume=3.1,
+            opening_range_high=118.0,
+            opening_range_low=104.0,
+            previous_high=119.0,
+            previous_low=106.0,
+            trend_bias="bullish",
+        )
+    )
+
     assert setup.action == "BUY"
     assert setup.setup == "micro_volume_continuation"
     assert setup.confidence >= 82
-    assert "high-volume bullish continuation" in " ".join(setup.reasons)
+    assert "controlled VWAP extension" in " ".join(setup.reasons)
 
 
 def test_micro_detector_rejects_extreme_continuation_extension():
@@ -151,7 +175,7 @@ def test_micro_detector_uses_configured_continuation_volume_threshold():
     setup = detector.detect(
         TechnicalFeatures(
             symbol="MARUTI",
-            close=14180.0,
+            close=14120.0,
             vwap=14100.0,
             rsi=64.0,
             macd=2.0,
@@ -168,6 +192,36 @@ def test_micro_detector_uses_configured_continuation_volume_threshold():
 
     assert setup.action == "BUY"
     assert setup.setup == "micro_volume_continuation"
+
+
+def test_micro_detector_blocks_low_volume_extended_continuation_even_when_threshold_lowered():
+    detector = MicroSetupDetector(
+        MicroTradeConfig(
+            min_confidence=72,
+            min_relative_volume=1.2,
+            min_continuation_relative_volume=1.6,
+        )
+    )
+    setup = detector.detect(
+        TechnicalFeatures(
+            symbol="ADANIPORTS",
+            close=1703.30,
+            vwap=1696.54,
+            rsi=67.78,
+            macd=2.0,
+            macd_signal=1.2,
+            atr=1.16,
+            relative_volume=1.78,
+            opening_range_high=1710.0,
+            opening_range_low=1690.0,
+            previous_high=1705.0,
+            previous_low=1695.0,
+            trend_bias="bullish",
+        )
+    )
+
+    assert setup.action == "HOLD"
+    assert "extended continuation needs stronger relative volume" in " ".join(setup.reasons)
 
 
 def test_micro_position_exits_on_target_stop_and_time():

@@ -20,6 +20,12 @@ class MicroSetupDetector:
         atr = Decimal(str(max(features.atr, features.close * 0.001)))
         atr_ratio = float(atr / close) if close > 0 else 1.0
         extension = abs(features.close - features.vwap) / float(atr) if atr > 0 else 99.0
+        extension_ok = extension <= self.config.max_vwap_extension_atr
+        continuation_extension_ok = extension <= self.config.max_continuation_vwap_extension_atr
+        extended_continuation_volume_ok = (
+            extension <= self.config.max_vwap_extension_atr
+            or features.relative_volume >= self.config.extended_continuation_min_relative_volume
+        )
 
         if atr_ratio < self.config.min_atr_ratio:
             reasons.append("volatility too low for micro trade")
@@ -33,10 +39,19 @@ class MicroSetupDetector:
         else:
             reasons.append(f"relative volume too weak {features.relative_volume:.2f}x")
 
-        if extension <= self.config.max_vwap_extension_atr:
+        if extension_ok:
             reasons.append("price not overextended versus VWAP")
         else:
             reasons.append("price overextended versus VWAP")
+        if not continuation_extension_ok:
+            reasons.append(
+                f"continuation extension too stretched {extension:.2f} ATR"
+            )
+        elif not extended_continuation_volume_ok:
+            reasons.append(
+                "extended continuation needs stronger relative volume "
+                f"{features.relative_volume:.2f}x"
+            )
 
         action = "HOLD"
         setup = "micro_monitor"
@@ -73,14 +88,14 @@ class MicroSetupDetector:
             and features.macd >= features.macd_signal
             and features.trend_bias in {"bullish", "neutral"}
             and features.relative_volume >= self.config.min_continuation_relative_volume
-            and 55 <= features.rsi <= 86
+            and 55 <= features.rsi <= 78
         )
         bearish_continuation = (
             features.close < features.vwap
             and features.macd <= features.macd_signal
             and features.trend_bias in {"bearish", "neutral"}
             and features.relative_volume >= self.config.min_continuation_relative_volume
-            and 14 <= features.rsi <= 45
+            and 22 <= features.rsi <= 45
         )
 
         tradable = (
@@ -90,7 +105,8 @@ class MicroSetupDetector:
         )
         continuation_tradable = (
             self.config.min_continuation_atr_ratio <= atr_ratio <= self.config.max_atr_ratio
-            and extension <= self.config.max_continuation_vwap_extension_atr
+            and continuation_extension_ok
+            and extended_continuation_volume_ok
         )
 
         if tradable and bullish_orb:
@@ -108,13 +124,13 @@ class MicroSetupDetector:
             setup = "micro_volume_continuation"
             confidence = 72
             reasons.append("continuation volatility accepted for high relative volume")
-            reasons.append("high-volume bullish continuation despite VWAP extension")
+            reasons.append("high-volume bullish continuation with controlled VWAP extension")
         elif continuation_tradable and bearish_continuation:
             action = "SELL"
             setup = "micro_volume_continuation"
             confidence = 72
             reasons.append("continuation volatility accepted for high relative volume")
-            reasons.append("high-volume bearish continuation despite VWAP extension")
+            reasons.append("high-volume bearish continuation with controlled VWAP extension")
         elif tradable and bullish_vwap:
             action = "BUY"
             setup = "micro_vwap_momentum"
