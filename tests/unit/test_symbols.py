@@ -20,7 +20,7 @@ def test_symbol_mapping_normalizes_common_forms():
     assert canonical_symbol("INFY.BO") == "INFY"
     assert yahoo_symbol("INFY.N") == "INFY.NS"
     assert yahoo_symbol("RELIANCE") == "RELIANCE.NS"
-    assert breeze_stock_code("RELIANCE.NS") == "RELIANCE"
+    assert breeze_stock_code("RELIANCE.NS") == "RELIND"
 
 
 def test_symbol_mapping_handles_known_aliases_and_unknowns():
@@ -37,23 +37,23 @@ def test_symbol_mapping_handles_known_aliases_and_unknowns():
 
 def test_symbol_mapping_uses_verified_breeze_stock_codes_for_watchlist():
     assert breeze_stock_code("ADANIPORTS") == "ADAPOR"
-    assert breeze_stock_code("RELIANCE") == "RELIANCE"
-    assert breeze_stock_code("INFY") == "INFY"
+    assert breeze_stock_code("RELIANCE") == "RELIND"
+    assert breeze_stock_code("INFY") == "INFTEC"
     assert breeze_stock_code("HDFCBANK") == "HDFBAN"
-    assert breeze_stock_code("ICICIBANK") == "ICICIBAN"
+    assert breeze_stock_code("ICICIBANK") == "ICIBAN"
     assert breeze_stock_code("BHARTIARTL") == "BHAART"
     assert breeze_stock_code("KOTAKBANK") == "KOTMAH"
-    assert breeze_stock_code("BAJFINANCE") == "BAJFIN"
+    assert breeze_stock_code("BAJFINANCE") == "BAFSL"
     assert breeze_stock_code("HINDUNILVR") == "HINLEV"
     assert breeze_stock_code("AXISBANK") == "AXIBAN"
     assert breeze_stock_code("LT") == "LARTOU"
     assert breeze_stock_code("HEROMOTOCO") == "HERHON"
-    assert breeze_stock_code("TITAN") == "TITAN"
+    assert breeze_stock_code("TITAN") == "TITIND"
     assert breeze_stock_code("TECHM") == "TECMAH"
     assert breeze_stock_code("ASIANPAINT") == "ASIPAI"
     assert breeze_stock_code("HCLTECH") == "HCLTEC"
     assert breeze_stock_code("DIVISLAB") == "DIVLAB"
-    assert breeze_stock_code("BAJAJFINSV") == "BAJFSV"
+    assert breeze_stock_code("BAJAJFINSV") == "BAJFIN"
     assert breeze_stock_code("EICHERMOT") == "EICMOT"
     assert breeze_stock_code("SUNPHARMA") == "SUNPHA"
     assert breeze_stock_code("JSWSTEEL") == "JSWSTE"
@@ -71,14 +71,14 @@ def test_symbol_mapping_uses_verified_breeze_stock_codes_for_watchlist():
     assert breeze_stock_code("WIPRO") == "WIPRO"
     assert breeze_stock_code("ONGC") == "ONGC"
     assert breeze_stock_code("NTPC") == "NTPC"
-    assert breeze_stock_code("POWERGRID") == "POWGRID"
-    assert breeze_stock_code("ULTRACEMCO") == "ULTECO"
+    assert breeze_stock_code("POWERGRID") == "POWIND"
+    assert breeze_stock_code("ULTRACEMCO") == "ULTRAC"
     assert breeze_stock_code("GRASIM") == "GRAIND"
     assert breeze_stock_code("NESTLEIND") == "NESIND"
     assert breeze_stock_code("INDUSINDBK") == "INDBAN"
     assert breeze_stock_code("SBILIFE") == "SBILIF"
     assert breeze_stock_code("HDFCLIFE") == "HDFLIF"
-    assert breeze_stock_code("UPL") == "UPLLTD"
+    assert breeze_stock_code("UPL") == "UPL"
     assert breeze_stock_code("SHREECEM") == "SHRCEM"
     assert breeze_stock_code("CIPLA") == "CIPLA"
     assert breeze_stock_code("BPCL") == "BPCL"
@@ -126,7 +126,7 @@ def test_market_data_uses_canonical_symbol_for_breeze_quote():
 
     payload = provider.get_live_quote("RELIANCE.NS")
 
-    assert calls == [{"stock_code": "RELIANCE", "exchange_code": "NSE"}]
+    assert calls == [{"stock_code": "RELIND", "exchange_code": "NSE"}]
     assert payload["symbol"] == "RELIANCE"
 
 
@@ -145,5 +145,5 @@ def test_oracle_order_payload_sends_breeze_stock_code():
 
     payload = _order_to_proxy_payload(order)
 
-    assert payload["symbol"] == "RELIANCE"
+    assert payload["symbol"] == "RELIND"
     assert payload["exchange"] == "NSE"

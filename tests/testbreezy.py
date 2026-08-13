@@ -11,7 +11,7 @@ breeze.generate_session(
 
 # Test - Get quotes for a stock
 try:
-    quotes = breeze.get_quotes(stock_code="RELIANCE", exchange_code="NSE")
+    quotes = breeze.get_quotes(stock_code="RELIND", exchange_code="NSE")
     print("✅ Connection successful!")
     print(quotes)
 except Exception as e:

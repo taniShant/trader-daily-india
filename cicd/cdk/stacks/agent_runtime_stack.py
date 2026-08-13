@@ -75,6 +75,7 @@ class TradingAgentRuntimeStack(Stack):
         min_confidence = trading_config.get("min_confidence_threshold", 70)
         max_daily_loss_percent = trading_config.get("max_daily_loss_percent", 4)
         max_position_size_percent = trading_config.get("max_position_size_percent", 10)
+        max_quantity_per_order = trading_config.get("max_quantity_per_order", 50)
         watchlist_size = trading_config.get("watchlist_size", 10)
         alpha_universe_size = trading_config.get("alpha_universe_size", max(40, watchlist_size))
         deep_analysis_size = trading_config.get("deep_analysis_size", watchlist_size)
@@ -112,6 +113,7 @@ class TradingAgentRuntimeStack(Stack):
         print(f"   Min Confidence: {min_confidence}%")
         print(f"   Max Daily Loss: {max_daily_loss_percent}%")
         print(f"   Max Position Size: {max_position_size_percent}%")
+        print(f"   Max Quantity Per Order: {max_quantity_per_order}")
         print(f"   Watchlist Size: {watchlist_size}")
         print(f"   Alpha Universe Size: {alpha_universe_size}")
         print(f"   Deep Analysis Size: {deep_analysis_size}")
@@ -179,6 +181,7 @@ class TradingAgentRuntimeStack(Stack):
             "MIN_CONFIDENCE_THRESHOLD": str(min_confidence),
             "MAX_DAILY_LOSS_PERCENT": str(max_daily_loss_percent),
             "MAX_POSITION_SIZE_PERCENT": str(max_position_size_percent),
+            "MAX_QUANTITY_PER_ORDER": str(max_quantity_per_order),
             "WATCHLIST_SIZE": str(watchlist_size),
             "ALPHA_UNIVERSE_SIZE": str(alpha_universe_size),
             "DEEP_ANALYSIS_SIZE": str(deep_analysis_size),

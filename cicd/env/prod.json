@@ -45,7 +45,7 @@
   "icici": {
     "api_key": "O6731z39in79bV=1U53K615238Q47GX7",  
     "secret_key": "5916$+907W89i85z%Pb66t`286710164",
-    "session_token": "56609072",
+    "session_token": "56684392",
     "static_ip": "80.225.242.6"
   },
   "oracle": {
@@ -67,9 +67,10 @@
     "allow_simulated_news": false
   },
   "trading": {
-    "capital": 100000,
+    "capital": 10000000,
     "max_daily_loss_percent": 4,
     "max_position_size_percent": 10,
+    "max_quantity_per_order": 5000,
     "min_confidence_threshold": 70,
     "analysis_interval_seconds": 180,
     "watchlist_size": 8,

@@ -74,6 +74,7 @@ ANALYSIS_INTERVAL = settings.trading.analysis_interval_seconds
 MIN_CONFIDENCE = settings.trading.min_confidence_threshold
 MAX_DAILY_LOSS_PERCENT = settings.trading.max_daily_loss_percent
 MAX_POSITION_SIZE_PERCENT = settings.trading.max_position_size_percent
+MAX_QUANTITY_PER_ORDER = settings.trading.max_quantity_per_order
 WATCHLIST_SIZE = settings.trading.watchlist_size
 ALPHA_UNIVERSE_SIZE = _read_int_env("ALPHA_UNIVERSE_SIZE", max(40, WATCHLIST_SIZE))
 DEEP_ANALYSIS_SIZE = _read_int_env("DEEP_ANALYSIS_SIZE", WATCHLIST_SIZE)
@@ -103,6 +104,7 @@ print(f"   Analysis Interval: {ANALYSIS_INTERVAL} seconds")
 print(f"   Min Confidence: {MIN_CONFIDENCE}%")
 print(f"   Max Daily Loss: {MAX_DAILY_LOSS_PERCENT}%")
 print(f"   Max Position Size: {MAX_POSITION_SIZE_PERCENT}%")
+print(f"   Max Quantity Per Order: {MAX_QUANTITY_PER_ORDER}")
 print(f"   Alpha Universe Size: {ALPHA_UNIVERSE_SIZE}")
 print(f"   Deep Analysis Size: {DEEP_ANALYSIS_SIZE}")
 print(f"   Alpha Scan Workers: {ALPHA_SCAN_WORKERS}")
@@ -574,6 +576,7 @@ class TradingBot:
         print(f"Min Confidence: {self.min_confidence}%")
         print(f"Max Daily Loss: ₹{self.max_daily_loss:,.2f} ({MAX_DAILY_LOSS_PERCENT}%)")
         print(f"Max Position Size: ₹{self.max_position_size:,.2f} ({MAX_POSITION_SIZE_PERCENT}%)")
+        print(f"Max Quantity Per Order: {MAX_QUANTITY_PER_ORDER}")
         print(f"Watchlist Size: {WATCHLIST_SIZE}")
         print(f"Alpha Universe Size: {self.alpha_universe_size}")
         print(f"Deep Analysis Size: {self.deep_analysis_size}")
@@ -643,7 +646,7 @@ class TradingBot:
         confidence_multiplier = confidence / 100
         trade_value = base_value * confidence_multiplier
         quantity = int(trade_value / price)
-        return min(quantity, 50)
+        return min(quantity, MAX_QUANTITY_PER_ORDER)
 
     def _build_risk_manager(self) -> RiskManager:
         return RiskManager(
@@ -652,7 +655,7 @@ class TradingBot:
                 max_daily_loss_percent=Decimal(str(MAX_DAILY_LOSS_PERCENT)),
                 max_position_size_percent=Decimal(str(MAX_POSITION_SIZE_PERCENT)),
                 min_confidence=self.min_confidence,
-                max_quantity_per_order=50,
+                max_quantity_per_order=MAX_QUANTITY_PER_ORDER,
             )
         )
 

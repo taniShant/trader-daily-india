@@ -56,6 +56,7 @@ class TradingConfig(BaseModel):
     capital: float = Field(default=100000, gt=0)
     max_daily_loss_percent: float = Field(default=4, gt=0)
     max_position_size_percent: float = Field(default=10, gt=0)
+    max_quantity_per_order: int = Field(default=50, gt=0)
     min_confidence_threshold: int = Field(default=70, ge=0, le=100)
     analysis_interval_seconds: int = Field(default=180, gt=0)
     watchlist_size: int = Field(default=10, gt=0)
@@ -197,6 +198,7 @@ def _apply_env_overrides(config: dict) -> dict:
         "CAPITAL": ("trading", "capital", float),
         "MAX_DAILY_LOSS_PERCENT": ("trading", "max_daily_loss_percent", float),
         "MAX_POSITION_SIZE_PERCENT": ("trading", "max_position_size_percent", float),
+        "MAX_QUANTITY_PER_ORDER": ("trading", "max_quantity_per_order", int),
         "MIN_CONFIDENCE_THRESHOLD": ("trading", "min_confidence_threshold", int),
         "ANALYSIS_INTERVAL_SECONDS": ("trading", "analysis_interval_seconds", int),
         "WATCHLIST_SIZE": ("trading", "watchlist_size", int),
