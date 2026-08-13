@@ -112,6 +112,22 @@ class ApiConfig(BaseModel):
     allow_simulated_news: bool = False
 
 
+class MarketSymbolConfig(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    breeze: str
+    yahoo: str | None = None
+    name: str | None = None
+    exchange: str = "NSE"
+
+
+class MarketSymbolsConfig(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    exchange: str = "NSE"
+    symbols: dict[str, MarketSymbolConfig] = Field(default_factory=dict)
+
+
 class Settings(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -124,6 +140,7 @@ class Settings(BaseModel):
     oracle: OracleConfig = Field(default_factory=OracleConfig)
     icici: IciciConfig = Field(default_factory=IciciConfig)
     apis: ApiConfig = Field(default_factory=ApiConfig)
+    market_symbols: MarketSymbolsConfig = Field(default_factory=MarketSymbolsConfig)
 
 
 def _load_json_config(environment: str) -> dict:
@@ -150,6 +167,7 @@ def _apply_env_overrides(config: dict) -> dict:
     config.setdefault("oracle", {})
     config.setdefault("icici", {})
     config.setdefault("apis", {})
+    config.setdefault("market_symbols", {})
 
     if os.environ.get("ENVIRONMENT"):
         config["environment"] = os.environ["ENVIRONMENT"]

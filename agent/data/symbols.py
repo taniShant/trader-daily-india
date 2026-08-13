@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
+import os
+from pathlib import Path
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -12,7 +16,7 @@ class SymbolMapping:
     name: str | None = None
 
 
-_NIFTY_LARGE_CAPS = {
+_DEFAULT_NIFTY_LARGE_CAPS = {
     "RELIANCE": "Reliance Industries",
     "TCS": "Tata Consultancy Services",
     "HDFCBANK": "HDFC Bank",
@@ -65,7 +69,7 @@ _NIFTY_LARGE_CAPS = {
 }
 
 
-_BREEZE_STOCK_CODES = {
+_DEFAULT_BREEZE_STOCK_CODES = {
     "ADANIPORTS": "ADAPOR",
     "RELIANCE": "RELIND",
     "HDFCBANK": "HDFBAN",
@@ -115,18 +119,38 @@ _BREEZE_STOCK_CODES = {
 }
 
 
-SYMBOL_MASTER: dict[str, SymbolMapping] = {
-    symbol: SymbolMapping(
-        canonical=symbol,
-        yahoo=f"{symbol}.NS",
-        breeze=_BREEZE_STOCK_CODES.get(symbol, symbol),
-        name=name,
-    )
-    for symbol, name in _NIFTY_LARGE_CAPS.items()
+_ALIASES = {
+    "NESTLE": "NESTLEIND",
+    "TATAMOTORS": "TATAMOTORS",
+    "TMCV": "TATAMOTORS",
+    "TMPV": "TATAMOTORS",
 }
 
 
-def canonical_symbol(symbol: str) -> str:
+def _project_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def _load_market_symbols_config() -> dict[str, Any]:
+    inline = os.environ.get("MARKET_SYMBOLS_JSON")
+    if inline:
+        try:
+            payload = json.loads(inline)
+            return payload if isinstance(payload, dict) else {}
+        except json.JSONDecodeError:
+            return {}
+
+    environment = os.environ.get("CDK_DEPLOY_ENV") or os.environ.get("ENVIRONMENT") or "prod"
+    config_path = _project_root() / "cicd" / "env" / f"{environment}.json"
+    try:
+        payload = json.loads(config_path.read_text())
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {}
+    market_symbols = payload.get("market_symbols")
+    return market_symbols if isinstance(market_symbols, dict) else {}
+
+
+def _canonical_symbol_value(symbol: str) -> str:
     cleaned = symbol.strip().upper()
     if cleaned.endswith(".N"):
         cleaned = cleaned[:-2]
@@ -135,6 +159,53 @@ def canonical_symbol(symbol: str) -> str:
     if cleaned.endswith(".BO"):
         cleaned = cleaned[:-3]
     return _ALIASES.get(cleaned, cleaned)
+
+
+def _build_symbol_master() -> dict[str, SymbolMapping]:
+    configured = _load_market_symbols_config()
+    symbols = configured.get("symbols") if isinstance(configured, dict) else None
+    if not isinstance(symbols, dict) or not symbols:
+        return {
+            symbol: SymbolMapping(
+                canonical=symbol,
+                yahoo=f"{symbol}.NS",
+                breeze=_DEFAULT_BREEZE_STOCK_CODES.get(symbol, symbol),
+                name=name,
+            )
+            for symbol, name in _DEFAULT_NIFTY_LARGE_CAPS.items()
+        }
+
+    default_exchange = str(configured.get("exchange") or "NSE").upper()
+    master: dict[str, SymbolMapping] = {}
+    for raw_symbol, raw_mapping in symbols.items():
+        canonical = _canonical_symbol_value(str(raw_symbol))
+        if not canonical:
+            continue
+        if isinstance(raw_mapping, str):
+            mapping = {"breeze": raw_mapping}
+        elif isinstance(raw_mapping, dict):
+            mapping = raw_mapping
+        else:
+            continue
+        breeze = str(mapping.get("breeze") or canonical).strip().upper()
+        yahoo = str(mapping.get("yahoo") or f"{canonical}.NS").strip().upper()
+        exchange = str(mapping.get("exchange") or default_exchange or "NSE").strip().upper()
+        name = mapping.get("name") or _DEFAULT_NIFTY_LARGE_CAPS.get(canonical)
+        master[canonical] = SymbolMapping(
+            canonical=canonical,
+            yahoo=yahoo,
+            breeze=breeze,
+            exchange=exchange,
+            name=str(name) if name else None,
+        )
+    return master
+
+
+SYMBOL_MASTER: dict[str, SymbolMapping] = _build_symbol_master()
+
+
+def canonical_symbol(symbol: str) -> str:
+    return _canonical_symbol_value(symbol)
 
 
 def resolve_symbol(symbol: str) -> SymbolMapping:
@@ -158,11 +229,3 @@ def breeze_stock_code(symbol: str) -> str:
 
 def is_supported_intraday_symbol(symbol: str) -> bool:
     return canonical_symbol(symbol) in SYMBOL_MASTER
-
-
-_ALIASES = {
-    "NESTLE": "NESTLEIND",
-    "TATAMOTORS": "TATAMOTORS",
-    "TMCV": "TATAMOTORS",
-    "TMPV": "TATAMOTORS",
-}

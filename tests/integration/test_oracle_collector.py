@@ -46,6 +46,17 @@ def test_oracle_collector_health_and_market_context_cache(monkeypatch):
     assert latest.json()["sentiment_score"] == 0.35
 
 
+def test_oracle_collector_exposes_configured_symbols(monkeypatch):
+    client = TestClient(load_collector_app(monkeypatch))
+
+    payload = client.get("/symbols")
+
+    assert payload.status_code == 200
+    assert payload.json()["exchange"] == "NSE"
+    assert payload.json()["symbols"]["RELIANCE"] == "RELIND"
+    assert payload.json()["symbols"]["MARUTI"] == "MARUTI"
+
+
 def test_oracle_collector_mock_quote_and_ohlcv_endpoints(monkeypatch):
     client = TestClient(load_collector_app(monkeypatch))
 
@@ -103,6 +114,32 @@ def test_oracle_collector_live_ohlcv_uses_breeze_datetime_format(monkeypatch):
     assert calls[0]["to_date"].endswith(".000Z")
     assert "+" not in calls[0]["from_date"]
     assert calls[0]["product_type"] == "cash"
+
+
+def test_oracle_collector_records_empty_ohlcv_diagnostics(monkeypatch):
+    load_collector_app(monkeypatch)
+    collector_module = sys.modules["oracle_collector_app_test"]
+
+    class FakeBreeze:
+        def generate_session(self, **kwargs):
+            pass
+
+        def get_historical_data_v2(self, **kwargs):
+            return {"Success": [], "Status": 200, "Error": None}
+
+    diagnostics = collector_module.EmptyOhlcvDiagnostics()
+    client = collector_module.BreezeMarketDataClient.__new__(collector_module.BreezeMarketDataClient)
+    client.client = FakeBreeze()
+    client.diagnostics = diagnostics
+
+    payload = client.ohlcv("RELIANCE", interval="1m", days=1)
+    snapshot = diagnostics.snapshot()
+
+    assert payload["data"] == []
+    assert snapshot["count"] == 1
+    assert snapshot["entries"][0]["symbol"] == "RELIANCE"
+    assert snapshot["entries"][0]["stock_code"] == "RELIND"
+    assert snapshot["entries"][0]["response_summary"]["success"]["length"] == 0
 
 
 def test_oracle_collector_breeze_intraday_range_uses_india_market_wall_clock(monkeypatch):

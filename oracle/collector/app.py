@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import json
 import os
 from datetime import datetime, time, timedelta, timezone
 from typing import Any
@@ -25,6 +27,7 @@ class CollectorSettings(BaseModel):
     api_key: str | None = None
     secret_key: str | None = None
     session_token: str | None = None
+    symbol_count: int = 0
 
 
 def load_settings() -> CollectorSettings:
@@ -34,6 +37,7 @@ def load_settings() -> CollectorSettings:
         api_key=os.environ.get("ICICI_API_KEY"),
         secret_key=os.environ.get("ICICI_SECRET_KEY"),
         session_token=os.environ.get("ICICI_SESSION_TOKEN"),
+        symbol_count=len(_BREEZE_STOCK_CODES),
     )
 
 
@@ -48,7 +52,7 @@ def default_market_context() -> dict[str, Any]:
 
 
 class BreezeMarketDataClient:
-    def __init__(self, settings: CollectorSettings):
+    def __init__(self, settings: CollectorSettings, diagnostics: EmptyOhlcvDiagnostics | None = None):
         if not all([settings.api_key, settings.secret_key, settings.session_token]):
             raise RuntimeError("ICICI Breeze credentials are required for live collector mode")
         try:
@@ -57,6 +61,7 @@ class BreezeMarketDataClient:
             raise RuntimeError("breeze-connect is not installed") from exc
 
         self.client = BreezeConnect(api_key=settings.api_key)
+        self.diagnostics = diagnostics
         self.client.generate_session(
             api_secret=settings.secret_key,
             session_token=settings.session_token,
@@ -91,8 +96,62 @@ class BreezeMarketDataClient:
         rows = _success_payload(response)
         if not isinstance(rows, list):
             raise RuntimeError("Breeze returned an invalid OHLCV payload")
+        if not rows and self.diagnostics is not None:
+            self.diagnostics.record_empty(
+                symbol=symbol,
+                stock_code=request["stock_code"],
+                interval=interval,
+                days=days,
+                request=request,
+                response=response,
+            )
         bars = [_normalize_ohlcv_payload(row, symbol=symbol, interval=interval, source="breeze") for row in rows]
         return _ohlcv_response(symbol=symbol, days=days, interval=interval, bars=bars)
+
+
+class EmptyOhlcvDiagnostics:
+    def __init__(self, max_entries: int = 100):
+        self.max_entries = max_entries
+        self.entries: list[dict[str, Any]] = []
+
+    def record_empty(
+        self,
+        *,
+        symbol: str,
+        stock_code: str,
+        interval: str,
+        days: int,
+        request: dict[str, Any],
+        response: dict[str, Any],
+    ) -> None:
+        entry = {
+            "checked_at": datetime.now(timezone.utc).isoformat(),
+            "symbol": _canonical_symbol(symbol),
+            "stock_code": stock_code,
+            "interval": interval,
+            "days": days,
+            "from_date": request.get("from_date"),
+            "to_date": request.get("to_date"),
+            "response_summary": _summarize_breeze_response(response),
+        }
+        self.entries.append(entry)
+        self.entries = self.entries[-self.max_entries :]
+        print(
+            "⚠️ Empty Breeze OHLCV "
+            f"symbol={entry['symbol']} stock_code={stock_code} interval={interval} "
+            f"from={entry['from_date']} to={entry['to_date']} "
+            f"response={entry['response_summary']}"
+        )
+
+    def snapshot(self) -> dict[str, Any]:
+        by_symbol: dict[str, int] = {}
+        for entry in self.entries:
+            by_symbol[entry["symbol"]] = by_symbol.get(entry["symbol"], 0) + 1
+        return {
+            "count": len(self.entries),
+            "by_symbol": dict(sorted(by_symbol.items())),
+            "entries": list(self.entries),
+        }
 
 
 def create_app() -> FastAPI:
@@ -101,6 +160,7 @@ def create_app() -> FastAPI:
     app.state.market_context = default_market_context()
     app.state.settings = settings
     app.state.breeze_client = None
+    app.state.empty_ohlcv_diagnostics = EmptyOhlcvDiagnostics()
 
     @app.get("/health")
     def health() -> dict[str, Any]:
@@ -110,7 +170,20 @@ def create_app() -> FastAPI:
             "mode": settings.mode,
             "static_ip": settings.static_ip,
             "market_data": "mock" if settings.mode == "mock" else "breeze",
+            "symbol_count": settings.symbol_count,
         }
+
+    @app.get("/symbols")
+    def symbols() -> dict[str, Any]:
+        return {
+            "exchange": "NSE",
+            "count": len(_BREEZE_STOCK_CODES),
+            "symbols": dict(sorted(_BREEZE_STOCK_CODES.items())),
+        }
+
+    @app.get("/diagnostics/empty-ohlcv")
+    def empty_ohlcv_diagnostics() -> dict[str, Any]:
+        return app.state.empty_ohlcv_diagnostics.snapshot()
 
     @app.get("/market-context/latest")
     def latest_market_context() -> dict[str, Any]:
@@ -146,15 +219,15 @@ def create_app() -> FastAPI:
     def _call_breeze(callback):
         try:
             if app.state.breeze_client is None:
-                app.state.breeze_client = BreezeMarketDataClient(settings)
+                app.state.breeze_client = BreezeMarketDataClient(
+                    settings,
+                    diagnostics=app.state.empty_ohlcv_diagnostics,
+                )
             return callback(app.state.breeze_client)
         except Exception as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     return app
-
-
-app = create_app()
 
 
 def _canonical_symbol(symbol: str) -> str:
@@ -231,6 +304,23 @@ def _success_payload(response: Any) -> Any:
     if "Success" not in response:
         raise RuntimeError("Breeze response is missing Success")
     return response["Success"]
+
+
+def _summarize_breeze_response(response: dict[str, Any]) -> dict[str, Any]:
+    success = response.get("Success")
+    if isinstance(success, list):
+        success_summary: Any = {"type": "list", "length": len(success)}
+    elif isinstance(success, dict):
+        success_summary = {"type": "object", "keys": sorted(success.keys())[:20]}
+    else:
+        success_summary = {"type": type(success).__name__}
+    return {
+        "keys": sorted(response.keys()),
+        "success": success_summary,
+        "error": response.get("Error"),
+        "status": response.get("Status") or response.get("status"),
+        "message": response.get("Message") or response.get("message"),
+    }
 
 
 def _normalize_quote_payload(payload: dict[str, Any], *, symbol: str, source: str) -> dict[str, Any]:
@@ -396,3 +486,42 @@ _BREEZE_STOCK_CODES = {
     "IOC": "IOC",
     "TATACONSUM": "TATGLO",
 }
+
+
+def _load_configured_breeze_stock_codes() -> dict[str, str]:
+    encoded = os.environ.get("ORACLE_SYMBOL_MASTER_JSON_B64")
+    inline = os.environ.get("ORACLE_SYMBOL_MASTER_JSON")
+    payload: dict[str, Any] = {}
+    try:
+        if encoded:
+            payload = json.loads(base64.b64decode(encoded).decode("utf-8"))
+        elif inline:
+            payload = json.loads(inline)
+    except (ValueError, json.JSONDecodeError):
+        return {}
+
+    symbols = payload.get("symbols") if isinstance(payload, dict) else None
+    if not isinstance(symbols, dict):
+        return {}
+
+    result: dict[str, str] = {}
+    for raw_symbol, raw_mapping in symbols.items():
+        canonical = _canonical_symbol(str(raw_symbol))
+        if isinstance(raw_mapping, str):
+            breeze = raw_mapping
+        elif isinstance(raw_mapping, dict):
+            breeze = raw_mapping.get("breeze")
+        else:
+            breeze = None
+        if canonical and breeze:
+            result[canonical] = str(breeze).strip().upper()
+    return result
+
+
+_BREEZE_STOCK_CODES = {
+    **_BREEZE_STOCK_CODES,
+    **_load_configured_breeze_stock_codes(),
+}
+
+
+app = create_app()

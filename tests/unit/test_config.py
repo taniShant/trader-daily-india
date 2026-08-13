@@ -21,6 +21,9 @@ def test_loads_prod_json_oracle_values_without_env_overrides(monkeypatch):
     assert settings.trading.micro_min_relative_volume == 1.2
     assert settings.trading.micro_min_continuation_relative_volume == 1.6
     assert settings.trading.micro_max_candle_age_seconds == 180
+    assert settings.market_symbols.exchange == "NSE"
+    assert settings.market_symbols.symbols["RELIANCE"].breeze == "RELIND"
+    assert settings.market_symbols.symbols["MARUTI"].yahoo == "MARUTI.NS"
 
 
 def test_environment_overrides_take_precedence(monkeypatch):
