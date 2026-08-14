@@ -121,22 +121,30 @@ async function fetchTrades() {
         const tbody = document.querySelector('#tradesTable tbody');
         
         if (!data.trades || data.trades.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="loading">No trades found</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="loading">No trades found</td></tr>';
             return;
         }
         
-        tbody.innerHTML = data.trades.map(trade => `
-            <tr>
-                <td>${trade.timestamp ? new Date(trade.timestamp).toLocaleString() : '-'}</td>
-                <td><strong>${trade.stock_symbol || 'N/A'}</strong></td>
-                <td class="${(trade.action || '').toLowerCase()}">${trade.action || 'HOLD'}</td>
-                <td>₹${(trade.price || 0).toFixed(2)}</td>
-                <td>${trade.quantity || 0}</td>
-                <td class="${(trade.pnl || 0) >= 0 ? 'positive' : 'negative'}">
-                    ${(trade.pnl || 0) >= 0 ? '+' : ''}₹${(trade.pnl || 0).toFixed(2)}
-                </td>
-            </tr>
-        `).join('');
+        tbody.innerHTML = data.trades.map(trade => {
+            const price = Number(trade.price || 0);
+            const quantity = Math.abs(Number(trade.quantity || 0));
+            const tradeValue = price * quantity;
+            const pnl = Number(trade.pnl || 0);
+
+            return `
+                <tr>
+                    <td>${trade.timestamp ? new Date(trade.timestamp).toLocaleString() : '-'}</td>
+                    <td><strong>${trade.stock_symbol || 'N/A'}</strong></td>
+                    <td class="${(trade.action || '').toLowerCase()}">${trade.action || 'HOLD'}</td>
+                    <td>₹${price.toFixed(2)}</td>
+                    <td>${trade.quantity || 0}</td>
+                    <td>₹${tradeValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td class="${pnl >= 0 ? 'positive' : 'negative'}">
+                        ${pnl >= 0 ? '+' : ''}₹${pnl.toFixed(2)}
+                    </td>
+                </tr>
+            `;
+        }).join('');
     } catch(e) {
         console.error('Trades fetch failed:', e);
     }
