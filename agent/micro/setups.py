@@ -163,7 +163,7 @@ class MicroSetupDetector:
             confidence = min(95, confidence + self._volume_bonus(features.relative_volume))
 
         entry = close if action in {"BUY", "SELL"} else None
-        stop, target = self._prices(action, close) if entry is not None else (None, None)
+        stop, target = self._prices(action, close, setup) if entry is not None else (None, None)
         feature_payload = {
             **features.to_dict(),
             "atr_ratio": round(atr_ratio, 6),
@@ -198,19 +198,38 @@ class MicroSetupDetector:
             stop_loss=setup.stop_loss,
             target_price=setup.target_price,
             confidence=setup.confidence,
-            max_hold_minutes=self.config.max_hold_minutes,
+            max_hold_minutes=self._max_hold_minutes(setup.setup),
             reasons=setup.reasons,
             features=setup.features,
         )
 
-    def _prices(self, action: str, entry: Decimal) -> tuple[Decimal, Decimal]:
+    def _prices(self, action: str, entry: Decimal, setup: str) -> tuple[Decimal, Decimal]:
+        target_pct, stop_pct = self._bracket_for_setup(setup)
         if action == "BUY":
-            stop = entry * (Decimal("1") - self.config.stop_pct)
-            target = entry * (Decimal("1") + self.config.target_pct)
+            stop = entry * (Decimal("1") - stop_pct)
+            target = entry * (Decimal("1") + target_pct)
         else:
-            stop = entry * (Decimal("1") + self.config.stop_pct)
-            target = entry * (Decimal("1") - self.config.target_pct)
+            stop = entry * (Decimal("1") + stop_pct)
+            target = entry * (Decimal("1") - target_pct)
         return _money(stop), _money(target)
+
+    def _bracket_for_setup(self, setup: str) -> tuple[Decimal, Decimal]:
+        if setup == "micro_volume_continuation":
+            return self.config.continuation_target_pct, self.config.continuation_stop_pct
+        if setup in {"micro_vwap_momentum", "micro_vwap_rejection"}:
+            return self.config.vwap_target_pct, self.config.vwap_stop_pct
+        if setup in {"micro_opening_range_breakout", "micro_opening_range_breakdown"}:
+            return self.config.opening_range_target_pct, self.config.opening_range_stop_pct
+        return self.config.target_pct, self.config.stop_pct
+
+    def _max_hold_minutes(self, setup: str) -> int:
+        if setup == "micro_volume_continuation":
+            return self.config.continuation_max_hold_minutes
+        if setup in {"micro_vwap_momentum", "micro_vwap_rejection"}:
+            return self.config.vwap_max_hold_minutes
+        if setup in {"micro_opening_range_breakout", "micro_opening_range_breakdown"}:
+            return self.config.opening_range_max_hold_minutes
+        return self.config.max_hold_minutes
 
     @staticmethod
     def _volume_bonus(relative_volume: float) -> int:

@@ -116,9 +116,21 @@ class TradeEventRecord:
     status: str
     source: str
     confidence: int
+    gross_pnl: Decimal | None = None
+    costs: Decimal | None = None
+    net_pnl: Decimal | None = None
+    setup: str | None = None
+    exit_reason: str | None = None
+    expected_r: float | None = None
+    realized_r: float | None = None
+    holding_seconds: int | None = None
+    entry_relative_volume: float | None = None
+    entry_atr_ratio: float | None = None
+    entry_vwap_extension_atr: float | None = None
+    entry_data_source: str | None = None
 
     def to_item(self) -> dict[str, Any]:
-        return {
+        item = {
             "tradeId": self.trade_id,
             "date": self.date,
             "timestamp": _utc_iso(self.timestamp),
@@ -134,6 +146,22 @@ class TradeEventRecord:
             "source": self.source,
             "confidence": self.confidence,
         }
+        optional_fields = {
+            "gross_pnl": self.gross_pnl,
+            "costs": self.costs,
+            "net_pnl": self.net_pnl,
+            "setup": self.setup,
+            "exit_reason": self.exit_reason,
+            "expected_r": self.expected_r,
+            "realized_r": self.realized_r,
+            "holding_seconds": self.holding_seconds,
+            "entry_relative_volume": self.entry_relative_volume,
+            "entry_atr_ratio": self.entry_atr_ratio,
+            "entry_vwap_extension_atr": self.entry_vwap_extension_atr,
+            "entry_data_source": self.entry_data_source,
+        }
+        item.update({key: value for key, value in optional_fields.items() if value is not None})
+        return item
 
 
 class SignalsRepository:

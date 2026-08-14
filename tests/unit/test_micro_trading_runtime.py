@@ -1,10 +1,11 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from types import SimpleNamespace
 
 from agent.contracts.execution import Fill, OrderRequest, OrderSide, OrderStatus, OrderType
 from agent.contracts.risk import RiskDecision, RiskDecisionStatus
 from agent.contracts.signals import SignalAction, TradeSignal
+from agent.backtest.costs import CostModel
 from agent.main import TradingBot
 import agent.main as main_module
 from agent.micro import MicroTradeSetup
@@ -21,6 +22,12 @@ def _bot_stub():
     bot._run_micro_trading_cycle = lambda: bot.events.append("micro")
     bot._monitor_positions = lambda: bot.events.append("monitor")
     bot._square_off_all = lambda: bot.events.append("square_off")
+    bot.daily_pnl = 0.0
+    bot.consecutive_losses = 0
+    bot._micro_recent_losses = {}
+    bot._micro_symbol_health = {}
+    bot._micro_expectancy = {}
+    bot._micro_cost_model = CostModel()
     return bot
 
 
@@ -413,7 +420,12 @@ def test_position_exit_persists_closed_snapshot_and_realized_pnl():
     assert captured.positions[0].status == "CLOSED"
     assert captured.trades[0].action == "SELL"
     assert captured.trades[0].quantity == 2
-    assert captured.trades[0].pnl == Decimal("-12.00")
+    assert captured.trades[0].gross_pnl == Decimal("-12.00")
+    assert captured.trades[0].costs == Decimal("15.58032")
+    assert captured.trades[0].pnl == Decimal("-27.58032")
+    assert captured.trades[0].net_pnl == Decimal("-27.58032")
+    assert bot.daily_pnl == -27.58032
+    assert bot.consecutive_losses == 1
 
 
 def test_short_position_exit_pnl_is_positive_when_price_falls():
@@ -444,4 +456,35 @@ def test_short_position_exit_pnl_is_positive_when_price_falls():
 
     assert captured.positions[0].side == "SHORT"
     assert captured.trades[0].action == "BUY"
-    assert captured.trades[0].pnl == Decimal("15")
+    assert captured.trades[0].gross_pnl == Decimal("15")
+    assert captured.trades[0].costs == Decimal("11.739")
+    assert captured.trades[0].pnl == Decimal("3.261")
+
+
+def test_micro_early_invalidation_detects_momentum_fade_for_long():
+    bot = _bot_stub()
+    bot.micro_engine = SimpleNamespace(
+        market_data_provider=SimpleNamespace(
+            get_historical_data=lambda symbol, days, interval: {
+                "symbol": symbol,
+                "data": [
+                    {"timestamp": "2026-08-14T04:45:00+00:00", "open": 101, "high": 102, "low": 100, "close": 101, "volume": 1000},
+                    {"timestamp": "2026-08-14T04:46:00+00:00", "open": 101, "high": 101, "low": 99, "close": 100, "volume": 1100},
+                    {"timestamp": "2026-08-14T04:47:00+00:00", "open": 100, "high": 100, "low": 96, "close": 97, "volume": 1600},
+                    {"timestamp": "2026-08-14T04:48:00+00:00", "open": 97, "high": 98, "low": 94, "close": 95, "volume": 1800},
+                ],
+            }
+        )
+    )
+    position = {
+        "quantity": 10,
+        "side": OrderSide.BUY,
+        "entry_price": Decimal("101"),
+        "setup": "micro_volume_continuation",
+        "opened_at": (datetime.now(timezone.utc) - timedelta(minutes=3)).isoformat(),
+    }
+
+    reason = bot._micro_early_invalidation_reason("MARUTI", position, Decimal("95"))
+
+    assert reason is not None
+    assert reason.startswith("early_invalidation:momentum_fade")

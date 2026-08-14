@@ -32,6 +32,40 @@ class FakeStore(dashboard.DashboardStore):
                     "price": Decimal("1500"),
                     "quantity": 1,
                     "pnl": Decimal("-25"),
+                },
+                {
+                    "tradeId": "micro-exit-MARUTI-1",
+                    "timestamp": NOW,
+                    "date": "2026-07-06",
+                    "stock_symbol": "MARUTI",
+                    "action": "SELL",
+                    "price": Decimal("14100"),
+                    "quantity": 10,
+                    "pnl": Decimal("250"),
+                    "gross_pnl": Decimal("300"),
+                    "costs": Decimal("50"),
+                    "net_pnl": Decimal("250"),
+                    "setup": "micro_volume_continuation",
+                    "exit_reason": "target hit",
+                    "realized_r": Decimal("1.5"),
+                    "holding_seconds": 240,
+                },
+                {
+                    "tradeId": "micro-exit-INFY-1",
+                    "timestamp": NOW,
+                    "date": "2026-07-06",
+                    "stock_symbol": "INFY",
+                    "action": "SELL",
+                    "price": Decimal("1500"),
+                    "quantity": 10,
+                    "pnl": Decimal("-100"),
+                    "gross_pnl": Decimal("-80"),
+                    "costs": Decimal("20"),
+                    "net_pnl": Decimal("-100"),
+                    "setup": "micro_volume_continuation",
+                    "exit_reason": "early_invalidation:momentum_fade",
+                    "realized_r": Decimal("-0.6"),
+                    "holding_seconds": 180,
                 }
             ],
             dashboard.MARKET_STATE_TABLE_NAME: [
@@ -173,12 +207,29 @@ def test_dashboard_status_shows_heartbeat_risk_pnl_and_open_positions():
     body = response.json()
     assert body["status"] == "market_cycle_complete"
     assert body["mode"] == "paper"
-    assert body["today_pnl"] == 75.0
+    assert body["today_pnl"] == 225.0
     assert body["active_positions"] == 1
     assert body["open_positions"][0]["symbol"] == "RELIANCE"
-    assert body["risk_usage"]["today_profit"] == 100.0
-    assert body["risk_usage"]["today_loss"] == 25.0
-    assert body["risk_usage"]["trade_count"] == 2
+    assert body["risk_usage"]["today_profit"] == 350.0
+    assert body["risk_usage"]["today_loss"] == 125.0
+    assert body["risk_usage"]["trade_count"] == 4
+
+
+def test_micro_expectancy_endpoint_groups_setup_quality():
+    client = client_with_store(FakeStore())
+
+    response = client.get("/api/micro/expectancy?days=365")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"]["trades"] == 2
+    assert body["total"]["net_pnl"] == 150.0
+    setup = body["setups"][0]
+    assert setup["setup"] == "micro_volume_continuation"
+    assert setup["wins"] == 1
+    assert setup["losses"] == 1
+    assert setup["expectancy"] == 75.0
+    assert setup["exit_reasons"]["target hit"] == 1
 
 
 def test_dashboard_signals_include_skipped_trade_reasons():

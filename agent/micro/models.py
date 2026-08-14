@@ -28,8 +28,19 @@ class MicroTradeConfig:
     max_continuation_vwap_extension_atr: float = 4.0
     target_pct: Decimal = Decimal("0.004")
     stop_pct: Decimal = Decimal("0.002")
+    continuation_target_pct: Decimal = Decimal("0.003")
+    continuation_stop_pct: Decimal = Decimal("0.0015")
+    continuation_max_hold_minutes: int = 6
+    vwap_target_pct: Decimal = Decimal("0.0035")
+    vwap_stop_pct: Decimal = Decimal("0.0018")
+    vwap_max_hold_minutes: int = 8
+    opening_range_target_pct: Decimal = Decimal("0.005")
+    opening_range_stop_pct: Decimal = Decimal("0.0025")
+    opening_range_max_hold_minutes: int = 10
     max_symbols_per_cycle: int = 20
     reentry_cooldown_seconds: int = 600
+    loss_throttle_count: int = 2
+    loss_throttle_window_minutes: int = 30
 
 
 @dataclass(frozen=True)

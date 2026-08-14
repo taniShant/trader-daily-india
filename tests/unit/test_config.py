@@ -24,6 +24,14 @@ def test_loads_prod_json_oracle_values_without_env_overrides(monkeypatch):
     assert settings.trading.micro_min_continuation_relative_volume == 1.6
     assert settings.trading.micro_max_candle_age_seconds == 180
     assert settings.trading.micro_reentry_cooldown_seconds == 300
+    assert settings.trading.micro_continuation_target_pct == 0.003
+    assert settings.trading.micro_continuation_max_hold_minutes == 6
+    assert settings.trading.micro_opening_range_target_pct == 0.005
+    assert settings.trading.micro_early_exit_enabled is True
+    assert settings.trading.micro_invalidation_min_hold_seconds == 120
+    assert settings.trading.micro_loss_throttle_count == 2
+    assert settings.trading.micro_loss_throttle_window_minutes == 30
+    assert settings.trading.micro_cost_slippage_bps == 5
     assert settings.trading.position_reconciliation_enabled is True
     assert settings.trading.run_startup_overnight_analysis is False
     assert settings.market_symbols.exchange == "NSE"
@@ -46,6 +54,14 @@ def test_environment_overrides_take_precedence(monkeypatch):
     monkeypatch.setenv("MICRO_MIN_CONTINUATION_RELATIVE_VOLUME", "1.7")
     monkeypatch.setenv("MICRO_MAX_CANDLE_AGE_SECONDS", "240")
     monkeypatch.setenv("MICRO_REENTRY_COOLDOWN_SECONDS", "180")
+    monkeypatch.setenv("MICRO_CONTINUATION_TARGET_PCT", "0.0025")
+    monkeypatch.setenv("MICRO_CONTINUATION_MAX_HOLD_MINUTES", "5")
+    monkeypatch.setenv("MICRO_OPENING_RANGE_TARGET_PCT", "0.006")
+    monkeypatch.setenv("MICRO_EARLY_EXIT_ENABLED", "false")
+    monkeypatch.setenv("MICRO_INVALIDATION_MIN_HOLD_SECONDS", "90")
+    monkeypatch.setenv("MICRO_LOSS_THROTTLE_COUNT", "3")
+    monkeypatch.setenv("MICRO_LOSS_THROTTLE_WINDOW_MINUTES", "45")
+    monkeypatch.setenv("MICRO_COST_SLIPPAGE_BPS", "8")
     monkeypatch.setenv("POSITION_RECONCILIATION_ENABLED", "false")
     monkeypatch.setenv("RUN_STARTUP_OVERNIGHT_ANALYSIS", "true")
     monkeypatch.setenv("TRADES_TABLE", "trades-test")
@@ -66,6 +82,14 @@ def test_environment_overrides_take_precedence(monkeypatch):
     assert settings.trading.micro_min_continuation_relative_volume == 1.7
     assert settings.trading.micro_max_candle_age_seconds == 240
     assert settings.trading.micro_reentry_cooldown_seconds == 180
+    assert settings.trading.micro_continuation_target_pct == 0.0025
+    assert settings.trading.micro_continuation_max_hold_minutes == 5
+    assert settings.trading.micro_opening_range_target_pct == 0.006
+    assert settings.trading.micro_early_exit_enabled is False
+    assert settings.trading.micro_invalidation_min_hold_seconds == 90
+    assert settings.trading.micro_loss_throttle_count == 3
+    assert settings.trading.micro_loss_throttle_window_minutes == 45
+    assert settings.trading.micro_cost_slippage_bps == 8
     assert settings.trading.position_reconciliation_enabled is False
     assert settings.trading.run_startup_overnight_analysis is True
     assert settings.dynamodb.trades_table == "trades-test"

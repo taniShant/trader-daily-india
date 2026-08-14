@@ -11,11 +11,12 @@ import signal
 import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, time as dt_time, timezone
+from datetime import datetime, time as dt_time, timedelta, timezone
 from decimal import Decimal
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, asdict
 
+from .backtest.costs import CostModel
 from .contracts.execution import OrderRequest, OrderStatus
 from .contracts.risk import RiskDecisionStatus
 from .contracts.signals import RiskLevel, SignalAction, TradeSignal as ContractTradeSignal
@@ -92,6 +93,22 @@ MICRO_MAX_CANDLE_AGE_SECONDS = settings.trading.micro_max_candle_age_seconds
 MICRO_MAX_SYMBOLS_PER_CYCLE = settings.trading.micro_max_symbols_per_cycle
 MICRO_REENTRY_COOLDOWN_SECONDS = settings.trading.micro_reentry_cooldown_seconds
 MICRO_DIAGNOSTIC_TOP_N = settings.trading.micro_diagnostic_top_n
+MICRO_CONTINUATION_TARGET_PCT = settings.trading.micro_continuation_target_pct
+MICRO_CONTINUATION_STOP_PCT = settings.trading.micro_continuation_stop_pct
+MICRO_CONTINUATION_MAX_HOLD_MINUTES = settings.trading.micro_continuation_max_hold_minutes
+MICRO_VWAP_TARGET_PCT = settings.trading.micro_vwap_target_pct
+MICRO_VWAP_STOP_PCT = settings.trading.micro_vwap_stop_pct
+MICRO_VWAP_MAX_HOLD_MINUTES = settings.trading.micro_vwap_max_hold_minutes
+MICRO_OPENING_RANGE_TARGET_PCT = settings.trading.micro_opening_range_target_pct
+MICRO_OPENING_RANGE_STOP_PCT = settings.trading.micro_opening_range_stop_pct
+MICRO_OPENING_RANGE_MAX_HOLD_MINUTES = settings.trading.micro_opening_range_max_hold_minutes
+MICRO_EARLY_EXIT_ENABLED = settings.trading.micro_early_exit_enabled
+MICRO_INVALIDATION_MIN_HOLD_SECONDS = settings.trading.micro_invalidation_min_hold_seconds
+MICRO_LOSS_THROTTLE_COUNT = settings.trading.micro_loss_throttle_count
+MICRO_LOSS_THROTTLE_WINDOW_MINUTES = settings.trading.micro_loss_throttle_window_minutes
+MICRO_COST_BROKERAGE_BPS = settings.trading.micro_cost_brokerage_bps
+MICRO_COST_TAXES_BPS = settings.trading.micro_cost_taxes_bps
+MICRO_COST_SLIPPAGE_BPS = settings.trading.micro_cost_slippage_bps
 POSITION_RECONCILIATION_ENABLED = settings.trading.position_reconciliation_enabled
 RUN_STARTUP_OVERNIGHT_ANALYSIS = settings.trading.run_startup_overnight_analysis
 
@@ -549,6 +566,14 @@ class TradingBot:
         self._alpha_context_cache = {}
         self.micro_trading_enabled = MICRO_TRADING_ENABLED
         self.micro_engine = None
+        self._micro_recent_losses: dict[str, list[datetime]] = {}
+        self._micro_symbol_health: dict[str, dict[str, Any]] = {}
+        self._micro_expectancy: dict[str, dict[str, Any]] = {}
+        self._micro_cost_model = CostModel(
+            brokerage_bps=Decimal(str(MICRO_COST_BROKERAGE_BPS)),
+            taxes_bps=Decimal(str(MICRO_COST_TAXES_BPS)),
+            slippage_bps=Decimal(str(MICRO_COST_SLIPPAGE_BPS)),
+        )
         self.current_sentiment = 0.0
         self.temp_caution_mode = False
         self.running = True
@@ -614,6 +639,14 @@ class TradingBot:
             print(f"Micro Continuation Min Relative Volume: {MICRO_MIN_CONTINUATION_RELATIVE_VOLUME:.2f}x")
             print(f"Micro Max Candle Age: {MICRO_MAX_CANDLE_AGE_SECONDS} seconds")
             print(f"Micro Symbols Per Cycle: {MICRO_MAX_SYMBOLS_PER_CYCLE}")
+            print(
+                "Micro Setup Brackets: "
+                f"continuation={MICRO_CONTINUATION_TARGET_PCT:.4f}/{MICRO_CONTINUATION_STOP_PCT:.4f}/{MICRO_CONTINUATION_MAX_HOLD_MINUTES}m, "
+                f"vwap={MICRO_VWAP_TARGET_PCT:.4f}/{MICRO_VWAP_STOP_PCT:.4f}/{MICRO_VWAP_MAX_HOLD_MINUTES}m, "
+                f"orb={MICRO_OPENING_RANGE_TARGET_PCT:.4f}/{MICRO_OPENING_RANGE_STOP_PCT:.4f}/{MICRO_OPENING_RANGE_MAX_HOLD_MINUTES}m"
+            )
+            print(f"Micro Early Exit Enabled: {MICRO_EARLY_EXIT_ENABLED}")
+            print(f"Micro Loss Throttle: {MICRO_LOSS_THROTTLE_COUNT} losses / {MICRO_LOSS_THROTTLE_WINDOW_MINUTES} minutes")
         print(f"Market Closed Poll: {MARKET_CLOSED_POLL_SECONDS} seconds")
         print(f"Position Reconciliation Enabled: {POSITION_RECONCILIATION_ENABLED}")
         print(f"Analysis Interval: {ANALYSIS_INTERVAL} seconds")
@@ -705,6 +738,17 @@ class TradingBot:
                 max_candle_age_seconds=MICRO_MAX_CANDLE_AGE_SECONDS,
                 max_symbols_per_cycle=MICRO_MAX_SYMBOLS_PER_CYCLE,
                 reentry_cooldown_seconds=MICRO_REENTRY_COOLDOWN_SECONDS,
+                continuation_target_pct=Decimal(str(MICRO_CONTINUATION_TARGET_PCT)),
+                continuation_stop_pct=Decimal(str(MICRO_CONTINUATION_STOP_PCT)),
+                continuation_max_hold_minutes=MICRO_CONTINUATION_MAX_HOLD_MINUTES,
+                vwap_target_pct=Decimal(str(MICRO_VWAP_TARGET_PCT)),
+                vwap_stop_pct=Decimal(str(MICRO_VWAP_STOP_PCT)),
+                vwap_max_hold_minutes=MICRO_VWAP_MAX_HOLD_MINUTES,
+                opening_range_target_pct=Decimal(str(MICRO_OPENING_RANGE_TARGET_PCT)),
+                opening_range_stop_pct=Decimal(str(MICRO_OPENING_RANGE_STOP_PCT)),
+                opening_range_max_hold_minutes=MICRO_OPENING_RANGE_MAX_HOLD_MINUTES,
+                loss_throttle_count=MICRO_LOSS_THROTTLE_COUNT,
+                loss_throttle_window_minutes=MICRO_LOSS_THROTTLE_WINDOW_MINUTES,
             ),
         )
 
@@ -1305,12 +1349,24 @@ class TradingBot:
             if quote.get("error"):
                 print(f"   ⚠️ Cannot monitor {symbol}: {quote.get('error')}")
                 continue
-            decision = self.position_monitor.evaluate(
-                symbol,
-                position,
-                current_price=Decimal(str(quote["ltp"])),
-                square_off_due=self._should_square_off(),
-            )
+            current_price = Decimal(str(quote["ltp"]))
+            invalidation_reason = self._micro_early_invalidation_reason(symbol, position, current_price)
+            if invalidation_reason:
+                decision = type(
+                    "PositionDecisionLike",
+                    (),
+                    {
+                        "action": PositionAction.SQUARE_OFF,
+                        "reason": invalidation_reason,
+                    },
+                )()
+            else:
+                decision = self.position_monitor.evaluate(
+                    symbol,
+                    position,
+                    current_price=current_price,
+                    square_off_due=self._should_square_off(),
+                )
             if decision.action == PositionAction.SQUARE_OFF:
                 log_event(
                     "position_square_off_triggered",
@@ -1321,13 +1377,69 @@ class TradingBot:
                 )
                 status = self.broker.square_off(symbol, abs(int(position["quantity"])))
                 if self._is_successful_order_status(status):
-                    exit_price = Decimal(str(quote["ltp"]))
-                    self._record_position_exit(symbol, position, exit_price, status, decision.reason)
+                    self._record_position_exit(symbol, position, current_price, status, decision.reason)
                     print(f"   ✅ Position square-off triggered for {symbol}: {decision.reason}")
                     with self._get_position_lock():
                         self.active_positions.pop(symbol, None)
                 else:
                     print(f"   ❌ Position square-off failed for {symbol}: {status}")
+
+    def _micro_early_invalidation_reason(
+        self,
+        symbol: str,
+        position: dict[str, Any],
+        current_price: Decimal,
+    ) -> str | None:
+        if not MICRO_EARLY_EXIT_ENABLED:
+            return None
+        if not str(position.get("setup", "")).startswith("micro_"):
+            return None
+
+        held_seconds = _position_holding_seconds(position, datetime.now(timezone.utc))
+        if held_seconds is None or held_seconds < MICRO_INVALIDATION_MIN_HOLD_SECONDS:
+            return None
+
+        provider = getattr(self.micro_engine, "market_data_provider", None)
+        get_historical = getattr(provider, "get_historical_data", None)
+        if not callable(get_historical):
+            return None
+
+        try:
+            from .signals.technical import compute_technical_features
+
+            payload = get_historical(symbol, days=1, interval="1m")
+            if not isinstance(payload, dict) or payload.get("error"):
+                return None
+            features = compute_technical_features(payload)
+        except Exception as exc:
+            print(f"   ⚠️ Early invalidation check skipped for {symbol}: {exc}")
+            return None
+
+        entry_price = Decimal(str(position.get("entry_price")))
+        is_long = self._is_long_position(position)
+        rv_floor = max(0.5, MICRO_MIN_RELATIVE_VOLUME * 0.75)
+        price = float(current_price)
+        adverse = current_price < entry_price if is_long else current_price > entry_price
+        momentum_faded = (
+            price < features.vwap and features.macd < features.macd_signal and features.rsi < 50
+            if is_long
+            else price > features.vwap and features.macd > features.macd_signal and features.rsi > 50
+        )
+        volume_collapsed = features.relative_volume < rv_floor and adverse
+
+        if momentum_faded:
+            return (
+                "early_invalidation:momentum_fade "
+                f"held={held_seconds}s rv={features.relative_volume:.2f} "
+                f"rsi={features.rsi:.2f} vwap={features.vwap:.2f}"
+            )
+        if volume_collapsed:
+            return (
+                "early_invalidation:volume_collapse "
+                f"held={held_seconds}s rv={features.relative_volume:.2f} "
+                f"floor={rv_floor:.2f}"
+            )
+        return None
 
     @staticmethod
     def _is_successful_order_status(status: OrderStatus) -> bool:
@@ -1403,11 +1515,17 @@ class TradingBot:
 
             entry_price = Decimal(str(position.get("entry_price")))
             is_long = self._is_long_position(position)
-            realized_pnl = (
+            gross_pnl = (
                 (exit_price - entry_price) * Decimal(absolute_quantity)
                 if is_long
                 else (entry_price - exit_price) * Decimal(absolute_quantity)
             )
+            costs = self._micro_cost_model.estimate(
+                entry_price=entry_price,
+                exit_price=exit_price,
+                quantity=absolute_quantity,
+            )
+            realized_pnl = gross_pnl - costs.total
             stop_loss = position.get("stop_loss")
             risk_per_share = abs(entry_price - Decimal(str(stop_loss))) if stop_loss is not None else Decimal("0")
             risk_total = risk_per_share * Decimal(absolute_quantity)
@@ -1447,11 +1565,24 @@ class TradingBot:
                     status=status.value,
                     source="paper" if self.paper_trading else "live",
                     confidence=0,
+                    gross_pnl=gross_pnl,
+                    costs=costs.total,
+                    net_pnl=realized_pnl,
+                    setup=position.get("setup"),
+                    exit_reason=reason,
+                    expected_r=position.get("expected_r"),
+                    realized_r=realized_r,
+                    holding_seconds=holding_seconds,
+                    entry_relative_volume=position.get("entry_relative_volume"),
+                    entry_atr_ratio=position.get("entry_atr_ratio"),
+                    entry_vwap_extension_atr=position.get("entry_vwap_extension_atr"),
+                    entry_data_source=position.get("entry_data_source"),
                 )
             )
+            self._record_realized_micro_pnl(symbol, position, realized_pnl, now)
             print(
                 f"   🧾 Recorded exit audit for {symbol}: "
-                f"{reason}, pnl={realized_pnl:.2f}, "
+                f"{reason}, gross_pnl={gross_pnl:.2f}, costs={costs.total:.2f}, net_pnl={realized_pnl:.2f}, "
                 f"realized_r={realized_r if realized_r is not None else 'na'}, "
                 f"held={holding_seconds if holding_seconds is not None else 'na'}s, "
                 f"setup={position.get('setup', 'na')}, "
@@ -1461,6 +1592,46 @@ class TradingBot:
             )
         except Exception as e:
             print(f"   ⚠️ Exit audit write failed for {symbol}: {e}")
+
+    def _record_realized_micro_pnl(
+        self,
+        symbol: str,
+        position: dict[str, Any],
+        realized_pnl: Decimal,
+        closed_at: datetime,
+    ) -> None:
+        pnl_float = float(realized_pnl)
+        self.daily_pnl += pnl_float
+        if realized_pnl < 0:
+            self.consecutive_losses += 1
+            self._micro_recent_losses.setdefault(symbol, []).append(closed_at)
+        else:
+            self.consecutive_losses = 0
+
+        cutoff = closed_at - timedelta(minutes=MICRO_LOSS_THROTTLE_WINDOW_MINUTES)
+        for loss_symbol, losses in list(self._micro_recent_losses.items()):
+            self._micro_recent_losses[loss_symbol] = [
+                loss_at for loss_at in losses
+                if (loss_at.astimezone(timezone.utc) if loss_at.tzinfo else loss_at.replace(tzinfo=timezone.utc)) >= cutoff
+            ]
+            if not self._micro_recent_losses[loss_symbol]:
+                self._micro_recent_losses.pop(loss_symbol, None)
+
+        setup = str(position.get("setup") or "unknown")
+        stats = self._micro_expectancy.setdefault(
+            setup,
+            {"trades": 0, "wins": 0, "losses": 0, "net_pnl": 0.0, "gross_pnl": 0.0},
+        )
+        stats["trades"] += 1
+        stats["wins"] += 1 if realized_pnl > 0 else 0
+        stats["losses"] += 1 if realized_pnl < 0 else 0
+        stats["net_pnl"] += pnl_float
+        print(
+            "   📈 Micro expectancy snapshot: "
+            f"{setup} trades={stats['trades']} wins={stats['wins']} "
+            f"losses={stats['losses']} net_pnl={stats['net_pnl']:.2f} "
+            f"daily_pnl={self.daily_pnl:.2f} consecutive_losses={self.consecutive_losses}"
+        )
 
     @staticmethod
     def _is_long_position(position: dict[str, Any]) -> bool:
@@ -1582,13 +1753,15 @@ class TradingBot:
             return
 
         print("⚡ Running micro-trading fast lane...")
+        symbols = self._rank_micro_universe(self._get_alpha_universe())
         attempts = self.micro_engine.scan_once(
-            self._get_alpha_universe(),
+            symbols,
             risk_state=RiskState(
                 daily_pnl=Decimal(str(self.daily_pnl)),
                 consecutive_losses=self.consecutive_losses,
                 new_trades_allowed=self._is_new_trade_allowed(),
             ),
+            recent_losses=self._micro_recent_losses,
         )
         executed = [attempt for attempt in attempts if attempt.executed]
         actionable = [
@@ -1602,6 +1775,7 @@ class TradingBot:
         self._log_micro_rejection_summary(attempts)
         self._persist_micro_attempts(attempts)
         self._log_micro_diagnostics(attempts)
+        self._update_micro_symbol_health(attempts)
 
     def _log_micro_rejection_summary(self, attempts) -> None:
         if not attempts:
@@ -1820,6 +1994,38 @@ class TradingBot:
                 f"source={features.get('latest_source', 'na')} "
                 f"reason={reasons}"
             )
+
+    def _rank_micro_universe(self, symbols: List[str]) -> List[str]:
+        if not self._micro_symbol_health:
+            return symbols
+        ranked = sorted(symbols, key=self._micro_symbol_rank, reverse=True)
+        if ranked[:5] != symbols[:5]:
+            print(f"⚡ Micro ranked scan head: {', '.join(ranked[:5])}")
+        return ranked
+
+    def _micro_symbol_rank(self, symbol: str) -> tuple:
+        health = self._micro_symbol_health.get(symbol, {})
+        data_ok = 0 if health.get("data_unavailable") else 1
+        fresh_ok = 0 if health.get("stale") else 1
+        setup_confidence = int(health.get("confidence", 0) or 0)
+        relative_volume = float(health.get("relative_volume", 0.0) or 0.0)
+        last_seen = float(health.get("last_seen_epoch", 0.0) or 0.0)
+        loss_count = len(self._micro_recent_losses.get(symbol, []))
+        return (data_ok, fresh_ok, -loss_count, setup_confidence, relative_volume, last_seen)
+
+    def _update_micro_symbol_health(self, attempts) -> None:
+        now_epoch = datetime.now(timezone.utc).timestamp()
+        for attempt in attempts:
+            setup = attempt.setup
+            reason_text = " ".join([*(setup.reasons or []), attempt.skipped_reason or ""]).lower()
+            features = setup.features or {}
+            self._micro_symbol_health[attempt.symbol] = {
+                "data_unavailable": "market_data_unavailable" in reason_text or "micro_setup_error" in reason_text,
+                "stale": "stale_candle" in reason_text or "candle_timestamp" in reason_text,
+                "confidence": setup.confidence,
+                "relative_volume": _coerce_float(features.get("relative_volume"), 0.0),
+                "last_seen_epoch": now_epoch,
+            }
 
     @staticmethod
     def _micro_attempt_rank(attempt) -> tuple:

@@ -72,6 +72,22 @@ class TradingConfig(BaseModel):
     micro_max_symbols_per_cycle: int = Field(default=40, gt=0)
     micro_reentry_cooldown_seconds: int = Field(default=600, ge=0)
     micro_diagnostic_top_n: int = Field(default=5, ge=0)
+    micro_continuation_target_pct: float = Field(default=0.003, gt=0)
+    micro_continuation_stop_pct: float = Field(default=0.0015, gt=0)
+    micro_continuation_max_hold_minutes: int = Field(default=6, gt=0)
+    micro_vwap_target_pct: float = Field(default=0.0035, gt=0)
+    micro_vwap_stop_pct: float = Field(default=0.0018, gt=0)
+    micro_vwap_max_hold_minutes: int = Field(default=8, gt=0)
+    micro_opening_range_target_pct: float = Field(default=0.005, gt=0)
+    micro_opening_range_stop_pct: float = Field(default=0.0025, gt=0)
+    micro_opening_range_max_hold_minutes: int = Field(default=10, gt=0)
+    micro_early_exit_enabled: bool = True
+    micro_invalidation_min_hold_seconds: int = Field(default=120, ge=0)
+    micro_loss_throttle_count: int = Field(default=2, ge=0)
+    micro_loss_throttle_window_minutes: int = Field(default=30, ge=0)
+    micro_cost_brokerage_bps: float = Field(default=3, ge=0)
+    micro_cost_taxes_bps: float = Field(default=6, ge=0)
+    micro_cost_slippage_bps: float = Field(default=5, ge=0)
     position_reconciliation_enabled: bool = True
     run_startup_overnight_analysis: bool = False
     paper_trading: bool = True
@@ -240,6 +256,21 @@ def _apply_env_overrides(config: dict) -> dict:
         "MICRO_MAX_SYMBOLS_PER_CYCLE": ("trading", "micro_max_symbols_per_cycle", int),
         "MICRO_REENTRY_COOLDOWN_SECONDS": ("trading", "micro_reentry_cooldown_seconds", int),
         "MICRO_DIAGNOSTIC_TOP_N": ("trading", "micro_diagnostic_top_n", int),
+        "MICRO_CONTINUATION_TARGET_PCT": ("trading", "micro_continuation_target_pct", float),
+        "MICRO_CONTINUATION_STOP_PCT": ("trading", "micro_continuation_stop_pct", float),
+        "MICRO_CONTINUATION_MAX_HOLD_MINUTES": ("trading", "micro_continuation_max_hold_minutes", int),
+        "MICRO_VWAP_TARGET_PCT": ("trading", "micro_vwap_target_pct", float),
+        "MICRO_VWAP_STOP_PCT": ("trading", "micro_vwap_stop_pct", float),
+        "MICRO_VWAP_MAX_HOLD_MINUTES": ("trading", "micro_vwap_max_hold_minutes", int),
+        "MICRO_OPENING_RANGE_TARGET_PCT": ("trading", "micro_opening_range_target_pct", float),
+        "MICRO_OPENING_RANGE_STOP_PCT": ("trading", "micro_opening_range_stop_pct", float),
+        "MICRO_OPENING_RANGE_MAX_HOLD_MINUTES": ("trading", "micro_opening_range_max_hold_minutes", int),
+        "MICRO_INVALIDATION_MIN_HOLD_SECONDS": ("trading", "micro_invalidation_min_hold_seconds", int),
+        "MICRO_LOSS_THROTTLE_COUNT": ("trading", "micro_loss_throttle_count", int),
+        "MICRO_LOSS_THROTTLE_WINDOW_MINUTES": ("trading", "micro_loss_throttle_window_minutes", int),
+        "MICRO_COST_BROKERAGE_BPS": ("trading", "micro_cost_brokerage_bps", float),
+        "MICRO_COST_TAXES_BPS": ("trading", "micro_cost_taxes_bps", float),
+        "MICRO_COST_SLIPPAGE_BPS": ("trading", "micro_cost_slippage_bps", float),
     }
     for env_name, (section, key, caster) in numeric_env_map.items():
         if os.environ.get(env_name):
@@ -252,6 +283,10 @@ def _apply_env_overrides(config: dict) -> dict:
     config["trading"]["micro_trading_enabled"] = _env_bool(
         "MICRO_TRADING_ENABLED",
         bool(config["trading"].get("micro_trading_enabled", False)),
+    )
+    config["trading"]["micro_early_exit_enabled"] = _env_bool(
+        "MICRO_EARLY_EXIT_ENABLED",
+        bool(config["trading"].get("micro_early_exit_enabled", True)),
     )
     config["trading"]["position_reconciliation_enabled"] = _env_bool(
         "POSITION_RECONCILIATION_ENABLED",

@@ -302,6 +302,15 @@ async def get_pnl(days: int = Query(default=30, ge=1, le=365), store: DashboardS
     return _json_safe({"dates": dates, "daily_pnl": daily_pnl, "cumulative_pnl": cumulative_pnl})
 
 
+@app.get("/api/micro/expectancy")
+async def get_micro_expectancy(
+    days: int = Query(default=30, ge=1, le=365),
+    store: DashboardStore = Depends(get_store),
+):
+    trades = _recent_items(store.scan(TRADES_TABLE_NAME), "timestamp", days=days)
+    return _json_safe(_micro_expectancy_report(trades))
+
+
 @app.get("/api/signals")
 async def get_signals(
     limit: int = Query(default=100, ge=1, le=300),
@@ -449,6 +458,83 @@ def _intelligence_summary(market_state: list[dict[str, Any]], signals: list[dict
             "data": macro_state.get("data", {}),
         },
         "events": events,
+    }
+
+
+def _micro_expectancy_report(trades: list[dict[str, Any]]) -> dict[str, Any]:
+    groups: dict[str, dict[str, Any]] = {}
+    totals = {
+        "trades": 0,
+        "wins": 0,
+        "losses": 0,
+        "gross_pnl": Decimal("0"),
+        "costs": Decimal("0"),
+        "net_pnl": Decimal("0"),
+        "realized_r": Decimal("0"),
+        "holding_seconds": Decimal("0"),
+    }
+    for trade in trades:
+        if not str(trade.get("tradeId", "")).startswith("micro-exit-"):
+            continue
+        setup = str(trade.get("setup") or "unknown")
+        group = groups.setdefault(
+            setup,
+            {
+                "setup": setup,
+                "trades": 0,
+                "wins": 0,
+                "losses": 0,
+                "gross_pnl": Decimal("0"),
+                "costs": Decimal("0"),
+                "net_pnl": Decimal("0"),
+                "realized_r": Decimal("0"),
+                "holding_seconds": Decimal("0"),
+                "exit_reasons": {},
+            },
+        )
+        pnl = _decimal(trade.get("net_pnl", trade.get("pnl", 0)))
+        gross = _decimal(trade.get("gross_pnl", pnl))
+        costs = _decimal(trade.get("costs", 0))
+        realized_r = _decimal(trade.get("realized_r", 0))
+        holding_seconds = _decimal(trade.get("holding_seconds", 0))
+        exit_reason = str(trade.get("exit_reason") or "unknown")
+
+        for bucket in (group, totals):
+            bucket["trades"] += 1
+            bucket["wins"] += 1 if pnl > 0 else 0
+            bucket["losses"] += 1 if pnl < 0 else 0
+            bucket["gross_pnl"] += gross
+            bucket["costs"] += costs
+            bucket["net_pnl"] += pnl
+            bucket["realized_r"] += realized_r
+            bucket["holding_seconds"] += holding_seconds
+        group["exit_reasons"][exit_reason] = group["exit_reasons"].get(exit_reason, 0) + 1
+
+    rows = [_finalize_expectancy_group(group) for group in groups.values()]
+    rows.sort(key=lambda item: item["net_pnl"], reverse=True)
+    return {
+        "total": _finalize_expectancy_group({"setup": "all", "exit_reasons": {}, **totals}),
+        "setups": rows,
+    }
+
+
+def _finalize_expectancy_group(group: dict[str, Any]) -> dict[str, Any]:
+    trades = int(group.get("trades", 0))
+    wins = int(group.get("wins", 0))
+    net_pnl = _decimal(group.get("net_pnl", 0))
+    return {
+        "setup": group.get("setup", "unknown"),
+        "trades": trades,
+        "wins": wins,
+        "losses": int(group.get("losses", 0)),
+        "win_rate": float(Decimal(wins) / Decimal(trades)) if trades else 0.0,
+        "gross_pnl": group.get("gross_pnl", Decimal("0")),
+        "costs": group.get("costs", Decimal("0")),
+        "net_pnl": net_pnl,
+        "expectancy": net_pnl / Decimal(trades) if trades else Decimal("0"),
+        "avg_realized_r": _decimal(group.get("realized_r", 0)) / Decimal(trades) if trades else Decimal("0"),
+        "avg_holding_seconds": _decimal(group.get("holding_seconds", 0)) / Decimal(trades) if trades else Decimal("0"),
+        "exit_reasons": group.get("exit_reasons", {}),
     }
 
 

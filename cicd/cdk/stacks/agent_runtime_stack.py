@@ -95,6 +95,22 @@ class TradingAgentRuntimeStack(Stack):
         micro_max_symbols_per_cycle = trading_config.get("micro_max_symbols_per_cycle", 40)
         micro_reentry_cooldown_seconds = trading_config.get("micro_reentry_cooldown_seconds", 600)
         micro_diagnostic_top_n = trading_config.get("micro_diagnostic_top_n", 5)
+        micro_continuation_target_pct = trading_config.get("micro_continuation_target_pct", 0.003)
+        micro_continuation_stop_pct = trading_config.get("micro_continuation_stop_pct", 0.0015)
+        micro_continuation_max_hold_minutes = trading_config.get("micro_continuation_max_hold_minutes", 6)
+        micro_vwap_target_pct = trading_config.get("micro_vwap_target_pct", 0.0035)
+        micro_vwap_stop_pct = trading_config.get("micro_vwap_stop_pct", 0.0018)
+        micro_vwap_max_hold_minutes = trading_config.get("micro_vwap_max_hold_minutes", 8)
+        micro_opening_range_target_pct = trading_config.get("micro_opening_range_target_pct", 0.005)
+        micro_opening_range_stop_pct = trading_config.get("micro_opening_range_stop_pct", 0.0025)
+        micro_opening_range_max_hold_minutes = trading_config.get("micro_opening_range_max_hold_minutes", 10)
+        micro_early_exit_enabled = trading_config.get("micro_early_exit_enabled", True)
+        micro_invalidation_min_hold_seconds = trading_config.get("micro_invalidation_min_hold_seconds", 120)
+        micro_loss_throttle_count = trading_config.get("micro_loss_throttle_count", 2)
+        micro_loss_throttle_window_minutes = trading_config.get("micro_loss_throttle_window_minutes", 30)
+        micro_cost_brokerage_bps = trading_config.get("micro_cost_brokerage_bps", 3)
+        micro_cost_taxes_bps = trading_config.get("micro_cost_taxes_bps", 6)
+        micro_cost_slippage_bps = trading_config.get("micro_cost_slippage_bps", 5)
         position_reconciliation_enabled = trading_config.get("position_reconciliation_enabled", True)
         run_startup_overnight_analysis = trading_config.get("run_startup_overnight_analysis", False)
         
@@ -131,6 +147,14 @@ class TradingAgentRuntimeStack(Stack):
         print(f"   Micro Min Relative Volume: {micro_min_relative_volume}")
         print(f"   Micro Continuation Min Relative Volume: {micro_min_continuation_relative_volume}")
         print(f"   Micro Max Candle Age: {micro_max_candle_age_seconds} seconds")
+        print(
+            "   Micro Setup Brackets: "
+            f"continuation={micro_continuation_target_pct}/{micro_continuation_stop_pct}/{micro_continuation_max_hold_minutes}m, "
+            f"vwap={micro_vwap_target_pct}/{micro_vwap_stop_pct}/{micro_vwap_max_hold_minutes}m, "
+            f"orb={micro_opening_range_target_pct}/{micro_opening_range_stop_pct}/{micro_opening_range_max_hold_minutes}m"
+        )
+        print(f"   Micro Early Exit Enabled: {micro_early_exit_enabled}")
+        print(f"   Micro Loss Throttle: {micro_loss_throttle_count} losses / {micro_loss_throttle_window_minutes} minutes")
         print(f"   Position Reconciliation Enabled: {position_reconciliation_enabled}")
         print(f"   Startup Overnight Analysis: {run_startup_overnight_analysis}")
         print(f"   Oracle Static IP: {static_ip}")
@@ -208,6 +232,22 @@ class TradingAgentRuntimeStack(Stack):
             "MICRO_MAX_SYMBOLS_PER_CYCLE": str(micro_max_symbols_per_cycle),
             "MICRO_REENTRY_COOLDOWN_SECONDS": str(micro_reentry_cooldown_seconds),
             "MICRO_DIAGNOSTIC_TOP_N": str(micro_diagnostic_top_n),
+            "MICRO_CONTINUATION_TARGET_PCT": str(micro_continuation_target_pct),
+            "MICRO_CONTINUATION_STOP_PCT": str(micro_continuation_stop_pct),
+            "MICRO_CONTINUATION_MAX_HOLD_MINUTES": str(micro_continuation_max_hold_minutes),
+            "MICRO_VWAP_TARGET_PCT": str(micro_vwap_target_pct),
+            "MICRO_VWAP_STOP_PCT": str(micro_vwap_stop_pct),
+            "MICRO_VWAP_MAX_HOLD_MINUTES": str(micro_vwap_max_hold_minutes),
+            "MICRO_OPENING_RANGE_TARGET_PCT": str(micro_opening_range_target_pct),
+            "MICRO_OPENING_RANGE_STOP_PCT": str(micro_opening_range_stop_pct),
+            "MICRO_OPENING_RANGE_MAX_HOLD_MINUTES": str(micro_opening_range_max_hold_minutes),
+            "MICRO_EARLY_EXIT_ENABLED": str(micro_early_exit_enabled),
+            "MICRO_INVALIDATION_MIN_HOLD_SECONDS": str(micro_invalidation_min_hold_seconds),
+            "MICRO_LOSS_THROTTLE_COUNT": str(micro_loss_throttle_count),
+            "MICRO_LOSS_THROTTLE_WINDOW_MINUTES": str(micro_loss_throttle_window_minutes),
+            "MICRO_COST_BROKERAGE_BPS": str(micro_cost_brokerage_bps),
+            "MICRO_COST_TAXES_BPS": str(micro_cost_taxes_bps),
+            "MICRO_COST_SLIPPAGE_BPS": str(micro_cost_slippage_bps),
             "POSITION_RECONCILIATION_ENABLED": str(position_reconciliation_enabled),
             "RUN_STARTUP_OVERNIGHT_ANALYSIS": str(run_startup_overnight_analysis),
             "STATIC_IP": static_ip,

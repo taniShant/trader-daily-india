@@ -37,8 +37,8 @@ def test_micro_detector_flags_clean_breakout_buy():
     assert setup.confidence >= 80
     assert setup.setup == "micro_opening_range_breakout"
     assert setup.entry_price == Decimal("110.0")
-    assert setup.stop_loss == Decimal("109.78")
-    assert setup.target_price == Decimal("110.44")
+    assert setup.stop_loss == Decimal("109.73")
+    assert setup.target_price == Decimal("110.55")
 
 
 def test_micro_detector_holds_when_volume_is_weak():
@@ -290,6 +290,33 @@ def test_micro_position_exits_on_target_stop_and_time():
     assert long_position.exit_reason(Decimal("100.1"), opened_at + timedelta(minutes=10)) == "time_exit"
 
 
+def test_micro_detector_uses_shorter_continuation_bracket_and_timeout():
+    detector = MicroSetupDetector(MicroTradeConfig(min_confidence=72))
+    setup = detector.detect(
+        TechnicalFeatures(
+            symbol="ASIANPAINT",
+            close=2785.20,
+            vwap=2776.58,
+            rsi=67.11,
+            macd=1.8,
+            macd_signal=1.2,
+            atr=2.98,
+            relative_volume=3.58,
+            opening_range_high=2790.0,
+            opening_range_low=2760.0,
+            previous_high=2795.0,
+            previous_low=2755.0,
+            trend_bias="bullish",
+        )
+    )
+    plan = detector.to_plan(setup, "signal-1")
+
+    assert setup.setup == "micro_volume_continuation"
+    assert setup.stop_loss == Decimal("2781.02")
+    assert setup.target_price == Decimal("2793.56")
+    assert plan.max_hold_minutes == 6
+
+
 def test_micro_engine_places_paper_order_after_risk_approval():
     class Detector:
         def detect(self, features):
@@ -455,6 +482,71 @@ def test_micro_engine_applies_reentry_cooldown_after_square_off():
     assert broker.position_for("ASIANPAINT") == 0
     assert second.executed is False
     assert second.skipped_reason.startswith("reentry_cooldown_active:ASIANPAINT:")
+
+
+def test_micro_engine_throttles_symbol_after_recent_losses():
+    class Detector:
+        def detect(self, features):
+            return MicroTradeSetup(
+                symbol="MARUTI",
+                action="BUY",
+                confidence=82,
+                setup="micro_volume_continuation",
+                entry_price=Decimal("14000"),
+                stop_loss=Decimal("13979"),
+                target_price=Decimal("14042"),
+                reasons=["test continuation"],
+                features=features.to_dict(),
+            )
+
+        def to_plan(self, setup, signal_id):
+            return MicroSetupDetector().to_plan(setup, signal_id)
+
+    provider = SimpleNamespace(
+        get_historical_data=lambda symbol, days, interval: {
+            "symbol": symbol,
+            "days": days,
+            "interval": interval,
+            "data": [
+                {"timestamp": _fresh_timestamp(2), "open": 13980, "high": 14000, "low": 13970, "close": 13990, "volume": 1000},
+                {"timestamp": _fresh_timestamp(1), "open": 13990, "high": 14020, "low": 13988, "close": 14000, "volume": 4000},
+            ],
+        }
+    )
+    engine = MicroTradingEngine(
+        market_data_provider=provider,
+        broker=PaperBroker(),
+        risk_manager=RiskManager(
+            RiskLimits(
+                capital=Decimal("100000"),
+                max_daily_loss_percent=Decimal("4"),
+                max_position_size_percent=Decimal("10"),
+                min_confidence=70,
+            )
+        ),
+        config=MicroTradeConfig(
+            enabled=True,
+            loss_throttle_count=2,
+            loss_throttle_window_minutes=30,
+            max_candle_age_seconds=999999999,
+        ),
+        detector=Detector(),
+    )
+    recent_losses = {
+        "MARUTI": [
+            datetime.now(timezone.utc) - timedelta(minutes=5),
+            datetime.now(timezone.utc) - timedelta(minutes=20),
+        ]
+    }
+
+    attempt = engine.scan_once(
+        ["MARUTI"],
+        risk_state=RiskState(new_trades_allowed=True),
+        recent_losses=recent_losses,
+    )[0]
+
+    assert attempt.executed is False
+    assert attempt.skipped_reason == "recent_loss_throttle_active:MARUTI:2_losses/30m"
 
 
 def test_micro_engine_exits_existing_position_on_opposite_signal_without_reversing():

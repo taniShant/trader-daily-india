@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Iterable
 
@@ -64,13 +64,16 @@ class MicroTradingEngine:
         symbols: Iterable[str],
         *,
         risk_state: RiskState | None = None,
+        recent_losses: dict[str, list[datetime]] | None = None,
     ) -> list[MicroTradeAttempt]:
         if not self.config.enabled:
             return []
 
         attempts: list[MicroTradeAttempt] = []
         for symbol in list(symbols)[: self.config.max_symbols_per_cycle]:
-            attempts.append(self.evaluate_symbol(symbol, risk_state=risk_state))
+            attempts.append(
+                self.evaluate_symbol(symbol, risk_state=risk_state, recent_losses=recent_losses)
+            )
         return attempts
 
     def evaluate_symbol(
@@ -78,6 +81,7 @@ class MicroTradingEngine:
         symbol: str,
         *,
         risk_state: RiskState | None = None,
+        recent_losses: dict[str, list[datetime]] | None = None,
     ) -> MicroTradeAttempt:
         try:
             payload = self.market_data_provider.get_historical_data(
@@ -111,6 +115,10 @@ class MicroTradingEngine:
         cooldown_skip = self._cooldown_skip_reason(plan.symbol)
         if cooldown_skip:
             return MicroTradeAttempt(symbol=symbol, setup=setup, skipped_reason=cooldown_skip)
+
+        loss_throttle_skip = self._loss_throttle_skip_reason(plan.symbol, recent_losses)
+        if loss_throttle_skip:
+            return MicroTradeAttempt(symbol=symbol, setup=setup, skipped_reason=loss_throttle_skip)
 
         signal = self._to_signal(plan)
         risk_decision = self.risk_manager.evaluate(signal, risk_state)
@@ -163,6 +171,29 @@ class MicroTradingEngine:
             return f"future_candle_timestamp:{latest_timestamp.isoformat()}"
         if age_seconds > self.config.max_candle_age_seconds:
             return f"stale_candle:{int(age_seconds)}s"
+        return None
+
+    def _loss_throttle_skip_reason(
+        self,
+        symbol: str,
+        recent_losses: dict[str, list[datetime]] | None,
+    ) -> str | None:
+        if self.config.loss_throttle_count <= 0 or self.config.loss_throttle_window_minutes <= 0:
+            return None
+        if not recent_losses:
+            return None
+
+        cutoff = datetime.now(timezone.utc) - timedelta(minutes=self.config.loss_throttle_window_minutes)
+        losses = [
+            loss_at.astimezone(timezone.utc) if loss_at.tzinfo else loss_at.replace(tzinfo=timezone.utc)
+            for loss_at in recent_losses.get(symbol, [])
+        ]
+        recent_count = sum(1 for loss_at in losses if loss_at >= cutoff)
+        if recent_count >= self.config.loss_throttle_count:
+            return (
+                f"recent_loss_throttle_active:{symbol}:"
+                f"{recent_count}_losses/{self.config.loss_throttle_window_minutes}m"
+            )
         return None
 
     def _live_stop_skip_reason(self, plan: MicroTradePlan) -> str | None:

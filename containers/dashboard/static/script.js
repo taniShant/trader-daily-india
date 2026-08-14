@@ -55,11 +55,17 @@ async function fetchStatus() {
         const data = await res.json();
         
         document.getElementById('positions').textContent = data.active_positions || 0;
+        const risk = data.risk_usage || {};
         
         const pnlValue = data.today_pnl || 0;
         const pnlElement = document.getElementById('pnl');
         pnlElement.innerHTML = pnlValue >= 0 ? `+₹${pnlValue.toFixed(2)}` : `-₹${Math.abs(pnlValue).toFixed(2)}`;
         pnlElement.className = pnlValue >= 0 ? 'stat-value positive' : 'stat-value negative';
+
+        const profitValue = Number(risk.today_profit || 0);
+        const profitElement = document.getElementById('todayProfit');
+        profitElement.innerHTML = `₹${profitValue.toFixed(2)}`;
+        profitElement.className = 'stat-value positive';
         
         document.getElementById('winrate').textContent = `${(data.win_rate || 0).toFixed(1)}%`;
         
