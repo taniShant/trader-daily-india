@@ -377,6 +377,19 @@ def _format_feature(features: Dict[str, Any], name: str) -> str:
         return str(value)
 
 
+def _position_holding_seconds(position: dict[str, Any], now: datetime) -> int | None:
+    opened_at = position.get("opened_at")
+    if not opened_at:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(opened_at).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return max(0, int((now - parsed.astimezone(timezone.utc)).total_seconds()))
+
+
 def _optional_positive_decimal(value: Any) -> Decimal | None:
     numeric = _coerce_float(value)
     if numeric <= 0:
@@ -1395,6 +1408,11 @@ class TradingBot:
                 if is_long
                 else (entry_price - exit_price) * Decimal(absolute_quantity)
             )
+            stop_loss = position.get("stop_loss")
+            risk_per_share = abs(entry_price - Decimal(str(stop_loss))) if stop_loss is not None else Decimal("0")
+            risk_total = risk_per_share * Decimal(absolute_quantity)
+            realized_r = float(realized_pnl / risk_total) if risk_total > 0 else None
+            holding_seconds = _position_holding_seconds(position, now)
             exit_action = "SELL" if is_long else "BUY"
             signal_id = str(position.get("signal_id") or position.get("order_id") or f"exit-{symbol}")
             order_id = str(position.get("order_id") or f"exit-{symbol}-{now.strftime('%Y%m%dT%H%M%S%f')}")
@@ -1433,7 +1451,13 @@ class TradingBot:
             )
             print(
                 f"   🧾 Recorded exit audit for {symbol}: "
-                f"{reason}, pnl={realized_pnl:.2f}"
+                f"{reason}, pnl={realized_pnl:.2f}, "
+                f"realized_r={realized_r if realized_r is not None else 'na'}, "
+                f"held={holding_seconds if holding_seconds is not None else 'na'}s, "
+                f"setup={position.get('setup', 'na')}, "
+                f"entry_rv={position.get('entry_relative_volume', 'na')}, "
+                f"entry_atr_ratio={position.get('entry_atr_ratio', 'na')}, "
+                f"entry_vwap_ext={position.get('entry_vwap_extension_atr', 'na')}"
             )
         except Exception as e:
             print(f"   ⚠️ Exit audit write failed for {symbol}: {e}")
@@ -1620,10 +1644,13 @@ class TradingBot:
             if relative_volume and relative_volume < MICRO_MIN_CONTINUATION_RELATIVE_VOLUME:
                 summary["continuation_volume_failed"] += 1
                 classified = True
-            if "volatility too" in reason_text:
+            if "volatility_rejected" in reason_text:
                 summary["volatility_failed"] += 1
                 classified = True
-            if "overextended versus vwap" in reason_text:
+            if (
+                "price overextended versus vwap" in reason_text
+                or "continuation extension too stretched" in reason_text
+            ):
                 summary["vwap_extension_failed"] += 1
                 classified = True
             if setup.confidence < MICRO_MIN_CONFIDENCE and setup.setup != "micro_monitor":
@@ -1685,18 +1712,34 @@ class TradingBot:
             return
 
         signed_quantity = order.quantity if order.side.value == "BUY" else -order.quantity
+        setup = attempt.setup
+        features = setup.features or {}
+        stop_loss = order.stop_loss
+        target_price = order.target_price
+        risk_per_share = abs(fill_price - stop_loss) if stop_loss is not None else Decimal("0")
+        reward_per_share = abs(target_price - fill_price) if target_price is not None else Decimal("0")
+        expected_r = float(reward_per_share / risk_per_share) if risk_per_share > 0 else None
         with self._get_position_lock():
             self.active_positions[order.symbol] = {
                 "quantity": signed_quantity,
                 "entry_price": float(fill_price),
-                "stop_loss": float(order.stop_loss) if order.stop_loss is not None else None,
-                "target": float(order.target_price) if order.target_price is not None else None,
+                "stop_loss": float(stop_loss) if stop_loss is not None else None,
+                "target": float(target_price) if target_price is not None else None,
                 "side": order.side,
                 "order_id": order.client_order_id,
                 "signal_id": order.signal_id,
                 "status": attempt.order_status,
                 "opened_at": datetime.now(timezone.utc).isoformat(),
                 "timeout_minutes": attempt.signal.holding_window_minutes if attempt.signal else MICRO_MAX_HOLD_MINUTES,
+                "setup": setup.setup,
+                "entry_confidence": setup.confidence,
+                "entry_reasons": setup.reasons[:5],
+                "entry_relative_volume": features.get("relative_volume"),
+                "entry_atr_ratio": features.get("atr_ratio"),
+                "entry_vwap_extension_atr": features.get("vwap_extension_atr"),
+                "entry_candle_timestamp": features.get("latest_timestamp"),
+                "entry_data_source": features.get("latest_source"),
+                "expected_r": expected_r,
             }
 
         snapshot = PositionSnapshot(
@@ -1768,8 +1811,10 @@ class TradingBot:
                 f"rv={_format_feature(features, 'relative_volume')} "
                 f"rsi={_format_feature(features, 'rsi')} "
                 f"atr={_format_feature(features, 'atr')} "
+                f"atr_ratio={_format_feature(features, 'atr_ratio')} "
                 f"close={_format_feature(features, 'close')} "
                 f"vwap={_format_feature(features, 'vwap')} "
+                f"vwap_ext_atr={_format_feature(features, 'vwap_extension_atr')} "
                 f"trend={features.get('trend_bias', 'na')} "
                 f"candle={features.get('latest_timestamp', 'na')} "
                 f"source={features.get('latest_source', 'na')} "

@@ -162,6 +162,40 @@ def test_micro_detector_allows_high_volume_continuation_with_lower_atr():
     assert setup.action == "BUY"
     assert setup.setup == "micro_volume_continuation"
     assert "continuation volatility accepted" in " ".join(setup.reasons)
+    assert "volatility too low for micro trade" not in " ".join(setup.reasons)
+    assert setup.features["atr_ratio"] < detector.config.min_atr_ratio
+    assert setup.features["continuation_volatility_ok"] is True
+
+
+def test_micro_detector_rejects_volatility_below_continuation_floor():
+    detector = MicroSetupDetector(
+        MicroTradeConfig(
+            min_confidence=72,
+            min_continuation_atr_ratio=0.0012,
+            min_atr_ratio=0.0015,
+        )
+    )
+    setup = detector.detect(
+        TechnicalFeatures(
+            symbol="MARUTI",
+            close=14000.0,
+            vwap=13998.0,
+            rsi=64.0,
+            macd=1.1,
+            macd_signal=0.9,
+            atr=2.0,
+            relative_volume=4.0,
+            opening_range_high=14020.0,
+            opening_range_low=13950.0,
+            previous_high=14025.0,
+            previous_low=13960.0,
+            trend_bias="bullish",
+        )
+    )
+
+    assert setup.action == "HOLD"
+    assert "volatility_rejected_low" in " ".join(setup.reasons)
+    assert setup.features["continuation_volatility_ok"] is False
 
 
 def test_micro_detector_uses_configured_continuation_volume_threshold():

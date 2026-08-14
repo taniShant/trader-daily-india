@@ -22,17 +22,32 @@ class MicroSetupDetector:
         extension = abs(features.close - features.vwap) / float(atr) if atr > 0 else 99.0
         extension_ok = extension <= self.config.max_vwap_extension_atr
         continuation_extension_ok = extension <= self.config.max_continuation_vwap_extension_atr
+        normal_volatility_ok = self.config.min_atr_ratio <= atr_ratio <= self.config.max_atr_ratio
+        continuation_volatility_ok = (
+            self.config.min_continuation_atr_ratio <= atr_ratio <= self.config.max_atr_ratio
+        )
         extended_continuation_volume_ok = (
             extension <= self.config.max_vwap_extension_atr
             or features.relative_volume >= self.config.extended_continuation_min_relative_volume
         )
 
-        if atr_ratio < self.config.min_atr_ratio:
-            reasons.append("volatility too low for micro trade")
+        if atr_ratio < self.config.min_continuation_atr_ratio:
+            reasons.append(
+                f"volatility_rejected_low atr_ratio={atr_ratio:.5f} "
+                f"min_continuation={self.config.min_continuation_atr_ratio:.5f}"
+            )
+        elif atr_ratio < self.config.min_atr_ratio:
+            reasons.append(
+                f"continuation_volatility_candidate atr_ratio={atr_ratio:.5f} "
+                f"normal_min={self.config.min_atr_ratio:.5f}"
+            )
         elif atr_ratio > self.config.max_atr_ratio:
-            reasons.append("volatility too high for micro trade")
+            reasons.append(
+                f"volatility_rejected_high atr_ratio={atr_ratio:.5f} "
+                f"max={self.config.max_atr_ratio:.5f}"
+            )
         else:
-            reasons.append("tradable micro volatility")
+            reasons.append(f"tradable micro volatility atr_ratio={atr_ratio:.5f}")
 
         if features.relative_volume >= self.config.min_relative_volume:
             reasons.append(f"relative volume confirmed {features.relative_volume:.2f}x")
@@ -99,12 +114,12 @@ class MicroSetupDetector:
         )
 
         tradable = (
-            self.config.min_atr_ratio <= atr_ratio <= self.config.max_atr_ratio
+            normal_volatility_ok
             and features.relative_volume >= self.config.min_relative_volume
             and extension <= self.config.max_vwap_extension_atr
         )
         continuation_tradable = (
-            self.config.min_continuation_atr_ratio <= atr_ratio <= self.config.max_atr_ratio
+            continuation_volatility_ok
             and continuation_extension_ok
             and extended_continuation_volume_ok
         )
@@ -149,6 +164,16 @@ class MicroSetupDetector:
 
         entry = close if action in {"BUY", "SELL"} else None
         stop, target = self._prices(action, close) if entry is not None else (None, None)
+        feature_payload = {
+            **features.to_dict(),
+            "atr_ratio": round(atr_ratio, 6),
+            "vwap_extension_atr": round(extension, 4),
+            "normal_volatility_ok": normal_volatility_ok,
+            "continuation_volatility_ok": continuation_volatility_ok,
+            "vwap_extension_ok": extension_ok,
+            "continuation_extension_ok": continuation_extension_ok,
+        }
+
         return MicroTradeSetup(
             symbol=features.symbol,
             action=action if confidence >= self.config.min_confidence else "HOLD",
@@ -158,7 +183,7 @@ class MicroSetupDetector:
             stop_loss=stop,
             target_price=target,
             reasons=reasons[:8],
-            features=features.to_dict(),
+            features=feature_payload,
         )
 
     def to_plan(self, setup: MicroTradeSetup, signal_id: str) -> MicroTradePlan:

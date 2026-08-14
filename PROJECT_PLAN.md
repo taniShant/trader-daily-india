@@ -320,9 +320,22 @@ This phase captures the operational and strategy issues found during live paper 
 | P1 | P12-WP04 | Harden Oracle/Breeze collector reliability | Not started | `agent/data/oracle_client.py`, `oracle/collector/app.py`, `agent/micro/engine.py`, CloudWatch alarms/tests | Tests and paper logs show retry/backoff, timeout handling, per-symbol failure accounting, and no stale-candle trading after collector errors. | Temporary Oracle/Breeze 503, timeout, or empty-OHLCV responses degrade gracefully without false trades or lost exits. |
 | P2 | P12-WP05 | Gate overnight analysis away from market-service startup | Runtime verified | `agent/main.py`, `agent/config.py`, `containers/trading-bot/entrypoint.sh`, `cicd/env/prod.json`, `cicd/cdk/stacks/agent_runtime_stack.py`, `tests/unit/test_micro_trading_runtime.py`, `tests/unit/test_config.py` | Local focused suite passed. ECS task definition `:21` logs show `Startup Overnight Analysis: False` and `Startup overnight analysis skipped for market-service startup`. User VS Code verification pending. | Manual/ECS service startup skips overnight analysis by default, while `SCHEDULED_ACTION=overnight_analysis` still runs the one-shot overnight job. |
 | P2 | P12-WP06 | Use fixed-rate scan scheduling metrics | Runtime verified | `agent/main.py`, `tests/unit/test_micro_trading_runtime.py` | Local focused suites and CDK synth passed. ECS task definition `:21` logs show `Micro cycle duration: 29.2s, next scan in 60.8s` and subsequent fixed-rate cycles around 90 seconds. User VS Code verification pending. | `micro_scan_interval_seconds=90` is scheduled from cycle start-to-start; logs show cycle duration, next sleep, and overrun. |
-| P2 | P12-WP07 | Clarify and tune continuation volatility rules | Not started | `agent/micro/setups.py`, `agent/micro/models.py`, `tests/unit/test_micro_trading.py` | Tests cover normal ATR rejection vs continuation ATR acceptance, reason codes, and threshold behavior. | Logs no longer report confusing volatility failures for setups intentionally allowed by continuation rules. |
+| P2 | P12-WP07 | Clarify and tune continuation volatility rules | Implemented | `agent/micro/setups.py`, `agent/micro/models.py`, `tests/unit/test_micro_trading.py` | Local focused tests cover normal ATR rejection vs continuation ATR acceptance, reason codes, and threshold behavior. User VS Code verification pending. | Logs no longer report confusing volatility failures for setups intentionally allowed by continuation rules. |
 | P3 | P12-WP08 | Review re-entry cooldown with paper evidence | Not started | `cicd/env/prod.json`, `agent/config.py`, `agent/micro/engine.py`, paper-trading report | Paper analysis compares 5-minute vs 10-minute same-stock cooldown without increasing duplicate entries. | Cooldown protects against churn without blocking valid second-wave entries. |
-| P3 | P12-WP09 | Add richer trade-quality telemetry | Not started | `agent/main.py`, `agent/micro/engine.py`, `agent/storage/repositories.py`, dashboard trade views | Tests/log review show entry reason, exit reason, expected R, realized R, slippage estimate, candle age, relative volume, ATR ratio, VWAP extension, and data-source health per trade. | Paper P&L can be explained from the exact features that caused each entry and exit. |
+| P3 | P12-WP09 | Add richer trade-quality telemetry | Implemented | `agent/main.py`, `agent/micro/engine.py`, `agent/storage/repositories.py`, dashboard trade views | Local focused tests cover entry metadata persistence in active positions, richer diagnostics, and exit audit fields. User VS Code verification pending. | Paper P&L can be explained from the exact features that caused each entry and exit. |
+
+### Phase 13 - Micro Strategy Edge And Profit Quality
+
+This phase addresses the strategic issue found during paper trading: the system is functioning operationally, but too many trades are exiting by max-hold time instead of reaching target/stop. Phase 13 is about improving expectancy, not just making the bot trade more often.
+
+| Priority | ID | Work Package | Status | Primary Files | Required Tests | Definition Of Done |
+|---|---|---|---|---|---|---|
+| P1 | P13-WP01 | Add setup-level expectancy reporting | Not started | `agent/main.py`, `agent/storage/repositories.py`, dashboard/report view, analysis scripts | Daily paper report groups trades by setup, exit reason, realized R, holding time, slippage estimate, and gross/net P&L. | We can prove which setup families make or lose paper money before tuning thresholds. |
+| P1 | P13-WP02 | Add early invalidation exit rules | Not started | `agent/micro/models.py`, `agent/micro/engine.py`, `agent/main.py`, `tests/unit/test_micro_trading.py`, `tests/unit/test_micro_trading_runtime.py` | Tests cover VWAP recross, momentum fade, relative-volume collapse, and adverse candle exits for BUY and SELL positions. | Bad micro entries are cut before the full 10-minute timeout when the original reason for the trade is no longer valid. |
+| P1 | P13-WP03 | Tune target/stop/timeout by setup type | Not started | `agent/micro/models.py`, `agent/micro/setups.py`, `agent/config.py`, `cicd/env/prod.json`, tests | Paper replay compares current 0.4%/0.2%/10-minute exits against setup-specific brackets. | Continuation, VWAP momentum, and opening-range setups use brackets that match their observed movement profile. |
+| P1 | P13-WP04 | Add transaction-cost and slippage-aware paper P&L | Not started | `agent/execution/`, `agent/storage/repositories.py`, dashboard P&L views, tests | Paper trades record gross P&L, estimated brokerage/taxes/slippage, and net P&L. | Dashboard profit reflects realistic tradable economics, not only ideal fill arithmetic. |
+| P2 | P13-WP05 | Add symbol/setup throttling from recent losses | Not started | `agent/main.py`, `agent/learning/`, `agent/storage/repositories.py`, tests | Tests cover per-symbol cooldown after repeated losses and setup-family throttling after drawdown. | The bot reduces exposure to setups/symbols that are losing in the current session instead of repeating the same weak edge. |
+| P2 | P13-WP06 | Improve opportunity ranking before scan budget | Not started | `agent/data/symbols.py`, `agent/micro/engine.py`, `agent/main.py`, `cicd/env/prod.json`, tests | Ranking uses fresh data availability, liquidity, spread proxy, relative volume, and prior-day watchlist context. | The 40-stock scan spends time on the best current opportunities and deprioritizes unavailable/illiquid symbols. |
 
 ## 8. Testing Strategy
 
@@ -1121,7 +1134,18 @@ Test Result: py_compile passed. Focused runtime/config/clock tests passed with 2
 Notes / Next Step: User should run the focused pytest command from VS Code, then redeploy trading bot image. After deploy, ECS logs should show `Micro cycle duration: ... next scan in ...` or `overrun=...`.
 ```
 
-## 13. Plan Change Log
+```text
+Date: 2026-08-14
+Work Package: P12-WP07 + P12-WP09 - Micro rule clarity and trade-quality telemetry
+Status: Implemented
+Files Changed: agent/micro/setups.py, agent/main.py, tests/unit/test_micro_trading.py, tests/unit/test_micro_trading_runtime.py, PROJECT_PLAN.md
+What Changed: Clarified micro volatility reason codes so continuation setups accepted under the lower ATR continuation lane no longer also look like volatility failures. Fixed rejection-summary classification so `price not overextended versus VWAP` is not counted as a VWAP-extension failure. Added normalized ATR ratio, VWAP extension, continuation volatility flags, active-position entry metadata, expected R, holding seconds, and realized R to runtime telemetry so paper trade outcomes are easier to explain.
+Test Command: python -m py_compile agent/main.py agent/micro/setups.py; python -m pytest tests/unit/test_micro_trading.py tests/unit/test_micro_trading_runtime.py -q; git diff --check
+Test Result: py_compile passed. Focused micro detector/runtime tests passed with 32 tests. Diff whitespace check passed.
+Notes / Next Step: User should run the focused pytest command from VS Code, rebuild the trading-bot image, and verify CloudWatch logs show `atr_ratio`, `vwap_ext_atr`, and richer exit audit fields.
+```
+
+## 14. Plan Change Log
 
 Use this section only when the plan itself changes materially.
 
@@ -1143,6 +1167,13 @@ Approved By: User request in chat.
 Date: 2026-07-18
 Change: Removed AWS NAT Gateway from the target AWS runtime architecture.
 Reason: AWS account inspection and Cost Explorer showed a CDK-owned NAT Gateway billing continuously, while Oracle already provides the required static IP for ICICI Breeze execution. AWS tasks now use public subnet egress; ICICI live execution remains Oracle-only.
+Approved By: User request in chat.
+```
+
+```text
+Date: 2026-08-14
+Change: Added Phase 13 - Micro Strategy Edge And Profit Quality.
+Reason: Paper trading showed the system is operationally functional, but too many micro trades exit by max-hold time rather than target/stop. The next work must improve expectancy, setup-specific exits, realistic net P&L, and loss-adaptive throttling rather than simply increasing trade count.
 Approved By: User request in chat.
 ```
 

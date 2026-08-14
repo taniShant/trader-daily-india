@@ -252,7 +252,7 @@ def test_micro_rejection_summary_prints_reason_counts(capsys):
         [
             attempt("MARUTI", ["relative volume too weak 0.90x"], 0.9),
             attempt("RELIANCE", ["price overextended versus VWAP"], 1.4),
-            attempt("INFY", ["tradable micro volatility"], 1.3),
+            attempt("INFY", ["price not overextended versus VWAP"], 1.3),
         ]
     )
 
@@ -348,6 +348,13 @@ def test_micro_attempt_persists_dashboard_visible_audit_records():
             stop_loss=Decimal("13592.76"),
             target_price=Decimal("13674.48"),
             reasons=["test setup"],
+            features={
+                "relative_volume": 3.1,
+                "atr_ratio": 0.0012,
+                "vwap_extension_atr": 1.4,
+                "latest_timestamp": "2026-08-03T06:45:00+00:00",
+                "latest_source": "breeze",
+            },
         ),
         signal=signal,
         risk_decision=decision,
@@ -368,6 +375,11 @@ def test_micro_attempt_persists_dashboard_visible_audit_records():
     assert captured.trades[0].action == "BUY"
     assert captured.trades[0].price == Decimal("13620")
     assert bot.active_positions["MARUTI"]["order_id"] == "order-1"
+    assert bot.active_positions["MARUTI"]["setup"] == "micro_volume_continuation"
+    assert bot.active_positions["MARUTI"]["entry_relative_volume"] == 3.1
+    assert bot.active_positions["MARUTI"]["entry_atr_ratio"] == 0.0012
+    assert bot.active_positions["MARUTI"]["entry_vwap_extension_atr"] == 1.4
+    assert bot.active_positions["MARUTI"]["expected_r"] == 2.0
 
 
 def test_position_exit_persists_closed_snapshot_and_realized_pnl():
