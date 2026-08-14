@@ -36,6 +36,9 @@ Implemented on 2026-08-14, pending ECS redeploy and live paper-log verification:
 
 ## Trading Logic Findings
 
+0. Small target moves can lose after realistic costs.
+   Paper logs on 2026-08-14 showed trades such as JSWSTEEL where gross price movement was positive but net P&L became negative after brokerage/taxes/slippage. P13-WP07 adds a cost-aware entry gate so the bot skips entries whose expected target profit cannot clear estimated round-trip costs with a buffer.
+
 1. The current micro entry filters are not obviously wrong.
    The checks for fresh 1-minute candles, relative volume, ATR volatility, VWAP extension, RSI/MACD/trend alignment, confidence, and risk approval are a sensible first paper-trading framework.
 

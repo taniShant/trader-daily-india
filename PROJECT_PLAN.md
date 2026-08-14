@@ -336,6 +336,7 @@ This phase addresses the strategic issue found during paper trading: the system 
 | P1 | P13-WP04 | Add transaction-cost and slippage-aware paper P&L | Implemented | `agent/backtest/costs.py`, `agent/main.py`, `agent/storage/repositories.py`, dashboard P&L views, tests | Tests cover gross P&L, costs, net P&L, and dashboard expectancy totals. User VS Code verification pending. | Dashboard profit reflects realistic tradable economics, not only ideal fill arithmetic. |
 | P2 | P13-WP05 | Add symbol/setup throttling from recent losses | Implemented | `agent/main.py`, `agent/micro/engine.py`, `agent/storage/repositories.py`, tests | Tests cover per-symbol throttling after repeated recent losses; runtime records losses from net paper P&L. User VS Code verification pending. | The bot reduces exposure to symbols that are losing in the current session instead of repeating the same weak edge. |
 | P2 | P13-WP06 | Improve opportunity ranking before scan budget | Implemented | `agent/data/symbols.py`, `agent/micro/engine.py`, `agent/main.py`, `cicd/env/prod.json`, tests | Focused runtime tests cover supporting health metadata; CDK synth confirms scan budget and ranking knobs are deployed. User VS Code verification pending. | The 40-stock scan uses prior-cycle health to favor fresh/high-quality symbols and deprioritize unavailable/stale/recent-loss symbols. |
+| P1 | P13-WP07 | Add cost-aware entry economics gate | Implemented | `agent/micro/engine.py`, `agent/micro/models.py`, `agent/config.py`, `agent/main.py`, `cicd/env/prod.json`, `cicd/cdk/stacks/agent_runtime_stack.py`, tests | Focused tests cover rejecting approved micro entries whose expected target profit cannot clear estimated round-trip costs. CDK synth shows `Micro Entry Economics`. User VS Code verification pending. | The bot skips small-edge entries where target profit is too close to brokerage/taxes/slippage, preventing trades that are directionally right but net-loss after costs. |
 
 ## 8. Testing Strategy
 
@@ -1154,6 +1155,17 @@ What Changed: Added setup-specific micro brackets and timeouts, early invalidati
 Test Command: python -m py_compile agent/main.py agent/micro/engine.py agent/micro/models.py agent/micro/setups.py agent/config.py agent/storage/repositories.py containers/dashboard/api_server.py cicd/cdk/stacks/agent_runtime_stack.py; python -m pytest tests/unit/test_micro_trading.py tests/unit/test_micro_trading_runtime.py tests/unit/test_repositories.py tests/unit/test_config.py tests/integration/test_dashboard_api.py -q; bash scripts/verify_cdk_synth.sh; git diff --check
 Test Result: py_compile passed. Focused Phase 13 unit/integration tests passed with 50 tests. CDK synth passed and shows Phase 13 ECS env knobs. Diff whitespace check passed.
 Notes / Next Step: User should run the focused pytest command from VS Code, rebuild/push the trading-bot and dashboard images, redeploy AgentRuntimeStack, then confirm ECS logs show setup brackets, early-exit setting, loss-throttle setting, net P&L exit audit fields, and dashboard `/api/micro/expectancy` returns setup-level metrics.
+```
+
+```text
+Date: 2026-08-14
+Work Package: P13-WP07 - Cost-aware entry economics gate
+Status: Implemented
+Files Changed: agent/micro/models.py, agent/micro/engine.py, agent/config.py, agent/main.py, cicd/env/prod.json, cicd/cdk/stacks/agent_runtime_stack.py, .env.example, tests/unit/test_micro_trading.py, tests/unit/test_config.py, PROJECT_PLAN.md
+What Changed: Added a pre-order economics gate after risk approval and before live quote/order placement. The gate estimates expected target gross profit, round-trip costs from configured brokerage/taxes/slippage bps, expected net profit, and target-to-cost ratio using the approved quantity. Production now requires expected net profit >= ₹1000 and target-to-cost ratio >= 1.4 before placing a micro entry.
+Test Command: python -m pytest tests/unit/test_micro_trading.py tests/unit/test_config.py -q; bash scripts/verify_cdk_synth.sh; git diff --check
+Test Result: Focused tests passed with 23 tests. CDK synth passed and shows `Micro Entry Economics: min_net=₹1000, target_cost_ratio>=1.4`. Diff whitespace check passed.
+Notes / Next Step: User should run focused tests from VS Code, rebuild/push the trading-bot image, redeploy AgentRuntimeStack, and confirm ECS logs show `Micro Entry Economics` plus `entry_economics_rejected` skip reasons for small-edge opportunities.
 ```
 
 ## 14. Plan Change Log
