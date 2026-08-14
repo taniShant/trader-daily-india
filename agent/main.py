@@ -87,6 +87,7 @@ MICRO_MIN_RELATIVE_VOLUME = settings.trading.micro_min_relative_volume
 MICRO_MIN_CONTINUATION_RELATIVE_VOLUME = settings.trading.micro_min_continuation_relative_volume
 MICRO_MAX_CANDLE_AGE_SECONDS = settings.trading.micro_max_candle_age_seconds
 MICRO_MAX_SYMBOLS_PER_CYCLE = settings.trading.micro_max_symbols_per_cycle
+MICRO_REENTRY_COOLDOWN_SECONDS = settings.trading.micro_reentry_cooldown_seconds
 MICRO_DIAGNOSTIC_TOP_N = settings.trading.micro_diagnostic_top_n
 
 # Oracle static IP (for reference/logging)
@@ -675,6 +676,7 @@ class TradingBot:
                 min_continuation_relative_volume=MICRO_MIN_CONTINUATION_RELATIVE_VOLUME,
                 max_candle_age_seconds=MICRO_MAX_CANDLE_AGE_SECONDS,
                 max_symbols_per_cycle=MICRO_MAX_SYMBOLS_PER_CYCLE,
+                reentry_cooldown_seconds=MICRO_REENTRY_COOLDOWN_SECONDS,
             ),
         )
 

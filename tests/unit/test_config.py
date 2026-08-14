@@ -21,6 +21,7 @@ def test_loads_prod_json_oracle_values_without_env_overrides(monkeypatch):
     assert settings.trading.micro_min_relative_volume == 1.2
     assert settings.trading.micro_min_continuation_relative_volume == 1.6
     assert settings.trading.micro_max_candle_age_seconds == 180
+    assert settings.trading.micro_reentry_cooldown_seconds == 300
     assert settings.market_symbols.exchange == "NSE"
     assert settings.market_symbols.symbols["RELIANCE"].breeze == "RELIND"
     assert settings.market_symbols.symbols["MARUTI"].yahoo == "MARUTI.NS"
@@ -38,6 +39,7 @@ def test_environment_overrides_take_precedence(monkeypatch):
     monkeypatch.setenv("MAX_QUANTITY_PER_ORDER", "250")
     monkeypatch.setenv("MICRO_MIN_CONTINUATION_RELATIVE_VOLUME", "1.7")
     monkeypatch.setenv("MICRO_MAX_CANDLE_AGE_SECONDS", "240")
+    monkeypatch.setenv("MICRO_REENTRY_COOLDOWN_SECONDS", "180")
     monkeypatch.setenv("TRADES_TABLE", "trades-test")
 
     settings = load_settings("prod", include_env=True)
@@ -53,6 +55,7 @@ def test_environment_overrides_take_precedence(monkeypatch):
     assert settings.trading.max_quantity_per_order == 250
     assert settings.trading.micro_min_continuation_relative_volume == 1.7
     assert settings.trading.micro_max_candle_age_seconds == 240
+    assert settings.trading.micro_reentry_cooldown_seconds == 180
     assert settings.dynamodb.trades_table == "trades-test"
 
 

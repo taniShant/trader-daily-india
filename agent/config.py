@@ -68,6 +68,7 @@ class TradingConfig(BaseModel):
     micro_min_continuation_relative_volume: float = Field(default=3.0, gt=0)
     micro_max_candle_age_seconds: int = Field(default=180, gt=0)
     micro_max_symbols_per_cycle: int = Field(default=40, gt=0)
+    micro_reentry_cooldown_seconds: int = Field(default=600, ge=0)
     micro_diagnostic_top_n: int = Field(default=5, ge=0)
     paper_trading: bool = True
 
@@ -231,6 +232,7 @@ def _apply_env_overrides(config: dict) -> dict:
         ),
         "MICRO_MAX_CANDLE_AGE_SECONDS": ("trading", "micro_max_candle_age_seconds", int),
         "MICRO_MAX_SYMBOLS_PER_CYCLE": ("trading", "micro_max_symbols_per_cycle", int),
+        "MICRO_REENTRY_COOLDOWN_SECONDS": ("trading", "micro_reentry_cooldown_seconds", int),
         "MICRO_DIAGNOSTIC_TOP_N": ("trading", "micro_diagnostic_top_n", int),
     }
     for env_name, (section, key, caster) in numeric_env_map.items():
