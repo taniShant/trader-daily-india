@@ -41,6 +41,11 @@ class MicroTradeConfig:
     reentry_cooldown_seconds: int = 600
     loss_throttle_count: int = 2
     loss_throttle_window_minutes: int = 30
+    cost_brokerage_bps: Decimal = Decimal("0")
+    cost_taxes_bps: Decimal = Decimal("0")
+    cost_slippage_bps: Decimal = Decimal("0")
+    min_expected_net_profit: Decimal = Decimal("0")
+    min_target_to_cost_ratio: Decimal = Decimal("0")
 
 
 @dataclass(frozen=True)

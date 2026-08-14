@@ -159,6 +159,8 @@
     "micro_cost_brokerage_bps": 3,
     "micro_cost_taxes_bps": 6,
     "micro_cost_slippage_bps": 5,
+    "micro_min_expected_net_profit": 1000,
+    "micro_min_target_to_cost_ratio": 1.8,
     "position_reconciliation_enabled": true,
     "run_startup_overnight_analysis": false,
     "paper_trading": true

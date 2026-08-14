@@ -109,6 +109,8 @@ MICRO_LOSS_THROTTLE_WINDOW_MINUTES = settings.trading.micro_loss_throttle_window
 MICRO_COST_BROKERAGE_BPS = settings.trading.micro_cost_brokerage_bps
 MICRO_COST_TAXES_BPS = settings.trading.micro_cost_taxes_bps
 MICRO_COST_SLIPPAGE_BPS = settings.trading.micro_cost_slippage_bps
+MICRO_MIN_EXPECTED_NET_PROFIT = settings.trading.micro_min_expected_net_profit
+MICRO_MIN_TARGET_TO_COST_RATIO = settings.trading.micro_min_target_to_cost_ratio
 POSITION_RECONCILIATION_ENABLED = settings.trading.position_reconciliation_enabled
 RUN_STARTUP_OVERNIGHT_ANALYSIS = settings.trading.run_startup_overnight_analysis
 
@@ -647,6 +649,12 @@ class TradingBot:
             )
             print(f"Micro Early Exit Enabled: {MICRO_EARLY_EXIT_ENABLED}")
             print(f"Micro Loss Throttle: {MICRO_LOSS_THROTTLE_COUNT} losses / {MICRO_LOSS_THROTTLE_WINDOW_MINUTES} minutes")
+            print(
+                "Micro Entry Economics: "
+                f"min_net=₹{MICRO_MIN_EXPECTED_NET_PROFIT:.2f}, "
+                f"target_cost_ratio>={MICRO_MIN_TARGET_TO_COST_RATIO:.2f}, "
+                f"cost_bps={MICRO_COST_BROKERAGE_BPS + MICRO_COST_TAXES_BPS + MICRO_COST_SLIPPAGE_BPS:.2f}"
+            )
         print(f"Market Closed Poll: {MARKET_CLOSED_POLL_SECONDS} seconds")
         print(f"Position Reconciliation Enabled: {POSITION_RECONCILIATION_ENABLED}")
         print(f"Analysis Interval: {ANALYSIS_INTERVAL} seconds")
@@ -749,6 +757,11 @@ class TradingBot:
                 opening_range_max_hold_minutes=MICRO_OPENING_RANGE_MAX_HOLD_MINUTES,
                 loss_throttle_count=MICRO_LOSS_THROTTLE_COUNT,
                 loss_throttle_window_minutes=MICRO_LOSS_THROTTLE_WINDOW_MINUTES,
+                cost_brokerage_bps=Decimal(str(MICRO_COST_BROKERAGE_BPS)),
+                cost_taxes_bps=Decimal(str(MICRO_COST_TAXES_BPS)),
+                cost_slippage_bps=Decimal(str(MICRO_COST_SLIPPAGE_BPS)),
+                min_expected_net_profit=Decimal(str(MICRO_MIN_EXPECTED_NET_PROFIT)),
+                min_target_to_cost_ratio=Decimal(str(MICRO_MIN_TARGET_TO_COST_RATIO)),
             ),
         )
 

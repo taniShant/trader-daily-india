@@ -372,6 +372,68 @@ def test_micro_engine_places_paper_order_after_risk_approval():
     assert broker.position_for("MARUTI") > 0
 
 
+def test_micro_engine_rejects_trade_when_expected_net_cannot_clear_costs():
+    class Detector:
+        def detect(self, features):
+            return MicroTradeSetup(
+                symbol="MARUTI",
+                action="BUY",
+                confidence=82,
+                setup="micro_volume_continuation",
+                entry_price=Decimal("110"),
+                stop_loss=Decimal("109.78"),
+                target_price=Decimal("110.44"),
+                reasons=["test setup"],
+                features=features.to_dict(),
+            )
+
+        def to_plan(self, setup, signal_id):
+            return MicroSetupDetector().to_plan(setup, signal_id)
+
+    provider = SimpleNamespace(
+        get_historical_data=lambda symbol, days, interval: {
+            "symbol": symbol,
+            "days": days,
+            "interval": interval,
+            "data": [
+                {"timestamp": _fresh_timestamp(2), "open": 100, "high": 101, "low": 99, "close": 100, "volume": 1000},
+                {"timestamp": _fresh_timestamp(1), "open": 100, "high": 111, "low": 100, "close": 110, "volume": 2500},
+            ],
+        }
+    )
+    broker = PaperBroker()
+    risk_manager = RiskManager(
+        RiskLimits(
+            capital=Decimal("100000"),
+            max_daily_loss_percent=Decimal("4"),
+            max_position_size_percent=Decimal("10"),
+            min_confidence=70,
+            max_quantity_per_order=50,
+        )
+    )
+    engine = MicroTradingEngine(
+        market_data_provider=provider,
+        broker=broker,
+        risk_manager=risk_manager,
+        config=MicroTradeConfig(
+            enabled=True,
+            max_candle_age_seconds=999999999,
+            cost_brokerage_bps=Decimal("3"),
+            cost_taxes_bps=Decimal("6"),
+            cost_slippage_bps=Decimal("5"),
+            min_expected_net_profit=Decimal("100"),
+            min_target_to_cost_ratio=Decimal("1.8"),
+        ),
+        detector=Detector(),
+    )
+
+    attempt = engine.scan_once(["MARUTI"], risk_state=RiskState(new_trades_allowed=True))[0]
+
+    assert attempt.executed is False
+    assert attempt.skipped_reason.startswith("entry_economics_rejected:")
+    assert broker.position_for("MARUTI") == 0
+
+
 def test_micro_engine_skips_duplicate_same_direction_position():
     class Detector:
         def detect(self, features):

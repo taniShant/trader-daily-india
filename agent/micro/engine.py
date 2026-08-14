@@ -131,6 +131,16 @@ class MicroTradingEngine:
                 skipped_reason="; ".join(risk_decision.reasons),
             )
 
+        economics_skip = self._entry_economics_skip_reason(plan, risk_decision)
+        if economics_skip:
+            return MicroTradeAttempt(
+                symbol=symbol,
+                setup=setup,
+                signal=signal,
+                risk_decision=risk_decision,
+                skipped_reason=economics_skip,
+            )
+
         live_stop_skip = self._live_stop_skip_reason(plan)
         if live_stop_skip:
             return MicroTradeAttempt(
@@ -254,6 +264,49 @@ class MicroTradingEngine:
             order_status=order_status,
             skipped_reason=f"opposite_signal_exit:{plan.symbol}:{current_position}",
         )
+
+    def _entry_economics_skip_reason(
+        self,
+        plan: MicroTradePlan,
+        decision: RiskDecision,
+    ) -> str | None:
+        quantity = Decimal(decision.approved_quantity)
+        if quantity <= 0:
+            return "entry_economics_rejected:zero_quantity"
+
+        expected_gross = abs(plan.target_price - plan.entry_price) * quantity
+        total_bps = (
+            self.config.cost_brokerage_bps
+            + self.config.cost_taxes_bps
+            + self.config.cost_slippage_bps
+        )
+        estimated_costs = (
+            (plan.entry_price + plan.target_price)
+            * quantity
+            * total_bps
+            / Decimal("10000")
+        )
+        expected_net = expected_gross - estimated_costs
+
+        ratio = Decimal("999999") if estimated_costs == 0 else expected_gross / estimated_costs
+        min_net = self.config.min_expected_net_profit
+        min_ratio = self.config.min_target_to_cost_ratio
+
+        if expected_net < min_net:
+            return (
+                "entry_economics_rejected:"
+                f"expected_net={expected_net:.2f}<min={min_net:.2f};"
+                f"gross={expected_gross:.2f};costs={estimated_costs:.2f};"
+                f"ratio={ratio:.2f}"
+            )
+        if min_ratio > 0 and ratio < min_ratio:
+            return (
+                "entry_economics_rejected:"
+                f"target_cost_ratio={ratio:.2f}<min={min_ratio:.2f};"
+                f"gross={expected_gross:.2f};costs={estimated_costs:.2f};"
+                f"expected_net={expected_net:.2f}"
+            )
+        return None
 
     def _cooldown_skip_reason(self, symbol: str) -> str | None:
         if self.config.reentry_cooldown_seconds <= 0:

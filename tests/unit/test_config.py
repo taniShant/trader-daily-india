@@ -32,6 +32,8 @@ def test_loads_prod_json_oracle_values_without_env_overrides(monkeypatch):
     assert settings.trading.micro_loss_throttle_count == 2
     assert settings.trading.micro_loss_throttle_window_minutes == 30
     assert settings.trading.micro_cost_slippage_bps == 5
+    assert settings.trading.micro_min_expected_net_profit == 1000
+    assert settings.trading.micro_min_target_to_cost_ratio == 1.8
     assert settings.trading.position_reconciliation_enabled is True
     assert settings.trading.run_startup_overnight_analysis is False
     assert settings.market_symbols.exchange == "NSE"
@@ -62,6 +64,8 @@ def test_environment_overrides_take_precedence(monkeypatch):
     monkeypatch.setenv("MICRO_LOSS_THROTTLE_COUNT", "3")
     monkeypatch.setenv("MICRO_LOSS_THROTTLE_WINDOW_MINUTES", "45")
     monkeypatch.setenv("MICRO_COST_SLIPPAGE_BPS", "8")
+    monkeypatch.setenv("MICRO_MIN_EXPECTED_NET_PROFIT", "750")
+    monkeypatch.setenv("MICRO_MIN_TARGET_TO_COST_RATIO", "2.2")
     monkeypatch.setenv("POSITION_RECONCILIATION_ENABLED", "false")
     monkeypatch.setenv("RUN_STARTUP_OVERNIGHT_ANALYSIS", "true")
     monkeypatch.setenv("TRADES_TABLE", "trades-test")
@@ -90,6 +94,8 @@ def test_environment_overrides_take_precedence(monkeypatch):
     assert settings.trading.micro_loss_throttle_count == 3
     assert settings.trading.micro_loss_throttle_window_minutes == 45
     assert settings.trading.micro_cost_slippage_bps == 8
+    assert settings.trading.micro_min_expected_net_profit == 750
+    assert settings.trading.micro_min_target_to_cost_ratio == 2.2
     assert settings.trading.position_reconciliation_enabled is False
     assert settings.trading.run_startup_overnight_analysis is True
     assert settings.dynamodb.trades_table == "trades-test"
