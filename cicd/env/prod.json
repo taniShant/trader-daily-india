@@ -11,7 +11,7 @@
   },
   "github": {
     "repository": "taniShant/trader-daily-india",
-    "deploy_branch": "multiaws-parallelise",
+    "deploy_branch": "multiaws-parallelise-prodhardening",
     "deploy_role_name": "trd-prod-github-deploy-role",
     "oidc_provider_arn": ""
   },
