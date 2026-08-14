@@ -12,6 +12,7 @@ Implemented on 2026-08-14, pending ECS redeploy and live paper-log verification:
 - Micro position exits now have a separate monitor loop controlled by `micro_exit_check_interval_seconds`, currently 30 seconds.
 - Startup position reconciliation now closes stale paper-position snapshots and blocks live entries if open positions exist but live broker reconciliation cannot be proven.
 - Normal market-service startup now skips overnight analysis by default with `run_startup_overnight_analysis=false`, because the ICICI Breeze session key must be refreshed manually each day before ECS is started.
+- Micro entry scans now use fixed-rate scheduling from cycle start. A 90-second scan interval with a 25-second scan sleeps about 65 seconds instead of 90 seconds.
 
 ## High Priority Findings
 
@@ -44,8 +45,8 @@ Implemented on 2026-08-14, pending ECS redeploy and live paper-log verification:
 3. The 5-minute same-stock cooldown is reasonable for now.
    `micro_reentry_cooldown_seconds=300` should reduce duplicate churn while still allowing second-wave entries. It should be reviewed against paper evidence, not guessed.
 
-4. Configured scan interval is not true start-to-start cadence.
-   The current runtime behaves like `scan duration + sleep`. A configured `micro_scan_interval_seconds=90` can become a roughly 115-120 second start-to-start loop if the scan itself takes 25-30 seconds.
+4. Configured scan interval is now fixed-rate from cycle start.
+   The previous runtime behaved like `scan duration + sleep`. It now subtracts scan duration from the configured interval and logs cycle duration, next sleep, or overrun.
 
 5. Continuation volatility logging can be confusing.
    The detector can log normal volatility failure while still allowing a continuation setup under the lower continuation ATR threshold. This is not necessarily a bad trade decision, but the reason codes need to distinguish normal setup rejection from continuation setup acceptance.
@@ -90,10 +91,9 @@ This proves the paper execution path is active, but it does not yet prove durabl
 3. Verify startup position reconciliation closes stale paper snapshots and blocks unsafe live reconciliation.
 4. Verify manual market-service startup logs show overnight analysis skipped.
 5. Harden Oracle/Breeze collector retry, timeout, and stale-data handling.
-6. Make scan scheduling fixed-rate and log cycle lag.
-7. Clarify continuation setup reason codes and thresholds.
-8. Review 5-minute cooldown using paper evidence.
-9. Add richer per-trade telemetry for expected R, realized R, entry reason, exit reason, and data quality.
+6. Clarify continuation setup reason codes and thresholds.
+7. Review 5-minute cooldown using paper evidence.
+8. Add richer per-trade telemetry for expected R, realized R, entry reason, exit reason, and data quality.
 
 ## Live Trading Decision
 

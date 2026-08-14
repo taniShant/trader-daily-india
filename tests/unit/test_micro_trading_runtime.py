@@ -143,6 +143,48 @@ def test_startup_overnight_analysis_can_be_enabled(monkeypatch):
     assert bot.events[:2] == ["overnight", "monitor_thread"]
 
 
+def test_micro_cycle_sleep_uses_cycle_start_not_scan_finish(monkeypatch):
+    bot = _bot_stub()
+    monkeypatch.setattr(main_module, "MICRO_SCAN_INTERVAL_SECONDS", 90)
+
+    assert bot._micro_cycle_sleep_seconds(100.0, now=125.0) == 65.0
+
+
+def test_micro_cycle_sleep_returns_zero_when_scan_overruns(monkeypatch):
+    bot = _bot_stub()
+    monkeypatch.setattr(main_module, "MICRO_SCAN_INTERVAL_SECONDS", 90)
+
+    assert bot._micro_cycle_sleep_seconds(100.0, now=205.0) == 0.0
+
+
+def test_micro_run_loop_sleeps_remaining_interval_from_cycle_start(monkeypatch):
+    bot = _bot_stub()
+    bot.paper_trading = True
+    bot.running = True
+    bot.cycle_count = 0
+    bot._is_market_hours = lambda: True
+    bot._record_heartbeat = lambda status: bot.events.append(f"heartbeat:{status}")
+    bot._run_overnight_analysis = lambda: bot.events.append("overnight")
+    bot._start_position_monitor_thread = lambda: bot.events.append("monitor_thread")
+    sleeps = []
+    monotonic_values = iter([100.0, 125.0])
+
+    def cycle_once():
+        bot.events.append("cycle")
+        bot.running = False
+
+    bot._run_micro_market_cycle = cycle_once
+    monkeypatch.setattr(main_module, "RUN_STARTUP_OVERNIGHT_ANALYSIS", False)
+    monkeypatch.setattr(main_module, "MICRO_SCAN_INTERVAL_SECONDS", 90)
+    monkeypatch.setattr(main_module.time, "monotonic", lambda: next(monotonic_values))
+    monkeypatch.setattr(main_module.time, "sleep", sleeps.append)
+
+    bot.run()
+
+    assert sleeps == [65.0]
+    assert "cycle" in bot.events
+
+
 def test_micro_diagnostics_prints_nearest_hold_setups(capsys):
     bot = _bot_stub()
 

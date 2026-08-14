@@ -740,6 +740,29 @@ class TradingBot:
                 self._record_heartbeat("position_monitor_error")
             time.sleep(MICRO_EXIT_CHECK_INTERVAL_SECONDS)
 
+    def _micro_cycle_sleep_seconds(self, cycle_started_at: float, *, now: float | None = None) -> float:
+        current_time = time.monotonic() if now is None else now
+        elapsed = max(0.0, current_time - cycle_started_at)
+        return max(0.0, float(MICRO_SCAN_INTERVAL_SECONDS) - elapsed)
+
+    def _sleep_until_next_micro_cycle(self, cycle_started_at: float) -> None:
+        now = time.monotonic()
+        elapsed = max(0.0, now - cycle_started_at)
+        sleep_seconds = self._micro_cycle_sleep_seconds(cycle_started_at, now=now)
+        overrun_seconds = max(0.0, elapsed - float(MICRO_SCAN_INTERVAL_SECONDS))
+        if overrun_seconds:
+            print(
+                "⚡ Micro cycle duration: "
+                f"{elapsed:.1f}s, overrun={overrun_seconds:.1f}s, next scan immediately"
+            )
+        else:
+            print(
+                "⚡ Micro cycle duration: "
+                f"{elapsed:.1f}s, next scan in {sleep_seconds:.1f}s"
+            )
+        if sleep_seconds:
+            time.sleep(sleep_seconds)
+
     def _reconcile_positions_on_startup(self) -> None:
         if not POSITION_RECONCILIATION_ENABLED:
             print("⚖️ Startup position reconciliation disabled by config")
@@ -1784,10 +1807,11 @@ class TradingBot:
                 if self._is_market_hours():
                     self.cycle_count += 1
                     if self.micro_engine:
+                        cycle_started_at = time.monotonic()
                         self._record_heartbeat("micro_cycle_start")
                         self._run_micro_market_cycle()
                         self._record_heartbeat("micro_cycle_complete")
-                        time.sleep(MICRO_SCAN_INTERVAL_SECONDS)
+                        self._sleep_until_next_micro_cycle(cycle_started_at)
                     else:
                         self._record_heartbeat("market_cycle_start")
                         self._run_market_hours_cycle()
