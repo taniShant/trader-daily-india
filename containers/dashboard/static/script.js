@@ -81,8 +81,9 @@ function renderStatusDetails(data) {
         <dt>Cycle</dt><dd>${heartbeat.cycle ?? '-'}</dd>
     `;
     document.getElementById('riskDetails').innerHTML = `
-        <dt>Today P&L</dt><dd>₹${Number(risk.today_pnl || 0).toFixed(2)}</dd>
+        <dt>Today profit</dt><dd>₹${Number(risk.today_profit || 0).toFixed(2)}</dd>
         <dt>Today loss</dt><dd>₹${Number(risk.today_loss || 0).toFixed(2)}</dd>
+        <dt>Today P&L</dt><dd>₹${Number(risk.today_pnl || 0).toFixed(2)}</dd>
         <dt>Daily loss limit</dt><dd>${risk.daily_loss_limit || '-'}%</dd>
         <dt>Trades</dt><dd>${risk.trade_count || 0}</dd>
     `;

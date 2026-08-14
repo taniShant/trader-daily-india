@@ -22,6 +22,16 @@ class FakeStore(dashboard.DashboardStore):
                     "price": Decimal("2800"),
                     "quantity": 2,
                     "pnl": Decimal("100"),
+                },
+                {
+                    "tradeId": "trade-2",
+                    "timestamp": NOW,
+                    "date": "2026-07-06",
+                    "stock_symbol": "INFY",
+                    "action": "SELL",
+                    "price": Decimal("1500"),
+                    "quantity": 1,
+                    "pnl": Decimal("-25"),
                 }
             ],
             dashboard.MARKET_STATE_TABLE_NAME: [
@@ -163,10 +173,12 @@ def test_dashboard_status_shows_heartbeat_risk_pnl_and_open_positions():
     body = response.json()
     assert body["status"] == "market_cycle_complete"
     assert body["mode"] == "paper"
-    assert body["today_pnl"] == 100.0
+    assert body["today_pnl"] == 75.0
     assert body["active_positions"] == 1
     assert body["open_positions"][0]["symbol"] == "RELIANCE"
-    assert body["risk_usage"]["trade_count"] == 1
+    assert body["risk_usage"]["today_profit"] == 100.0
+    assert body["risk_usage"]["today_loss"] == 25.0
+    assert body["risk_usage"]["trade_count"] == 2
 
 
 def test_dashboard_signals_include_skipped_trade_reasons():

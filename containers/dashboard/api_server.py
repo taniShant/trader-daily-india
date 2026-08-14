@@ -525,8 +525,10 @@ def _recent_items(
 
 
 def _risk_usage(trades: list[dict[str, Any]], today_pnl: Decimal) -> dict[str, Any]:
+    winning_pnl = sum((_decimal(item.get("pnl")) for item in trades if _decimal(item.get("pnl")) > 0), Decimal("0"))
     losing_pnl = abs(sum((_decimal(item.get("pnl")) for item in trades if _decimal(item.get("pnl")) < 0), Decimal("0")))
     return {
+        "today_profit": winning_pnl,
         "today_loss": losing_pnl,
         "today_pnl": today_pnl,
         "daily_loss_limit": os.environ.get("MAX_DAILY_LOSS_PERCENT", "4"),
