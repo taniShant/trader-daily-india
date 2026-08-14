@@ -9,6 +9,7 @@ import json
 import time
 import signal
 import sys
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, time as dt_time, timezone
 from decimal import Decimal
@@ -71,6 +72,7 @@ MARKET_STATE_TABLE = settings.dynamodb.market_state_table
 PAPER_TRADING = settings.trading.paper_trading
 CAPITAL = settings.trading.capital
 ANALYSIS_INTERVAL = settings.trading.analysis_interval_seconds
+MARKET_CLOSED_POLL_SECONDS = settings.trading.market_closed_poll_seconds
 MIN_CONFIDENCE = settings.trading.min_confidence_threshold
 MAX_DAILY_LOSS_PERCENT = settings.trading.max_daily_loss_percent
 MAX_POSITION_SIZE_PERCENT = settings.trading.max_position_size_percent
@@ -81,6 +83,7 @@ DEEP_ANALYSIS_SIZE = _read_int_env("DEEP_ANALYSIS_SIZE", WATCHLIST_SIZE)
 ALPHA_SCAN_WORKERS = _read_int_env("ALPHA_SCAN_WORKERS", 8)
 MICRO_TRADING_ENABLED = settings.trading.micro_trading_enabled
 MICRO_SCAN_INTERVAL_SECONDS = settings.trading.micro_scan_interval_seconds
+MICRO_EXIT_CHECK_INTERVAL_SECONDS = settings.trading.micro_exit_check_interval_seconds
 MICRO_MAX_HOLD_MINUTES = settings.trading.micro_max_hold_minutes
 MICRO_MIN_CONFIDENCE = settings.trading.micro_min_confidence
 MICRO_MIN_RELATIVE_VOLUME = settings.trading.micro_min_relative_volume
@@ -89,6 +92,8 @@ MICRO_MAX_CANDLE_AGE_SECONDS = settings.trading.micro_max_candle_age_seconds
 MICRO_MAX_SYMBOLS_PER_CYCLE = settings.trading.micro_max_symbols_per_cycle
 MICRO_REENTRY_COOLDOWN_SECONDS = settings.trading.micro_reentry_cooldown_seconds
 MICRO_DIAGNOSTIC_TOP_N = settings.trading.micro_diagnostic_top_n
+POSITION_RECONCILIATION_ENABLED = settings.trading.position_reconciliation_enabled
+RUN_STARTUP_OVERNIGHT_ANALYSIS = settings.trading.run_startup_overnight_analysis
 
 # Oracle static IP (for reference/logging)
 ORACLE_STATIC_IP = settings.oracle.static_ip
@@ -514,6 +519,9 @@ class TradingBot:
         from .learning.confidence_adjuster import ConfidenceAdjuster
 
         self.active_positions = {}
+        self._position_lock = threading.RLock()
+        self._position_monitor_thread = None
+        self._entry_block_reason = None
         self.daily_pnl = 0.0
         self.consecutive_losses = 0
         self.capital = CAPITAL
@@ -553,6 +561,7 @@ class TradingBot:
         self._setup_signal_handlers()
         self._update_watchlist()
         self._print_config()
+        self._reconcile_positions_on_startup()
         self._record_heartbeat("started")
     
     def _setup_signal_handlers(self):
@@ -585,12 +594,15 @@ class TradingBot:
         print(f"Micro Trading Enabled: {self.micro_trading_enabled}")
         if self.micro_trading_enabled:
             print(f"Micro Scan Interval: {MICRO_SCAN_INTERVAL_SECONDS} seconds")
+            print(f"Micro Exit Check Interval: {MICRO_EXIT_CHECK_INTERVAL_SECONDS} seconds")
             print(f"Micro Max Hold: {MICRO_MAX_HOLD_MINUTES} minutes")
             print(f"Micro Min Confidence: {MICRO_MIN_CONFIDENCE}%")
             print(f"Micro Min Relative Volume: {MICRO_MIN_RELATIVE_VOLUME:.2f}x")
             print(f"Micro Continuation Min Relative Volume: {MICRO_MIN_CONTINUATION_RELATIVE_VOLUME:.2f}x")
             print(f"Micro Max Candle Age: {MICRO_MAX_CANDLE_AGE_SECONDS} seconds")
             print(f"Micro Symbols Per Cycle: {MICRO_MAX_SYMBOLS_PER_CYCLE}")
+        print(f"Market Closed Poll: {MARKET_CLOSED_POLL_SECONDS} seconds")
+        print(f"Position Reconciliation Enabled: {POSITION_RECONCILIATION_ENABLED}")
         print(f"Analysis Interval: {ANALYSIS_INTERVAL} seconds")
         print(f"Bedrock Fast Model: {FAST_MODEL_ID}")
         print(f"Bedrock Reasoning Model: {REASONING_MODEL_ID}")
@@ -625,6 +637,9 @@ class TradingBot:
 
     def _is_new_trade_allowed(self) -> bool:
         """Check if fresh entries are allowed before the new-trade cutoff."""
+        if self._entry_block_reason:
+            print(f"⛔ New entries blocked: {self._entry_block_reason}")
+            return False
         return self.market_clock.is_new_trade_allowed()
     
     def _should_square_off(self) -> bool:
@@ -689,6 +704,152 @@ class TradingBot:
         if getattr(self, "_audit_repositories", None) is None:
             self._audit_repositories = trading_audit_repositories()
         return self._audit_repositories
+
+    def _get_position_lock(self):
+        if not hasattr(self, "_position_lock"):
+            self._position_lock = threading.RLock()
+        return self._position_lock
+
+    def _outside_market_sleep_seconds(self) -> int:
+        seconds_to_open = self.market_clock.seconds_until_next_open()
+        if seconds_to_open <= 0:
+            return min(MARKET_CLOSED_POLL_SECONDS, 60)
+        return max(1, min(MARKET_CLOSED_POLL_SECONDS, seconds_to_open))
+
+    def _start_position_monitor_thread(self) -> None:
+        if not self.micro_engine:
+            return
+        if self._position_monitor_thread and self._position_monitor_thread.is_alive():
+            return
+
+        self._position_monitor_thread = threading.Thread(
+            target=self._position_monitor_loop,
+            name="position-monitor",
+            daemon=True,
+        )
+        self._position_monitor_thread.start()
+        print(f"⚡ Position exit monitor running every {MICRO_EXIT_CHECK_INTERVAL_SECONDS} seconds")
+
+    def _position_monitor_loop(self) -> None:
+        while self.running:
+            try:
+                if self.active_positions and (self._is_market_hours() or self._should_square_off()):
+                    self._monitor_positions()
+            except Exception as e:
+                print(f"   ⚠️ Position monitor loop error: {e}")
+                self._record_heartbeat("position_monitor_error")
+            time.sleep(MICRO_EXIT_CHECK_INTERVAL_SECONDS)
+
+    def _reconcile_positions_on_startup(self) -> None:
+        if not POSITION_RECONCILIATION_ENABLED:
+            print("⚖️ Startup position reconciliation disabled by config")
+            return
+
+        try:
+            open_rows = self._get_audit_repositories().positions.list_open()
+        except Exception as e:
+            print(f"⚠️ Startup position reconciliation failed: {e}")
+            if not self.paper_trading:
+                self._entry_block_reason = "startup_position_reconciliation_failed"
+            return
+
+        if not open_rows:
+            print("⚖️ Startup position reconciliation: no open DynamoDB positions")
+            return
+
+        if self.paper_trading:
+            closed = 0
+            for row in open_rows:
+                if self._close_stale_paper_position_snapshot(row):
+                    closed += 1
+            print(
+                "⚖️ Startup position reconciliation: "
+                f"closed {closed}/{len(open_rows)} stale paper position snapshots"
+            )
+            return
+
+        list_positions = getattr(self.broker, "list_positions", None)
+        if not callable(list_positions):
+            self._entry_block_reason = "live_position_reconciliation_unavailable"
+            print(
+                "⛔ Startup position reconciliation found open DynamoDB positions, "
+                "but live broker position listing is unavailable. New entries are blocked."
+            )
+            return
+
+        try:
+            broker_positions = list_positions()
+        except Exception as e:
+            self._entry_block_reason = "live_position_reconciliation_failed"
+            print(f"⛔ Live broker position reconciliation failed: {e}")
+            return
+
+        from .execution.reconciliation import reconcile_positions
+
+        ledger_positions = {
+            str(row.get("symbol", "")).upper(): {"quantity": int(row.get("quantity", 0))}
+            for row in open_rows
+            if row.get("symbol")
+        }
+        issues = reconcile_positions(ledger_positions, broker_positions)
+        if issues:
+            self._entry_block_reason = "live_position_reconciliation_mismatch"
+            print(f"⛔ Live position reconciliation mismatch: {issues}")
+            return
+
+        with self._get_position_lock():
+            self.active_positions = {
+                str(row["symbol"]).upper(): self._active_position_from_snapshot(row)
+                for row in open_rows
+                if row.get("symbol")
+            }
+        print(f"⚖️ Startup position reconciliation restored {len(self.active_positions)} live positions")
+
+    def _close_stale_paper_position_snapshot(self, row: dict[str, Any]) -> bool:
+        symbol = str(row.get("symbol") or "").upper()
+        if not symbol:
+            return False
+
+        try:
+            now = datetime.now(timezone.utc)
+            average_price = Decimal(str(row.get("average_price", row.get("last_price", "0"))))
+            last_price = Decimal(str(row.get("last_price", average_price)))
+            quantity = int(row.get("quantity", 0))
+            side = str(row.get("side") or ("LONG" if quantity > 0 else "SHORT")).upper()
+            self._get_audit_repositories().positions.put_snapshot(
+                PositionSnapshot(
+                    symbol=symbol,
+                    session_id=str(row.get("session_id") or self.current_session_id),
+                    quantity=0,
+                    average_price=average_price,
+                    last_price=last_price,
+                    unrealized_pnl=Decimal("0"),
+                    updated_at=now,
+                    side=side,
+                    status="CLOSED",
+                )
+            )
+            return True
+        except Exception as e:
+            print(f"   ⚠️ Failed to close stale paper position snapshot for {symbol}: {e}")
+            return False
+
+    def _active_position_from_snapshot(self, row: dict[str, Any]) -> dict[str, Any]:
+        quantity = int(row.get("quantity", 0))
+        side = str(row.get("side") or ("LONG" if quantity > 0 else "SHORT")).upper()
+        entry_price = row.get("average_price", row.get("last_price"))
+        return {
+            "quantity": quantity,
+            "entry_price": entry_price,
+            "stop_loss": row.get("stop_loss"),
+            "target": row.get("target"),
+            "side": "BUY" if side == "LONG" else "SELL",
+            "order_id": row.get("order_id", f"restored-{row.get('symbol')}"),
+            "signal_id": row.get("signal_id", f"restored-{row.get('symbol')}"),
+            "status": "RESTORED",
+            "opened_at": row.get("updated_at") or datetime.now(timezone.utc).isoformat(),
+            "timeout_minutes": MICRO_MAX_HOLD_MINUTES if self.micro_engine else 30,
+        }
 
     def _record_heartbeat(self, status: str) -> None:
         try:
@@ -1058,18 +1219,19 @@ class TradingBot:
                     quantity=quantity,
                 )
                 print(f"   ✅ Order status: {status}")
-                self.active_positions[signal.stock_symbol] = {
-                    "quantity": quantity,
-                    "entry_price": signal.entry_price,
-                    "stop_loss": signal.stop_loss,
-                    "target": signal.target_price,
-                    "side": risk_decision.side,
-                    "order_id": order_request.client_order_id,
-                    "signal_id": contract_signal.signal_id,
-                    "status": status,
-                    "opened_at": datetime.utcnow().isoformat(),
-                    "timeout_minutes": contract_signal.holding_window_minutes or 30,
-                }
+                with self._get_position_lock():
+                    self.active_positions[signal.stock_symbol] = {
+                        "quantity": quantity,
+                        "entry_price": signal.entry_price,
+                        "stop_loss": signal.stop_loss,
+                        "target": signal.target_price,
+                        "side": risk_decision.side,
+                        "order_id": order_request.client_order_id,
+                        "signal_id": contract_signal.signal_id,
+                        "status": status,
+                        "opened_at": datetime.utcnow().isoformat(),
+                        "timeout_minutes": contract_signal.holding_window_minutes or 30,
+                    }
                 save_trade_signal(signal)
             else:
                 log_event(
@@ -1099,7 +1261,10 @@ class TradingBot:
 
         from .tools.market_data import get_live_quote
 
-        for symbol, position in list(self.active_positions.items()):
+        with self._get_position_lock():
+            positions = list(self.active_positions.items())
+
+        for symbol, position in positions:
             quote = get_live_quote(symbol)
             if quote.get("error"):
                 print(f"   ⚠️ Cannot monitor {symbol}: {quote.get('error')}")
@@ -1123,7 +1288,8 @@ class TradingBot:
                     exit_price = Decimal(str(quote["ltp"]))
                     self._record_position_exit(symbol, position, exit_price, status, decision.reason)
                     print(f"   ✅ Position square-off triggered for {symbol}: {decision.reason}")
-                    self.active_positions.pop(symbol, None)
+                    with self._get_position_lock():
+                        self.active_positions.pop(symbol, None)
                 else:
                     print(f"   ❌ Position square-off failed for {symbol}: {status}")
 
@@ -1142,10 +1308,13 @@ class TradingBot:
             return
         
         print("\n🔒 Squaring off all positions...")
-        results = square_off_positions(self.broker, self.active_positions)
+        with self._get_position_lock():
+            positions = dict(self.active_positions)
+
+        results = square_off_positions(self.broker, positions)
         for result in results:
             symbol = result.symbol
-            position = self.active_positions.get(symbol, {})
+            position = positions.get(symbol, {})
             try:
                 if result.success:
                     exit_price = self._position_exit_price(position)
@@ -1177,7 +1346,8 @@ class TradingBot:
                 )
                 print(f"   ❌ Error squaring off {symbol}: {e}")
         
-        self.active_positions.clear()
+        with self._get_position_lock():
+            self.active_positions.clear()
 
     def _record_position_exit(
         self,
@@ -1359,7 +1529,6 @@ class TradingBot:
             return
 
         self._run_micro_trading_cycle()
-        self._monitor_positions()
 
     def _run_micro_trading_cycle(self) -> None:
         if not self.micro_engine:
@@ -1493,18 +1662,19 @@ class TradingBot:
             return
 
         signed_quantity = order.quantity if order.side.value == "BUY" else -order.quantity
-        self.active_positions[order.symbol] = {
-            "quantity": signed_quantity,
-            "entry_price": float(fill_price),
-            "stop_loss": float(order.stop_loss) if order.stop_loss is not None else None,
-            "target": float(order.target_price) if order.target_price is not None else None,
-            "side": order.side,
-            "order_id": order.client_order_id,
-            "signal_id": order.signal_id,
-            "status": attempt.order_status,
-            "opened_at": datetime.now(timezone.utc).isoformat(),
-            "timeout_minutes": attempt.signal.holding_window_minutes if attempt.signal else MICRO_MAX_HOLD_MINUTES,
-        }
+        with self._get_position_lock():
+            self.active_positions[order.symbol] = {
+                "quantity": signed_quantity,
+                "entry_price": float(fill_price),
+                "stop_loss": float(order.stop_loss) if order.stop_loss is not None else None,
+                "target": float(order.target_price) if order.target_price is not None else None,
+                "side": order.side,
+                "order_id": order.client_order_id,
+                "signal_id": order.signal_id,
+                "status": attempt.order_status,
+                "opened_at": datetime.now(timezone.utc).isoformat(),
+                "timeout_minutes": attempt.signal.holding_window_minutes if attempt.signal else MICRO_MAX_HOLD_MINUTES,
+            }
 
         snapshot = PositionSnapshot(
             symbol=order.symbol,
@@ -1599,10 +1769,15 @@ class TradingBot:
         print(f"⏱️  Analysis interval: {ANALYSIS_INTERVAL} seconds")
         if self.micro_engine:
             print(f"⚡ Micro scan interval: {MICRO_SCAN_INTERVAL_SECONDS} seconds")
+            print(f"⚡ Micro exit check interval: {MICRO_EXIT_CHECK_INTERVAL_SECONDS} seconds")
         print(f"📝 Paper Trading Mode: {self.paper_trading}")
         
-        # Run overnight analysis first
-        self._run_overnight_analysis()
+        if RUN_STARTUP_OVERNIGHT_ANALYSIS:
+            print("🌙 Startup overnight analysis enabled; running before market loop")
+            self._run_overnight_analysis()
+        else:
+            print("🌙 Startup overnight analysis skipped for market-service startup")
+        self._start_position_monitor_thread()
         
         while self.running:
             try:
@@ -1620,7 +1795,9 @@ class TradingBot:
                         time.sleep(ANALYSIS_INTERVAL)
                 else:
                     self._record_heartbeat("waiting_for_market")
-                    time.sleep(3600)  # Check every hour outside market hours
+                    sleep_seconds = self._outside_market_sleep_seconds()
+                    print(f"⏳ Market closed; checking again in {sleep_seconds} seconds")
+                    time.sleep(sleep_seconds)
             except KeyboardInterrupt:
                 print("\n🛑 Bot stopped by user")
                 self._square_off_all()

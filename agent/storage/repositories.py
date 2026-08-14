@@ -189,6 +189,22 @@ class PositionsRepository:
     def put_snapshot(self, snapshot: PositionSnapshot) -> None:
         self.table.put_item(Item=snapshot.to_item())
 
+    def list_open(self) -> list[dict[str, Any]]:
+        items: list[dict[str, Any]] = []
+        scan_kwargs: dict[str, Any] = {}
+        while True:
+            response = self.table.scan(**scan_kwargs)
+            items.extend(
+                item for item in response.get("Items", [])
+                if str(item.get("status", "OPEN")).upper() == "OPEN"
+                and int(item.get("quantity", 0)) != 0
+            )
+            last_key = response.get("LastEvaluatedKey")
+            if not last_key:
+                break
+            scan_kwargs["ExclusiveStartKey"] = last_key
+        return items
+
 
 class PnlRepository:
     def __init__(self, table):

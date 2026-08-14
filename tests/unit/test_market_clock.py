@@ -57,3 +57,10 @@ def test_naive_datetimes_are_treated_as_utc():
     naive_utc = datetime(2026, 7, 6, 3, 45)
 
     assert clock.is_market_open(naive_utc) is True
+
+
+def test_seconds_until_next_open_handles_pre_open_and_after_close():
+    clock = MarketClock()
+
+    assert clock.seconds_until_next_open(utc_at(2026, 7, 6, 3, 44)) == 60
+    assert clock.seconds_until_next_open(utc_at(2026, 7, 6, 10, 1)) > 0

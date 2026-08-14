@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime, time, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 
@@ -55,3 +55,16 @@ class MarketClock:
             return False
         now_ist = self.to_ist(moment)
         return self.session.square_off_time <= now_ist.time() <= self.session.close_time
+
+    def seconds_until_next_open(self, moment: datetime | None = None) -> int:
+        now_ist = self.to_ist(moment)
+        candidate_day = now_ist.date()
+        if self.is_market_day(now_ist) and now_ist.time() < self.session.open_time:
+            next_open = datetime.combine(candidate_day, self.session.open_time, tzinfo=IST)
+        else:
+            next_day = candidate_day + timedelta(days=1)
+            while not self.is_market_day(datetime.combine(next_day, self.session.open_time, tzinfo=IST)):
+                next_day += timedelta(days=1)
+            next_open = datetime.combine(next_day, self.session.open_time, tzinfo=IST)
+
+        return max(0, int((next_open - now_ist).total_seconds()))

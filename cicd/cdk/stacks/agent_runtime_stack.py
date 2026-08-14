@@ -72,6 +72,7 @@ class TradingAgentRuntimeStack(Stack):
         paper_trading = trading_config.get("paper_trading", True)
         capital = trading_config.get("capital", 100000)
         analysis_interval = trading_config.get("analysis_interval_seconds", 180)
+        market_closed_poll_seconds = trading_config.get("market_closed_poll_seconds", 60)
         min_confidence = trading_config.get("min_confidence_threshold", 70)
         max_daily_loss_percent = trading_config.get("max_daily_loss_percent", 4)
         max_position_size_percent = trading_config.get("max_position_size_percent", 10)
@@ -82,6 +83,7 @@ class TradingAgentRuntimeStack(Stack):
         alpha_scan_workers = trading_config.get("alpha_scan_workers", 8)
         micro_trading_enabled = trading_config.get("micro_trading_enabled", False)
         micro_scan_interval_seconds = trading_config.get("micro_scan_interval_seconds", 30)
+        micro_exit_check_interval_seconds = trading_config.get("micro_exit_check_interval_seconds", 30)
         micro_max_hold_minutes = trading_config.get("micro_max_hold_minutes", 10)
         micro_min_confidence = trading_config.get("micro_min_confidence", 72)
         micro_min_relative_volume = trading_config.get("micro_min_relative_volume", 1.5)
@@ -91,7 +93,10 @@ class TradingAgentRuntimeStack(Stack):
         )
         micro_max_candle_age_seconds = trading_config.get("micro_max_candle_age_seconds", 180)
         micro_max_symbols_per_cycle = trading_config.get("micro_max_symbols_per_cycle", 40)
+        micro_reentry_cooldown_seconds = trading_config.get("micro_reentry_cooldown_seconds", 600)
         micro_diagnostic_top_n = trading_config.get("micro_diagnostic_top_n", 5)
+        position_reconciliation_enabled = trading_config.get("position_reconciliation_enabled", True)
+        run_startup_overnight_analysis = trading_config.get("run_startup_overnight_analysis", False)
         
         static_ip = oracle_config.get("static_ip", icici_config.get("static_ip"))
         oracle_proxy_base_url = oracle_config.get("execution_proxy_base_url", "")
@@ -110,6 +115,7 @@ class TradingAgentRuntimeStack(Stack):
         print(f"   Paper Trading: {paper_trading}")
         print(f"   Capital: ₹{capital:,.2f}")
         print(f"   Analysis Interval: {analysis_interval} seconds")
+        print(f"   Market Closed Poll: {market_closed_poll_seconds} seconds")
         print(f"   Min Confidence: {min_confidence}%")
         print(f"   Max Daily Loss: {max_daily_loss_percent}%")
         print(f"   Max Position Size: {max_position_size_percent}%")
@@ -119,10 +125,14 @@ class TradingAgentRuntimeStack(Stack):
         print(f"   Deep Analysis Size: {deep_analysis_size}")
         print(f"   Alpha Scan Workers: {alpha_scan_workers}")
         print(f"   Micro Trading Enabled: {micro_trading_enabled}")
+        print(f"   Micro Scan Interval: {micro_scan_interval_seconds} seconds")
+        print(f"   Micro Exit Check Interval: {micro_exit_check_interval_seconds} seconds")
         print(f"   Micro Symbols Per Cycle: {micro_max_symbols_per_cycle}")
         print(f"   Micro Min Relative Volume: {micro_min_relative_volume}")
         print(f"   Micro Continuation Min Relative Volume: {micro_min_continuation_relative_volume}")
         print(f"   Micro Max Candle Age: {micro_max_candle_age_seconds} seconds")
+        print(f"   Position Reconciliation Enabled: {position_reconciliation_enabled}")
+        print(f"   Startup Overnight Analysis: {run_startup_overnight_analysis}")
         print(f"   Oracle Static IP: {static_ip}")
         print(f"   Oracle Execution Proxy: {oracle_proxy_base_url}")
         print(f"   Oracle Collector: {oracle_collector_base_url}")
@@ -178,6 +188,7 @@ class TradingAgentRuntimeStack(Stack):
             "PAPER_TRADING": str(paper_trading),
             "CAPITAL": str(capital),
             "ANALYSIS_INTERVAL_SECONDS": str(analysis_interval),
+            "MARKET_CLOSED_POLL_SECONDS": str(market_closed_poll_seconds),
             "MIN_CONFIDENCE_THRESHOLD": str(min_confidence),
             "MAX_DAILY_LOSS_PERCENT": str(max_daily_loss_percent),
             "MAX_POSITION_SIZE_PERCENT": str(max_position_size_percent),
@@ -188,13 +199,17 @@ class TradingAgentRuntimeStack(Stack):
             "ALPHA_SCAN_WORKERS": str(alpha_scan_workers),
             "MICRO_TRADING_ENABLED": str(micro_trading_enabled),
             "MICRO_SCAN_INTERVAL_SECONDS": str(micro_scan_interval_seconds),
+            "MICRO_EXIT_CHECK_INTERVAL_SECONDS": str(micro_exit_check_interval_seconds),
             "MICRO_MAX_HOLD_MINUTES": str(micro_max_hold_minutes),
             "MICRO_MIN_CONFIDENCE": str(micro_min_confidence),
             "MICRO_MIN_RELATIVE_VOLUME": str(micro_min_relative_volume),
             "MICRO_MIN_CONTINUATION_RELATIVE_VOLUME": str(micro_min_continuation_relative_volume),
             "MICRO_MAX_CANDLE_AGE_SECONDS": str(micro_max_candle_age_seconds),
             "MICRO_MAX_SYMBOLS_PER_CYCLE": str(micro_max_symbols_per_cycle),
+            "MICRO_REENTRY_COOLDOWN_SECONDS": str(micro_reentry_cooldown_seconds),
             "MICRO_DIAGNOSTIC_TOP_N": str(micro_diagnostic_top_n),
+            "POSITION_RECONCILIATION_ENABLED": str(position_reconciliation_enabled),
+            "RUN_STARTUP_OVERNIGHT_ANALYSIS": str(run_startup_overnight_analysis),
             "STATIC_IP": static_ip,
             "ORACLE_STATIC_IP": static_ip,
             "ORACLE_EXECUTION_PROXY_BASE_URL": oracle_proxy_base_url,

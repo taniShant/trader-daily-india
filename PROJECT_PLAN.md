@@ -308,6 +308,22 @@ This phase adds a separate fast lane for 5-10 minute paper/live scalping. The LL
 | P11-WP05 | Wire fast intraday runtime cadence | Implemented | `agent/main.py`, `tests/unit/test_micro_trading_runtime.py` | Local: `python -m pytest tests/unit/test_micro_trading.py tests/unit/test_micro_trading_runtime.py -q` -> passed. User VS Code verification pending. | When micro mode is enabled, the market-hours loop runs deterministic micro cycles at `MICRO_SCAN_INTERVAL_SECONDS`; when disabled, the existing deep analysis cycle remains unchanged. |
 | P11-WP06 | Tune paper micro scanner breadth and diagnostics | Implemented | `agent/main.py`, `cicd/env/prod.json`, `.env.example`, `cicd/cdk/stacks/agent_runtime_stack.py`, `tests/unit/test_micro_trading_runtime.py` | Local: `python -m pytest tests/unit/test_micro_trading.py tests/unit/test_micro_trading_runtime.py -q` and CDK synth passed. User VS Code verification pending. | Paper micro mode scans 40 symbols per cycle, uses a configurable relative-volume gate, and logs top near-miss setups so rule tuning is evidence-driven. |
 
+### Phase 12 - Micro-Trading Production Hardening
+
+This phase captures the operational and strategy issues found during live paper observation. It is required before any real-money switch because the current system can trade, but the exit cadence, startup timing, and state reconciliation still need production hardening.
+
+| Priority | ID | Work Package | Status | Primary Files | Required Tests | Definition Of Done |
+|---|---|---|---|---|---|---|
+| P1 | P12-WP01 | Fix market-open startup sleep | Implemented | `agent/main.py`, `agent/time/market_clock.py`, `agent/config.py`, `cicd/env/prod.json`, `cicd/cdk/stacks/agent_runtime_stack.py`, `tests/unit/test_market_clock.py`, `tests/unit/test_micro_trading_runtime.py` | Local: `python -m pytest tests/unit/test_market_clock.py tests/unit/test_config.py tests/unit/test_micro_trading_runtime.py -q` included in 31-test focused suite; CDK synth passed. User VS Code verification pending. | If ECS starts before 09:15 IST, the bot does not sleep for one hour and miss the open. |
+| P1 | P12-WP02 | Decouple exit monitor from entry scan | Implemented | `agent/main.py`, `agent/config.py`, `cicd/env/prod.json`, `.env.example`, `containers/trading-bot/entrypoint.sh`, `tests/unit/test_micro_trading_runtime.py` | Local: `python -m pytest tests/unit/test_micro_trading_runtime.py tests/unit/test_position_monitor.py -q` included in 31-test focused suite; py_compile passed. User VS Code verification pending. | Open positions can exit on a 30-second monitor loop independent of the full 40-symbol entry scan. |
+| P1 | P12-WP03 | Add position reconciliation and stale-position guard | Implemented | `agent/storage/repositories.py`, `agent/main.py`, `tests/unit/test_repositories.py`, `tests/unit/test_micro_trading_runtime.py` | Local: `python -m pytest tests/unit/test_repositories.py tests/unit/test_micro_trading_runtime.py -q` included in 31-test focused suite; config/CDK/runtime slice passed with 25 tests. User VS Code verification pending. | Stale paper snapshots are closed on startup; live mode blocks new entries if open positions exist and broker reconciliation cannot be proven. |
+| P1 | P12-WP04 | Harden Oracle/Breeze collector reliability | Not started | `agent/data/oracle_client.py`, `oracle/collector/app.py`, `agent/micro/engine.py`, CloudWatch alarms/tests | Tests and paper logs show retry/backoff, timeout handling, per-symbol failure accounting, and no stale-candle trading after collector errors. | Temporary Oracle/Breeze 503, timeout, or empty-OHLCV responses degrade gracefully without false trades or lost exits. |
+| P2 | P12-WP05 | Gate overnight analysis away from market-service startup | Implemented | `agent/main.py`, `agent/config.py`, `containers/trading-bot/entrypoint.sh`, `cicd/env/prod.json`, `cicd/cdk/stacks/agent_runtime_stack.py`, `tests/unit/test_micro_trading_runtime.py`, `tests/unit/test_config.py` | Local: `python -m pytest tests/unit/test_micro_trading_runtime.py tests/unit/test_config.py tests/unit/test_market_clock.py -q` -> 24 passed. User VS Code verification pending. | Manual/ECS service startup skips overnight analysis by default, while `SCHEDULED_ACTION=overnight_analysis` still runs the one-shot overnight job. |
+| P2 | P12-WP06 | Use fixed-rate scan scheduling metrics | Not started | `agent/main.py`, `agent/observability/logging.py`, dashboard status views | Tests/log review prove configured scan interval measures cycle start-to-start, not scan duration plus sleep; logs expose cycle duration and lag. | `micro_scan_interval_seconds=90` means roughly one cycle every 90 seconds, with alertable lag when scans overrun. |
+| P2 | P12-WP07 | Clarify and tune continuation volatility rules | Not started | `agent/micro/setups.py`, `agent/micro/models.py`, `tests/unit/test_micro_trading.py` | Tests cover normal ATR rejection vs continuation ATR acceptance, reason codes, and threshold behavior. | Logs no longer report confusing volatility failures for setups intentionally allowed by continuation rules. |
+| P3 | P12-WP08 | Review re-entry cooldown with paper evidence | Not started | `cicd/env/prod.json`, `agent/config.py`, `agent/micro/engine.py`, paper-trading report | Paper analysis compares 5-minute vs 10-minute same-stock cooldown without increasing duplicate entries. | Cooldown protects against churn without blocking valid second-wave entries. |
+| P3 | P12-WP09 | Add richer trade-quality telemetry | Not started | `agent/main.py`, `agent/micro/engine.py`, `agent/storage/repositories.py`, dashboard trade views | Tests/log review show entry reason, exit reason, expected R, realized R, slippage estimate, candle age, relative volume, ATR ratio, VWAP extension, and data-source health per trade. | Paper P&L can be explained from the exact features that caused each entry and exit. |
+
 ## 8. Testing Strategy
 
 | Test Layer | Purpose | Examples |
@@ -365,7 +381,8 @@ Recommended order:
 11. `P10A`: production market-intelligence hardening before live readiness.
 12. `P10B`: real-news-only production gate before live readiness.
 13. `P11`: micro-trading engine in disabled/paper mode, with deterministic backtests and paper evidence.
-14. `P10`: live readiness review and tiny live pilot only after `P10A`, `P10B`, and P11 micro-trading gates pass for any micro strategy.
+14. `P12`: micro-trading production hardening, especially startup timing, exit cadence, reconciliation, and Oracle reliability.
+15. `P10`: live readiness review and tiny live pilot only after `P10A`, `P10B`, P11, and P12 gates pass for any micro strategy.
 
 ## 11. Stable Progress Tracker
 
@@ -1060,6 +1077,28 @@ Test Result: py_compile passed. Focused P11/alpha/agent regression suite passed 
 Notes / Next Step: User should run the focused pytest command from VS Code. Keep P11 work packages as Implemented until user confirms VS Code verification. Do not enable MICRO_TRADING_ENABLED for live or paper ECS until a dedicated micro backtest/paper run is reviewed.
 ```
 
+```text
+Date: 2026-08-14
+Work Package: P12-WP01 through P12-WP03 - Micro-Trading Production Hardening P1 fixes
+Status: Implemented
+Files Changed: agent/main.py, agent/time/market_clock.py, agent/config.py, agent/storage/repositories.py, cicd/cdk/stacks/agent_runtime_stack.py, cicd/env/prod.json, .env.example, tests/.env.example, containers/trading-bot/entrypoint.sh, tests/unit/test_market_clock.py, tests/unit/test_config.py, tests/unit/test_repositories.py, tests/unit/test_micro_trading_runtime.py, PROJECT_PLAN.md, IMPORTANTFINDINGS.md
+What Changed: Added a short market-closed poll path so ECS startup before market open does not sleep for one hour. Added a configurable 30-second micro exit monitor thread so stop, target, timeout, and square-off checks are no longer owned by the 40-symbol entry scan cycle. Added startup position reconciliation: paper mode closes stale DynamoDB open snapshots from old in-memory paper broker sessions, and live mode blocks fresh entries if DynamoDB shows open positions but broker position reconciliation cannot be proven.
+Test Command: python -m py_compile agent/main.py agent/config.py agent/time/market_clock.py agent/storage/repositories.py cicd/cdk/stacks/agent_runtime_stack.py containers/dashboard/api_server.py oracle/execution-proxy/app.py oracle/collector/app.py; bash -n containers/trading-bot/entrypoint.sh; python -m json.tool cicd/env/prod.json; python -m pytest tests/unit/test_market_clock.py tests/unit/test_config.py tests/unit/test_repositories.py tests/unit/test_micro_trading_runtime.py tests/unit/test_position_monitor.py -q; python -m pytest tests/unit/test_ecs_trading_topology.py tests/unit/test_eventbridge_schedules.py tests/unit/test_cdk_synth_script.py tests/unit/test_config.py tests/unit/test_micro_trading_runtime.py -q; bash scripts/verify_cdk_synth.sh
+Test Result: py_compile passed. Entrypoint shell syntax passed. prod.json validation passed. Focused P12 runtime/storage/config tests passed with 31 tests. Config/CDK/runtime slice passed with 25 tests. Full `make verify` passed with 320 tests and CDK synth. CDK synth shows Market Closed Poll 60 seconds, Micro Exit Check Interval 30 seconds, and Position Reconciliation Enabled true.
+Notes / Next Step: User should run the focused pytest commands from VS Code, then rebuild/push the trading bot image and redeploy AgentRuntimeStack. After deploy, confirm ECS logs show the position exit monitor startup line and no one-hour pre-open sleep.
+```
+
+```text
+Date: 2026-08-14
+Work Package: P12-WP05 - Gate overnight analysis away from market-service startup
+Status: Implemented
+Files Changed: agent/main.py, agent/config.py, cicd/env/prod.json, cicd/cdk/stacks/agent_runtime_stack.py, .env.example, tests/.env.example, containers/trading-bot/entrypoint.sh, tests/unit/test_config.py, tests/unit/test_micro_trading_runtime.py, PROJECT_PLAN.md, IMPORTANTFINDINGS.md
+What Changed: Added RUN_STARTUP_OVERNIGHT_ANALYSIS=false as the default service behavior. This supports the real operating model where the user manually refreshes the daily ICICI Breeze session key and starts ECS around 09:15 IST / 04:45 UK time. Normal service startup now skips overnight analysis and enters market monitoring immediately; explicit EventBridge/manual scheduled action `overnight_analysis` still runs the overnight job.
+Test Command: python -m pytest tests/unit/test_micro_trading_runtime.py tests/unit/test_config.py tests/unit/test_market_clock.py -q
+Test Result: Local focused startup/manual-run tests passed with 24 tests. Full `make verify` passed with 322 tests and CDK synth; synthesized runtime shows `Startup Overnight Analysis: False`.
+Notes / Next Step: After redeploy, ECS startup logs should show `Startup Overnight Analysis: false` and `Startup overnight analysis skipped for market-service startup`.
+```
+
 ## 13. Plan Change Log
 
 Use this section only when the plan itself changes materially.
@@ -1103,5 +1142,12 @@ Approved By: User request in chat.
 Date: 2026-07-30
 Change: Added Phase 11 - Intraday Micro-Trading Engine.
 Reason: Live ECS observation showed the LLM analyst path is too slow for 5-10 minute micro trades; scalping needs a deterministic fast lane with LLMs kept out of the live entry path.
+Approved By: User request in chat.
+```
+
+```text
+Date: 2026-08-14
+Change: Added Phase 12 - Micro-Trading Production Hardening.
+Reason: Paper-trading log review found that the micro engine can trade, but market-open startup timing, exit cadence, position reconciliation, Oracle/Breeze reliability, and trade-quality telemetry must be hardened before real-money use.
 Approved By: User request in chat.
 ```

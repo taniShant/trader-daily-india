@@ -18,10 +18,14 @@ def test_loads_prod_json_oracle_values_without_env_overrides(monkeypatch):
     assert settings.trading.paper_trading is True
     assert settings.trading.capital == 10000000
     assert settings.trading.max_quantity_per_order == 5000
+    assert settings.trading.market_closed_poll_seconds == 60
+    assert settings.trading.micro_exit_check_interval_seconds == 30
     assert settings.trading.micro_min_relative_volume == 1.2
     assert settings.trading.micro_min_continuation_relative_volume == 1.6
     assert settings.trading.micro_max_candle_age_seconds == 180
     assert settings.trading.micro_reentry_cooldown_seconds == 300
+    assert settings.trading.position_reconciliation_enabled is True
+    assert settings.trading.run_startup_overnight_analysis is False
     assert settings.market_symbols.exchange == "NSE"
     assert settings.market_symbols.symbols["RELIANCE"].breeze == "RELIND"
     assert settings.market_symbols.symbols["MARUTI"].yahoo == "MARUTI.NS"
@@ -37,9 +41,13 @@ def test_environment_overrides_take_precedence(monkeypatch):
     monkeypatch.setenv("PAPER_TRADING", "false")
     monkeypatch.setenv("CAPITAL", "250000")
     monkeypatch.setenv("MAX_QUANTITY_PER_ORDER", "250")
+    monkeypatch.setenv("MARKET_CLOSED_POLL_SECONDS", "45")
+    monkeypatch.setenv("MICRO_EXIT_CHECK_INTERVAL_SECONDS", "20")
     monkeypatch.setenv("MICRO_MIN_CONTINUATION_RELATIVE_VOLUME", "1.7")
     monkeypatch.setenv("MICRO_MAX_CANDLE_AGE_SECONDS", "240")
     monkeypatch.setenv("MICRO_REENTRY_COOLDOWN_SECONDS", "180")
+    monkeypatch.setenv("POSITION_RECONCILIATION_ENABLED", "false")
+    monkeypatch.setenv("RUN_STARTUP_OVERNIGHT_ANALYSIS", "true")
     monkeypatch.setenv("TRADES_TABLE", "trades-test")
 
     settings = load_settings("prod", include_env=True)
@@ -53,9 +61,13 @@ def test_environment_overrides_take_precedence(monkeypatch):
     assert settings.trading.paper_trading is False
     assert settings.trading.capital == 250000
     assert settings.trading.max_quantity_per_order == 250
+    assert settings.trading.market_closed_poll_seconds == 45
+    assert settings.trading.micro_exit_check_interval_seconds == 20
     assert settings.trading.micro_min_continuation_relative_volume == 1.7
     assert settings.trading.micro_max_candle_age_seconds == 240
     assert settings.trading.micro_reentry_cooldown_seconds == 180
+    assert settings.trading.position_reconciliation_enabled is False
+    assert settings.trading.run_startup_overnight_analysis is True
     assert settings.dynamodb.trades_table == "trades-test"
 
 

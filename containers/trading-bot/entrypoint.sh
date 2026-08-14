@@ -4,6 +4,9 @@ set -e
 echo "🤖 Trading Bot Container Starting..."
 echo "📅 Market hours: 9:15 AM - 3:30 PM IST"
 echo "⏱️  Analysis interval: ${ANALYSIS_INTERVAL_SECONDS:-180} seconds"
+echo "⏳ Market closed poll: ${MARKET_CLOSED_POLL_SECONDS:-60} seconds"
+echo "⚡ Micro exit check interval: ${MICRO_EXIT_CHECK_INTERVAL_SECONDS:-30} seconds"
+echo "🌙 Startup overnight analysis: ${RUN_STARTUP_OVERNIGHT_ANALYSIS:-false}"
 
 # ============================================================
 # VALIDATE REQUIRED SECRETS
@@ -150,6 +153,10 @@ print(f'AWS Region: {os.environ.get(\"AWS_REGION\", \"eu-west-2\")}')
 print(f'Environment: {os.environ.get(\"ENVIRONMENT\", \"dev\")}')
 print(f'Paper Trading: {os.environ.get(\"PAPER_TRADING\", \"true\")}')
 print(f'Analysis Interval: {os.environ.get(\"ANALYSIS_INTERVAL_SECONDS\", \"180\")} seconds')
+print(f'Market Closed Poll: {os.environ.get(\"MARKET_CLOSED_POLL_SECONDS\", \"60\")} seconds')
+print(f'Micro Exit Check Interval: {os.environ.get(\"MICRO_EXIT_CHECK_INTERVAL_SECONDS\", \"30\")} seconds')
+print(f'Position Reconciliation Enabled: {os.environ.get(\"POSITION_RECONCILIATION_ENABLED\", \"true\")}')
+print(f'Startup Overnight Analysis: {os.environ.get(\"RUN_STARTUP_OVERNIGHT_ANALYSIS\", \"false\")}')
 print(f'Capital: ₹{float(os.environ.get(\"CAPITAL\", 100000)):,.2f}')
 print(f'Min Confidence: {os.environ.get(\"MIN_CONFIDENCE_THRESHOLD\", \"70\")}%')
 print(f'Max Daily Loss: {os.environ.get(\"MAX_DAILY_LOSS_PERCENT\", \"4\")}%')

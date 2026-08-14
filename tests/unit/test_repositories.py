@@ -24,6 +24,9 @@ class FakeTable:
     def put_item(self, **kwargs):
         self.items.append(kwargs["Item"])
 
+    def scan(self, **kwargs):
+        return {"Items": list(self.items)}
+
 
 def test_signal_repository_persists_signal_with_table_keys():
     table = FakeTable()
@@ -133,6 +136,53 @@ def test_position_and_pnl_repositories_persist_consistent_snapshots():
     assert pnl_table.items[0]["tradeId"] == "trade-1"
     assert pnl_table.items[0]["stock_symbol"] == "INFY"
     assert pnl_table.items[0]["pnl"] == Decimal("230")
+
+
+def test_positions_repository_lists_only_open_nonzero_snapshots():
+    table = FakeTable()
+    repository = PositionsRepository(table)
+    updated_at = datetime(2026, 7, 6, 10, 0, tzinfo=timezone.utc)
+
+    repository.put_snapshot(
+        PositionSnapshot(
+            symbol="INFY",
+            session_id="session-1",
+            quantity=20,
+            average_price=Decimal("1500"),
+            last_price=Decimal("1510"),
+            unrealized_pnl=Decimal("200"),
+            updated_at=updated_at,
+            status="OPEN",
+        )
+    )
+    repository.put_snapshot(
+        PositionSnapshot(
+            symbol="MARUTI",
+            session_id="session-1",
+            quantity=0,
+            average_price=Decimal("14000"),
+            last_price=Decimal("14000"),
+            unrealized_pnl=Decimal("0"),
+            updated_at=updated_at,
+            status="OPEN",
+        )
+    )
+    repository.put_snapshot(
+        PositionSnapshot(
+            symbol="RELIANCE",
+            session_id="session-1",
+            quantity=10,
+            average_price=Decimal("1400"),
+            last_price=Decimal("1401"),
+            unrealized_pnl=Decimal("10"),
+            updated_at=updated_at,
+            status="CLOSED",
+        )
+    )
+
+    open_positions = repository.list_open()
+
+    assert [item["symbol"] for item in open_positions] == ["INFY"]
 
 
 def test_pnl_repository_persists_dashboard_trade_event():

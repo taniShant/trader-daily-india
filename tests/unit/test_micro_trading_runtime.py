@@ -6,12 +6,14 @@ from agent.contracts.execution import Fill, OrderRequest, OrderSide, OrderStatus
 from agent.contracts.risk import RiskDecision, RiskDecisionStatus
 from agent.contracts.signals import SignalAction, TradeSignal
 from agent.main import TradingBot
+import agent.main as main_module
 from agent.micro import MicroTradeSetup
 
 
 def _bot_stub():
     bot = TradingBot.__new__(TradingBot)
     bot.events = []
+    bot.active_positions = {}
     bot.micro_engine = object()
     bot._check_circuit_breakers = lambda: True
     bot._should_square_off = lambda: False
@@ -22,12 +24,12 @@ def _bot_stub():
     return bot
 
 
-def test_micro_market_cycle_runs_fast_lane_and_monitors_positions():
+def test_micro_market_cycle_runs_fast_lane_without_owning_exit_monitor():
     bot = _bot_stub()
 
     bot._run_micro_market_cycle()
 
-    assert bot.events == ["micro", "monitor"]
+    assert bot.events == ["micro"]
 
 
 def test_micro_market_cycle_square_off_takes_priority():
@@ -46,6 +48,99 @@ def test_micro_market_cycle_only_monitors_after_new_trade_cutoff():
     bot._run_micro_market_cycle()
 
     assert bot.events == ["monitor"]
+
+
+def test_outside_market_sleep_is_capped_to_short_poll_interval(monkeypatch):
+    bot = _bot_stub()
+    bot.market_clock = SimpleNamespace(seconds_until_next_open=lambda: 3600)
+
+    assert bot._outside_market_sleep_seconds() <= 60
+
+
+def test_startup_reconciliation_closes_stale_paper_positions():
+    bot = _bot_stub()
+    bot.paper_trading = True
+    bot.current_session_id = "session-now"
+
+    open_row = {
+        "symbol": "RELIANCE",
+        "session_id": "old-session",
+        "quantity": 10,
+        "average_price": Decimal("1400"),
+        "last_price": Decimal("1398"),
+        "side": "LONG",
+        "status": "OPEN",
+    }
+    captured = SimpleNamespace(closed=[])
+    bot._audit_repositories = SimpleNamespace(
+        positions=SimpleNamespace(
+            list_open=lambda: [open_row],
+            put_snapshot=captured.closed.append,
+        )
+    )
+
+    bot._reconcile_positions_on_startup()
+
+    assert captured.closed[0].symbol == "RELIANCE"
+    assert captured.closed[0].quantity == 0
+    assert captured.closed[0].status == "CLOSED"
+    assert bot.active_positions == {}
+
+
+def test_live_startup_reconciliation_blocks_new_entries_when_broker_cannot_list_positions():
+    bot = _bot_stub()
+    bot.paper_trading = False
+    bot.broker = SimpleNamespace()
+    bot._entry_block_reason = None
+    bot._audit_repositories = SimpleNamespace(
+        positions=SimpleNamespace(
+            list_open=lambda: [{"symbol": "RELIANCE", "quantity": 10, "status": "OPEN"}],
+        )
+    )
+
+    bot._reconcile_positions_on_startup()
+
+    assert bot._entry_block_reason == "live_position_reconciliation_unavailable"
+
+
+def test_manual_service_start_skips_overnight_analysis_by_default(monkeypatch):
+    bot = _bot_stub()
+    bot.paper_trading = True
+    bot.running = True
+    bot.cycle_count = 0
+    bot._is_market_hours = lambda: True
+    bot._record_heartbeat = lambda status: bot.events.append(f"heartbeat:{status}")
+    bot._run_overnight_analysis = lambda: bot.events.append("overnight")
+    bot._start_position_monitor_thread = lambda: bot.events.append("monitor_thread")
+
+    def cycle_once():
+        bot.events.append("cycle")
+        bot.running = False
+
+    bot._run_micro_market_cycle = cycle_once
+    monkeypatch.setattr(main_module, "RUN_STARTUP_OVERNIGHT_ANALYSIS", False)
+    monkeypatch.setattr(main_module.time, "sleep", lambda seconds: None)
+
+    bot.run()
+
+    assert "overnight" not in bot.events
+    assert "monitor_thread" in bot.events
+    assert "cycle" in bot.events
+
+
+def test_startup_overnight_analysis_can_be_enabled(monkeypatch):
+    bot = _bot_stub()
+    bot.paper_trading = True
+    bot.running = False
+    bot.cycle_count = 0
+    bot._record_heartbeat = lambda status: None
+    bot._run_overnight_analysis = lambda: bot.events.append("overnight")
+    bot._start_position_monitor_thread = lambda: bot.events.append("monitor_thread")
+    monkeypatch.setattr(main_module, "RUN_STARTUP_OVERNIGHT_ANALYSIS", True)
+
+    bot.run()
+
+    assert bot.events[:2] == ["overnight", "monitor_thread"]
 
 
 def test_micro_diagnostics_prints_nearest_hold_setups(capsys):

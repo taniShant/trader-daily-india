@@ -59,9 +59,11 @@ class TradingConfig(BaseModel):
     max_quantity_per_order: int = Field(default=50, gt=0)
     min_confidence_threshold: int = Field(default=70, ge=0, le=100)
     analysis_interval_seconds: int = Field(default=180, gt=0)
+    market_closed_poll_seconds: int = Field(default=60, gt=0)
     watchlist_size: int = Field(default=10, gt=0)
     micro_trading_enabled: bool = False
     micro_scan_interval_seconds: int = Field(default=30, gt=0)
+    micro_exit_check_interval_seconds: int = Field(default=30, gt=0)
     micro_max_hold_minutes: int = Field(default=10, gt=0)
     micro_min_confidence: int = Field(default=72, ge=0, le=100)
     micro_min_relative_volume: float = Field(default=1.5, gt=0)
@@ -70,6 +72,8 @@ class TradingConfig(BaseModel):
     micro_max_symbols_per_cycle: int = Field(default=40, gt=0)
     micro_reentry_cooldown_seconds: int = Field(default=600, ge=0)
     micro_diagnostic_top_n: int = Field(default=5, ge=0)
+    position_reconciliation_enabled: bool = True
+    run_startup_overnight_analysis: bool = False
     paper_trading: bool = True
 
 
@@ -220,8 +224,10 @@ def _apply_env_overrides(config: dict) -> dict:
         "MAX_QUANTITY_PER_ORDER": ("trading", "max_quantity_per_order", int),
         "MIN_CONFIDENCE_THRESHOLD": ("trading", "min_confidence_threshold", int),
         "ANALYSIS_INTERVAL_SECONDS": ("trading", "analysis_interval_seconds", int),
+        "MARKET_CLOSED_POLL_SECONDS": ("trading", "market_closed_poll_seconds", int),
         "WATCHLIST_SIZE": ("trading", "watchlist_size", int),
         "MICRO_SCAN_INTERVAL_SECONDS": ("trading", "micro_scan_interval_seconds", int),
+        "MICRO_EXIT_CHECK_INTERVAL_SECONDS": ("trading", "micro_exit_check_interval_seconds", int),
         "MICRO_MAX_HOLD_MINUTES": ("trading", "micro_max_hold_minutes", int),
         "MICRO_MIN_CONFIDENCE": ("trading", "micro_min_confidence", int),
         "MICRO_MIN_RELATIVE_VOLUME": ("trading", "micro_min_relative_volume", float),
@@ -246,6 +252,14 @@ def _apply_env_overrides(config: dict) -> dict:
     config["trading"]["micro_trading_enabled"] = _env_bool(
         "MICRO_TRADING_ENABLED",
         bool(config["trading"].get("micro_trading_enabled", False)),
+    )
+    config["trading"]["position_reconciliation_enabled"] = _env_bool(
+        "POSITION_RECONCILIATION_ENABLED",
+        bool(config["trading"].get("position_reconciliation_enabled", True)),
+    )
+    config["trading"]["run_startup_overnight_analysis"] = _env_bool(
+        "RUN_STARTUP_OVERNIGHT_ANALYSIS",
+        bool(config["trading"].get("run_startup_overnight_analysis", False)),
     )
     config["oracle"]["use_for_build"] = _env_bool(
         "ORACLE_USE_FOR_BUILD",
