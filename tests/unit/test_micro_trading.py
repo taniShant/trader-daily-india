@@ -106,6 +106,9 @@ def test_micro_detector_allows_controlled_high_volume_continuation():
             previous_high=119.0,
             previous_low=106.0,
             trend_bias="bullish",
+            latest_open=112.0,
+            previous_open=111.0,
+            previous_close=112.5,
         )
     )
 
@@ -113,6 +116,61 @@ def test_micro_detector_allows_controlled_high_volume_continuation():
     assert setup.setup == "micro_volume_continuation"
     assert setup.confidence >= 82
     assert "controlled VWAP extension" in " ".join(setup.reasons)
+
+
+def test_micro_detector_rejects_unconfirmed_first_candle_continuation():
+    detector = MicroSetupDetector(MicroTradeConfig(min_confidence=72))
+    setup = detector.detect(
+        TechnicalFeatures(
+            symbol="BAJAJFINSV",
+            close=113.0,
+            vwap=110.0,
+            rsi=68.0,
+            macd=2.2,
+            macd_signal=1.4,
+            atr=1.0,
+            relative_volume=3.1,
+            opening_range_high=118.0,
+            opening_range_low=104.0,
+            previous_high=119.0,
+            previous_low=106.0,
+            trend_bias="bullish",
+            latest_open=112.0,
+            previous_open=112.5,
+            previous_close=111.5,
+        )
+    )
+
+    assert setup.action == "HOLD"
+    assert setup.features["bullish_continuation_confirmed"] is False
+
+
+def test_micro_detector_allows_exceptional_first_candle_continuation():
+    detector = MicroSetupDetector(MicroTradeConfig(min_confidence=72))
+    setup = detector.detect(
+        TechnicalFeatures(
+            symbol="BAJAJFINSV",
+            close=113.0,
+            vwap=112.6,
+            rsi=68.0,
+            macd=2.2,
+            macd_signal=1.4,
+            atr=1.0,
+            relative_volume=8.5,
+            opening_range_high=118.0,
+            opening_range_low=104.0,
+            previous_high=119.0,
+            previous_low=106.0,
+            trend_bias="bullish",
+            latest_open=112.0,
+            previous_open=112.5,
+            previous_close=111.5,
+        )
+    )
+
+    assert setup.action == "BUY"
+    assert setup.setup == "micro_volume_continuation"
+    assert setup.features["bullish_continuation_confirmed"] is True
 
 
 def test_micro_detector_rejects_extreme_continuation_extension():
@@ -156,6 +214,9 @@ def test_micro_detector_allows_high_volume_continuation_with_lower_atr():
             previous_high=2795.0,
             previous_low=2755.0,
             trend_bias="bullish",
+            latest_open=2783.0,
+            previous_open=2780.0,
+            previous_close=2784.0,
         )
     )
 
@@ -221,6 +282,9 @@ def test_micro_detector_uses_configured_continuation_volume_threshold():
             previous_high=14250.0,
             previous_low=14080.0,
             trend_bias="bullish",
+            latest_open=14110.0,
+            previous_open=14090.0,
+            previous_close=14115.0,
         )
     )
 
@@ -307,6 +371,9 @@ def test_micro_detector_uses_shorter_continuation_bracket_and_timeout():
             previous_high=2795.0,
             previous_low=2755.0,
             trend_bias="bullish",
+            latest_open=2783.0,
+            previous_open=2780.0,
+            previous_close=2784.0,
         )
     )
     plan = detector.to_plan(setup, "signal-1")

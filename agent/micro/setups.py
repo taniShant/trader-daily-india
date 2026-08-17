@@ -30,6 +30,8 @@ class MicroSetupDetector:
             extension <= self.config.max_vwap_extension_atr
             or features.relative_volume >= self.config.extended_continuation_min_relative_volume
         )
+        bullish_confirmation = self._bullish_continuation_confirmed(features, extension)
+        bearish_confirmation = self._bearish_continuation_confirmed(features, extension)
 
         if atr_ratio < self.config.min_continuation_atr_ratio:
             reasons.append(
@@ -104,6 +106,7 @@ class MicroSetupDetector:
             and features.trend_bias in {"bullish", "neutral"}
             and features.relative_volume >= self.config.min_continuation_relative_volume
             and 55 <= features.rsi <= 78
+            and bullish_confirmation
         )
         bearish_continuation = (
             features.close < features.vwap
@@ -111,6 +114,7 @@ class MicroSetupDetector:
             and features.trend_bias in {"bearish", "neutral"}
             and features.relative_volume >= self.config.min_continuation_relative_volume
             and 22 <= features.rsi <= 45
+            and bearish_confirmation
         )
 
         tradable = (
@@ -172,6 +176,8 @@ class MicroSetupDetector:
             "continuation_volatility_ok": continuation_volatility_ok,
             "vwap_extension_ok": extension_ok,
             "continuation_extension_ok": continuation_extension_ok,
+            "bullish_continuation_confirmed": bullish_confirmation,
+            "bearish_continuation_confirmed": bearish_confirmation,
         }
 
         return MicroTradeSetup(
@@ -230,6 +236,46 @@ class MicroSetupDetector:
         if setup in {"micro_opening_range_breakout", "micro_opening_range_breakdown"}:
             return self.config.opening_range_max_hold_minutes
         return self.config.max_hold_minutes
+
+    def _bullish_continuation_confirmed(self, features: TechnicalFeatures, extension: float) -> bool:
+        if not self.config.require_continuation_confirmation:
+            return True
+
+        latest_open = features.latest_open
+        previous_open = features.previous_open
+        previous_close = features.previous_close
+        if latest_open is None or previous_open is None or previous_close is None:
+            return False
+
+        latest_up = features.close > latest_open
+        previous_up = previous_close > previous_open
+        second_candle_confirmed = latest_up and previous_up and features.close >= previous_close
+        exceptional_first_candle = (
+            latest_up
+            and features.relative_volume >= self.config.exceptional_continuation_relative_volume
+            and extension <= self.config.max_vwap_extension_atr
+        )
+        return second_candle_confirmed or exceptional_first_candle
+
+    def _bearish_continuation_confirmed(self, features: TechnicalFeatures, extension: float) -> bool:
+        if not self.config.require_continuation_confirmation:
+            return True
+
+        latest_open = features.latest_open
+        previous_open = features.previous_open
+        previous_close = features.previous_close
+        if latest_open is None or previous_open is None or previous_close is None:
+            return False
+
+        latest_down = features.close < latest_open
+        previous_down = previous_close < previous_open
+        second_candle_confirmed = latest_down and previous_down and features.close <= previous_close
+        exceptional_first_candle = (
+            latest_down
+            and features.relative_volume >= self.config.exceptional_continuation_relative_volume
+            and extension <= self.config.max_vwap_extension_atr
+        )
+        return second_candle_confirmed or exceptional_first_candle
 
     @staticmethod
     def _volume_bonus(relative_volume: float) -> int:

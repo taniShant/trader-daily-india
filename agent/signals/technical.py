@@ -25,6 +25,9 @@ class TechnicalFeatures:
     previous_high: float
     previous_low: float
     trend_bias: str
+    latest_open: float | None = None
+    previous_open: float | None = None
+    previous_close: float | None = None
     latest_timestamp: datetime | None = None
     latest_source: str | None = None
 
@@ -74,6 +77,9 @@ def compute_technical_features(payload_or_bars: dict[str, Any] | list[OHLCVBar])
         previous_high=round(float(previous["high"]), 4),
         previous_low=round(float(previous["low"]), 4),
         trend_bias=_trend_bias(latest_close, float(vwap), float(rsi), float(macd_line), float(macd_signal)),
+        latest_open=round(float(latest["open"]), 4),
+        previous_open=round(float(previous["open"]), 4),
+        previous_close=round(float(previous["close"]), 4),
         latest_timestamp=_latest_timestamp(latest),
         latest_source=str(latest.get("source")) if latest.get("source") is not None else None,
     )

@@ -68,6 +68,8 @@ class TradingConfig(BaseModel):
     micro_min_confidence: int = Field(default=72, ge=0, le=100)
     micro_min_relative_volume: float = Field(default=1.5, gt=0)
     micro_min_continuation_relative_volume: float = Field(default=3.0, gt=0)
+    micro_require_continuation_confirmation: bool = True
+    micro_exceptional_continuation_relative_volume: float = Field(default=8.0, gt=0)
     micro_max_candle_age_seconds: int = Field(default=180, gt=0)
     micro_max_symbols_per_cycle: int = Field(default=40, gt=0)
     micro_reentry_cooldown_seconds: int = Field(default=600, ge=0)
@@ -255,6 +257,11 @@ def _apply_env_overrides(config: dict) -> dict:
             "micro_min_continuation_relative_volume",
             float,
         ),
+        "MICRO_EXCEPTIONAL_CONTINUATION_RELATIVE_VOLUME": (
+            "trading",
+            "micro_exceptional_continuation_relative_volume",
+            float,
+        ),
         "MICRO_MAX_CANDLE_AGE_SECONDS": ("trading", "micro_max_candle_age_seconds", int),
         "MICRO_MAX_SYMBOLS_PER_CYCLE": ("trading", "micro_max_symbols_per_cycle", int),
         "MICRO_REENTRY_COOLDOWN_SECONDS": ("trading", "micro_reentry_cooldown_seconds", int),
@@ -293,6 +300,10 @@ def _apply_env_overrides(config: dict) -> dict:
     config["trading"]["micro_early_exit_enabled"] = _env_bool(
         "MICRO_EARLY_EXIT_ENABLED",
         bool(config["trading"].get("micro_early_exit_enabled", True)),
+    )
+    config["trading"]["micro_require_continuation_confirmation"] = _env_bool(
+        "MICRO_REQUIRE_CONTINUATION_CONFIRMATION",
+        bool(config["trading"].get("micro_require_continuation_confirmation", True)),
     )
     config["trading"]["position_reconciliation_enabled"] = _env_bool(
         "POSITION_RECONCILIATION_ENABLED",

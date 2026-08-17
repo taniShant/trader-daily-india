@@ -22,6 +22,8 @@ def test_loads_prod_json_oracle_values_without_env_overrides(monkeypatch):
     assert settings.trading.micro_exit_check_interval_seconds == 30
     assert settings.trading.micro_min_relative_volume == 1.2
     assert settings.trading.micro_min_continuation_relative_volume == 1.6
+    assert settings.trading.micro_require_continuation_confirmation is True
+    assert settings.trading.micro_exceptional_continuation_relative_volume == 8
     assert settings.trading.micro_max_candle_age_seconds == 180
     assert settings.trading.micro_reentry_cooldown_seconds == 300
     assert settings.trading.micro_continuation_target_pct == 0.003
@@ -57,6 +59,8 @@ def test_environment_overrides_take_precedence(monkeypatch):
     monkeypatch.setenv("MARKET_CLOSED_POLL_SECONDS", "45")
     monkeypatch.setenv("MICRO_EXIT_CHECK_INTERVAL_SECONDS", "20")
     monkeypatch.setenv("MICRO_MIN_CONTINUATION_RELATIVE_VOLUME", "1.7")
+    monkeypatch.setenv("MICRO_REQUIRE_CONTINUATION_CONFIRMATION", "false")
+    monkeypatch.setenv("MICRO_EXCEPTIONAL_CONTINUATION_RELATIVE_VOLUME", "9.5")
     monkeypatch.setenv("MICRO_MAX_CANDLE_AGE_SECONDS", "240")
     monkeypatch.setenv("MICRO_REENTRY_COOLDOWN_SECONDS", "180")
     monkeypatch.setenv("MICRO_CONTINUATION_TARGET_PCT", "0.0025")
@@ -88,6 +92,8 @@ def test_environment_overrides_take_precedence(monkeypatch):
     assert settings.trading.market_closed_poll_seconds == 45
     assert settings.trading.micro_exit_check_interval_seconds == 20
     assert settings.trading.micro_min_continuation_relative_volume == 1.7
+    assert settings.trading.micro_require_continuation_confirmation is False
+    assert settings.trading.micro_exceptional_continuation_relative_volume == 9.5
     assert settings.trading.micro_max_candle_age_seconds == 240
     assert settings.trading.micro_reentry_cooldown_seconds == 180
     assert settings.trading.micro_continuation_target_pct == 0.0025

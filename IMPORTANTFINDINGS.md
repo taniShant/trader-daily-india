@@ -43,6 +43,9 @@ Implemented on 2026-08-14, pending ECS redeploy and live paper-log verification:
 0a. Fixed INR profit floors do not scale with paper/live notional.
    The 2026-08-17 paper run with INR 10 crore capital showed that a fixed INR 1000 expected-net threshold is meaningless for large positions. P13-WP07 now adds `micro_min_expected_net_profit_bps`; production uses 8 bps so the minimum expected net profit scales with entry notional.
 
+0b. First-candle continuation entries were too reactive.
+   Paper logs showed many high-volume entries fading within 2-3 minutes and exiting via `early_invalidation:volume_collapse`. P13-WP03 now requires second-candle continuation confirmation for ordinary volume-continuation entries, while preserving an exceptional first-candle path for at least 8x relative volume with controlled VWAP extension.
+
 1. The current micro entry filters are not obviously wrong.
    The checks for fresh 1-minute candles, relative volume, ATR volatility, VWAP extension, RSI/MACD/trend alignment, confidence, and risk approval are a sensible first paper-trading framework.
 

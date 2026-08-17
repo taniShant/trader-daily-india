@@ -91,6 +91,14 @@ class TradingAgentRuntimeStack(Stack):
             "micro_min_continuation_relative_volume",
             3.0,
         )
+        micro_require_continuation_confirmation = trading_config.get(
+            "micro_require_continuation_confirmation",
+            True,
+        )
+        micro_exceptional_continuation_relative_volume = trading_config.get(
+            "micro_exceptional_continuation_relative_volume",
+            8.0,
+        )
         micro_max_candle_age_seconds = trading_config.get("micro_max_candle_age_seconds", 180)
         micro_max_symbols_per_cycle = trading_config.get("micro_max_symbols_per_cycle", 40)
         micro_reentry_cooldown_seconds = trading_config.get("micro_reentry_cooldown_seconds", 600)
@@ -149,6 +157,8 @@ class TradingAgentRuntimeStack(Stack):
         print(f"   Micro Symbols Per Cycle: {micro_max_symbols_per_cycle}")
         print(f"   Micro Min Relative Volume: {micro_min_relative_volume}")
         print(f"   Micro Continuation Min Relative Volume: {micro_min_continuation_relative_volume}")
+        print(f"   Micro Continuation Confirmation: {micro_require_continuation_confirmation}")
+        print(f"   Micro Exceptional Continuation RV: {micro_exceptional_continuation_relative_volume}")
         print(f"   Micro Max Candle Age: {micro_max_candle_age_seconds} seconds")
         print(
             "   Micro Setup Brackets: "
@@ -237,6 +247,8 @@ class TradingAgentRuntimeStack(Stack):
             "MICRO_MIN_CONFIDENCE": str(micro_min_confidence),
             "MICRO_MIN_RELATIVE_VOLUME": str(micro_min_relative_volume),
             "MICRO_MIN_CONTINUATION_RELATIVE_VOLUME": str(micro_min_continuation_relative_volume),
+            "MICRO_REQUIRE_CONTINUATION_CONFIRMATION": str(micro_require_continuation_confirmation),
+            "MICRO_EXCEPTIONAL_CONTINUATION_RELATIVE_VOLUME": str(micro_exceptional_continuation_relative_volume),
             "MICRO_MAX_CANDLE_AGE_SECONDS": str(micro_max_candle_age_seconds),
             "MICRO_MAX_SYMBOLS_PER_CYCLE": str(micro_max_symbols_per_cycle),
             "MICRO_REENTRY_COOLDOWN_SECONDS": str(micro_reentry_cooldown_seconds),

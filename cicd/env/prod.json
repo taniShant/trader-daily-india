@@ -139,6 +139,8 @@
     "micro_min_confidence": 68,
     "micro_min_relative_volume": 1.2,
     "micro_min_continuation_relative_volume": 1.6,
+    "micro_require_continuation_confirmation": true,
+    "micro_exceptional_continuation_relative_volume": 8,
     "micro_max_candle_age_seconds": 180,
     "micro_max_symbols_per_cycle": 40,
     "micro_reentry_cooldown_seconds": 300,
