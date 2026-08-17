@@ -121,7 +121,7 @@
     }
   },
   "trading": {
-    "capital": 10000000,
+    "capital": 100000000,
     "max_daily_loss_percent": 4,
     "max_position_size_percent": 10,
     "max_quantity_per_order": 5000,
