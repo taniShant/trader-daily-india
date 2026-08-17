@@ -16,7 +16,7 @@ def test_loads_prod_json_oracle_values_without_env_overrides(monkeypatch):
     assert settings.oracle.execution_proxy_base_url == "http://80.225.242.6:8080"
     assert settings.oracle.collector_base_url == "http://80.225.242.6:8090"
     assert settings.trading.paper_trading is True
-    assert settings.trading.capital == 10000000
+    assert settings.trading.capital == 100000000
     assert settings.trading.max_quantity_per_order == 5000
     assert settings.trading.market_closed_poll_seconds == 60
     assert settings.trading.micro_exit_check_interval_seconds == 30
@@ -35,6 +35,7 @@ def test_loads_prod_json_oracle_values_without_env_overrides(monkeypatch):
     assert settings.trading.micro_cost_taxes_bps == 2
     assert settings.trading.micro_cost_slippage_bps == 2
     assert settings.trading.micro_min_expected_net_profit == 1000
+    assert settings.trading.micro_min_expected_net_profit_bps == 8
     assert settings.trading.micro_min_target_to_cost_ratio == 1.4
     assert settings.trading.position_reconciliation_enabled is True
     assert settings.trading.run_startup_overnight_analysis is False
@@ -67,6 +68,7 @@ def test_environment_overrides_take_precedence(monkeypatch):
     monkeypatch.setenv("MICRO_LOSS_THROTTLE_WINDOW_MINUTES", "45")
     monkeypatch.setenv("MICRO_COST_SLIPPAGE_BPS", "8")
     monkeypatch.setenv("MICRO_MIN_EXPECTED_NET_PROFIT", "750")
+    monkeypatch.setenv("MICRO_MIN_EXPECTED_NET_PROFIT_BPS", "9")
     monkeypatch.setenv("MICRO_MIN_TARGET_TO_COST_RATIO", "2.2")
     monkeypatch.setenv("POSITION_RECONCILIATION_ENABLED", "false")
     monkeypatch.setenv("RUN_STARTUP_OVERNIGHT_ANALYSIS", "true")
@@ -97,6 +99,7 @@ def test_environment_overrides_take_precedence(monkeypatch):
     assert settings.trading.micro_loss_throttle_window_minutes == 45
     assert settings.trading.micro_cost_slippage_bps == 8
     assert settings.trading.micro_min_expected_net_profit == 750
+    assert settings.trading.micro_min_expected_net_profit_bps == 9
     assert settings.trading.micro_min_target_to_cost_ratio == 2.2
     assert settings.trading.position_reconciliation_enabled is False
     assert settings.trading.run_startup_overnight_analysis is True

@@ -336,7 +336,7 @@ This phase addresses the strategic issue found during paper trading: the system 
 | P1 | P13-WP04 | Add transaction-cost and slippage-aware paper P&L | Implemented | `agent/backtest/costs.py`, `agent/main.py`, `agent/storage/repositories.py`, dashboard P&L views, tests | Tests cover gross P&L, costs, net P&L, and dashboard expectancy totals. User VS Code verification pending. | Dashboard profit reflects realistic tradable economics, not only ideal fill arithmetic. |
 | P2 | P13-WP05 | Add symbol/setup throttling from recent losses | Implemented | `agent/main.py`, `agent/micro/engine.py`, `agent/storage/repositories.py`, tests | Tests cover per-symbol throttling after repeated recent losses; runtime records losses from net paper P&L. User VS Code verification pending. | The bot reduces exposure to symbols that are losing in the current session instead of repeating the same weak edge. |
 | P2 | P13-WP06 | Improve opportunity ranking before scan budget | Implemented | `agent/data/symbols.py`, `agent/micro/engine.py`, `agent/main.py`, `cicd/env/prod.json`, tests | Focused runtime tests cover supporting health metadata; CDK synth confirms scan budget and ranking knobs are deployed. User VS Code verification pending. | The 40-stock scan uses prior-cycle health to favor fresh/high-quality symbols and deprioritize unavailable/stale/recent-loss symbols. |
-| P1 | P13-WP07 | Add cost-aware entry economics gate | Implemented | `agent/micro/engine.py`, `agent/micro/models.py`, `agent/config.py`, `agent/main.py`, `cicd/env/prod.json`, `cicd/cdk/stacks/agent_runtime_stack.py`, tests | Focused tests cover rejecting approved micro entries whose expected target profit cannot clear estimated round-trip costs. CDK synth shows `Micro Entry Economics`. User VS Code verification pending. | The bot skips small-edge entries where target profit is too close to brokerage/taxes/slippage, preventing trades that are directionally right but net-loss after costs. |
+| P1 | P13-WP07 | Add cost-aware entry economics gate | Implemented | `agent/micro/engine.py`, `agent/micro/models.py`, `agent/config.py`, `agent/main.py`, `cicd/env/prod.json`, `cicd/cdk/stacks/agent_runtime_stack.py`, tests | Focused tests cover rejecting approved micro entries whose expected target profit cannot clear estimated round-trip costs or the notional-scaled expected-profit floor. CDK synth shows `Micro Entry Economics`. User VS Code verification pending. | The bot skips small-edge entries where target profit is too close to brokerage/taxes/slippage, and scales the minimum expected net profit with position size so larger paper/live notional cannot pass on a tiny fixed INR floor. |
 
 ## 8. Testing Strategy
 
@@ -1177,6 +1177,17 @@ What Changed: Updated the paper/live-readiness cost assumptions for the user's I
 Test Command: python -m pytest tests/unit/test_config.py tests/unit/test_costs.py tests/unit/test_micro_trading.py -q; bash scripts/verify_cdk_synth.sh; git diff --check
 Test Result: py_compile passed. Focused config/cost/micro tests passed with 25 tests. CDK synth passed. Diff whitespace check passed.
 Notes / Next Step: Rebuild and redeploy trading-bot, then confirm ECS startup logs show `Micro Entry Economics ... cost_bps=5.00`.
+```
+
+```text
+Date: 2026-08-17
+Work Package: P13-WP07 - Notional-scaled entry profit floor
+Status: Implemented
+Files Changed: agent/micro/models.py, agent/micro/engine.py, agent/config.py, agent/main.py, cicd/env/prod.json, cicd/cdk/stacks/agent_runtime_stack.py, .env.example, tests/unit/test_micro_trading.py, tests/unit/test_config.py, PROJECT_PLAN.md, IMPORTANTFINDINGS.md
+What Changed: Added `micro_min_expected_net_profit_bps` so the entry economics gate uses `max(fixed_min_net, entry_notional * bps_floor)`. Production sets this to 8 bps, preventing high-capital paper runs from taking large positions that clear only a tiny fixed ₹1000 expected-net threshold.
+Test Command: python -m py_compile agent/main.py agent/config.py agent/micro/engine.py agent/micro/models.py cicd/cdk/stacks/agent_runtime_stack.py; python -m pytest tests/unit/test_config.py tests/unit/test_micro_trading.py -q
+Test Result: py_compile passed. Focused config and micro-trading tests passed with 24 tests.
+Notes / Next Step: Run CDK synth, rebuild/push the trading-bot image, redeploy AgentRuntimeStack, and confirm ECS logs show `Micro Entry Economics ... min_net_bps=8.00`.
 ```
 
 ## 14. Plan Change Log

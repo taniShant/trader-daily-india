@@ -89,6 +89,7 @@ class TradingConfig(BaseModel):
     micro_cost_taxes_bps: float = Field(default=2, ge=0)
     micro_cost_slippage_bps: float = Field(default=2, ge=0)
     micro_min_expected_net_profit: float = Field(default=0, ge=0)
+    micro_min_expected_net_profit_bps: float = Field(default=0, ge=0)
     micro_min_target_to_cost_ratio: float = Field(default=0, ge=0)
     position_reconciliation_enabled: bool = True
     run_startup_overnight_analysis: bool = False
@@ -274,6 +275,7 @@ def _apply_env_overrides(config: dict) -> dict:
         "MICRO_COST_TAXES_BPS": ("trading", "micro_cost_taxes_bps", float),
         "MICRO_COST_SLIPPAGE_BPS": ("trading", "micro_cost_slippage_bps", float),
         "MICRO_MIN_EXPECTED_NET_PROFIT": ("trading", "micro_min_expected_net_profit", float),
+        "MICRO_MIN_EXPECTED_NET_PROFIT_BPS": ("trading", "micro_min_expected_net_profit_bps", float),
         "MICRO_MIN_TARGET_TO_COST_RATIO": ("trading", "micro_min_target_to_cost_ratio", float),
     }
     for env_name, (section, key, caster) in numeric_env_map.items():

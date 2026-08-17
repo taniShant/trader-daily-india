@@ -287,15 +287,24 @@ class MicroTradingEngine:
             / Decimal("10000")
         )
         expected_net = expected_gross - estimated_costs
+        notional = plan.entry_price * quantity
+        scaled_min_net = (
+            notional
+            * self.config.min_expected_net_profit_bps
+            / Decimal("10000")
+        )
 
         ratio = Decimal("999999") if estimated_costs == 0 else expected_gross / estimated_costs
-        min_net = self.config.min_expected_net_profit
+        min_net = max(self.config.min_expected_net_profit, scaled_min_net)
         min_ratio = self.config.min_target_to_cost_ratio
 
         if expected_net < min_net:
             return (
                 "entry_economics_rejected:"
                 f"expected_net={expected_net:.2f}<min={min_net:.2f};"
+                f"fixed_min={self.config.min_expected_net_profit:.2f};"
+                f"scaled_min={scaled_min_net:.2f};"
+                f"notional={notional:.2f};"
                 f"gross={expected_gross:.2f};costs={estimated_costs:.2f};"
                 f"ratio={ratio:.2f}"
             )

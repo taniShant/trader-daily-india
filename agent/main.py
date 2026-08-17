@@ -110,6 +110,7 @@ MICRO_COST_BROKERAGE_BPS = settings.trading.micro_cost_brokerage_bps
 MICRO_COST_TAXES_BPS = settings.trading.micro_cost_taxes_bps
 MICRO_COST_SLIPPAGE_BPS = settings.trading.micro_cost_slippage_bps
 MICRO_MIN_EXPECTED_NET_PROFIT = settings.trading.micro_min_expected_net_profit
+MICRO_MIN_EXPECTED_NET_PROFIT_BPS = settings.trading.micro_min_expected_net_profit_bps
 MICRO_MIN_TARGET_TO_COST_RATIO = settings.trading.micro_min_target_to_cost_ratio
 POSITION_RECONCILIATION_ENABLED = settings.trading.position_reconciliation_enabled
 RUN_STARTUP_OVERNIGHT_ANALYSIS = settings.trading.run_startup_overnight_analysis
@@ -652,6 +653,7 @@ class TradingBot:
             print(
                 "Micro Entry Economics: "
                 f"min_net=₹{MICRO_MIN_EXPECTED_NET_PROFIT:.2f}, "
+                f"min_net_bps={MICRO_MIN_EXPECTED_NET_PROFIT_BPS:.2f}, "
                 f"target_cost_ratio>={MICRO_MIN_TARGET_TO_COST_RATIO:.2f}, "
                 f"cost_bps={MICRO_COST_BROKERAGE_BPS + MICRO_COST_TAXES_BPS + MICRO_COST_SLIPPAGE_BPS:.2f}"
             )
@@ -761,6 +763,7 @@ class TradingBot:
                 cost_taxes_bps=Decimal(str(MICRO_COST_TAXES_BPS)),
                 cost_slippage_bps=Decimal(str(MICRO_COST_SLIPPAGE_BPS)),
                 min_expected_net_profit=Decimal(str(MICRO_MIN_EXPECTED_NET_PROFIT)),
+                min_expected_net_profit_bps=Decimal(str(MICRO_MIN_EXPECTED_NET_PROFIT_BPS)),
                 min_target_to_cost_ratio=Decimal(str(MICRO_MIN_TARGET_TO_COST_RATIO)),
             ),
         )

@@ -40,6 +40,9 @@ Implemented on 2026-08-14, pending ECS redeploy and live paper-log verification:
 0. Small target moves can lose after realistic costs.
    Paper logs on 2026-08-14 showed trades such as JSWSTEEL where gross price movement was positive but net P&L became negative after brokerage/taxes/slippage. P13-WP07 adds a cost-aware entry gate so the bot skips entries whose expected target profit cannot clear estimated round-trip costs with a buffer.
 
+0a. Fixed INR profit floors do not scale with paper/live notional.
+   The 2026-08-17 paper run with INR 10 crore capital showed that a fixed INR 1000 expected-net threshold is meaningless for large positions. P13-WP07 now adds `micro_min_expected_net_profit_bps`; production uses 8 bps so the minimum expected net profit scales with entry notional.
+
 1. The current micro entry filters are not obviously wrong.
    The checks for fresh 1-minute candles, relative volume, ATR volatility, VWAP extension, RSI/MACD/trend alignment, confidence, and risk approval are a sensible first paper-trading framework.
 

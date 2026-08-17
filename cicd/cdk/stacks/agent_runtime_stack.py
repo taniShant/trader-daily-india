@@ -112,6 +112,7 @@ class TradingAgentRuntimeStack(Stack):
         micro_cost_taxes_bps = trading_config.get("micro_cost_taxes_bps", 2)
         micro_cost_slippage_bps = trading_config.get("micro_cost_slippage_bps", 2)
         micro_min_expected_net_profit = trading_config.get("micro_min_expected_net_profit", 0)
+        micro_min_expected_net_profit_bps = trading_config.get("micro_min_expected_net_profit_bps", 0)
         micro_min_target_to_cost_ratio = trading_config.get("micro_min_target_to_cost_ratio", 0)
         position_reconciliation_enabled = trading_config.get("position_reconciliation_enabled", True)
         run_startup_overnight_analysis = trading_config.get("run_startup_overnight_analysis", False)
@@ -160,6 +161,7 @@ class TradingAgentRuntimeStack(Stack):
         print(
             "   Micro Entry Economics: "
             f"min_net=₹{micro_min_expected_net_profit}, "
+            f"min_net_bps={micro_min_expected_net_profit_bps}, "
             f"target_cost_ratio>={micro_min_target_to_cost_ratio}"
         )
         print(f"   Position Reconciliation Enabled: {position_reconciliation_enabled}")
@@ -256,6 +258,7 @@ class TradingAgentRuntimeStack(Stack):
             "MICRO_COST_TAXES_BPS": str(micro_cost_taxes_bps),
             "MICRO_COST_SLIPPAGE_BPS": str(micro_cost_slippage_bps),
             "MICRO_MIN_EXPECTED_NET_PROFIT": str(micro_min_expected_net_profit),
+            "MICRO_MIN_EXPECTED_NET_PROFIT_BPS": str(micro_min_expected_net_profit_bps),
             "MICRO_MIN_TARGET_TO_COST_RATIO": str(micro_min_target_to_cost_ratio),
             "POSITION_RECONCILIATION_ENABLED": str(position_reconciliation_enabled),
             "RUN_STARTUP_OVERNIGHT_ANALYSIS": str(run_startup_overnight_analysis),

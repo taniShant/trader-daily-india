@@ -45,6 +45,7 @@ class MicroTradeConfig:
     cost_taxes_bps: Decimal = Decimal("0")
     cost_slippage_bps: Decimal = Decimal("0")
     min_expected_net_profit: Decimal = Decimal("0")
+    min_expected_net_profit_bps: Decimal = Decimal("0")
     min_target_to_cost_ratio: Decimal = Decimal("0")
 
 
