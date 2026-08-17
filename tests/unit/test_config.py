@@ -31,7 +31,9 @@ def test_loads_prod_json_oracle_values_without_env_overrides(monkeypatch):
     assert settings.trading.micro_invalidation_min_hold_seconds == 120
     assert settings.trading.micro_loss_throttle_count == 2
     assert settings.trading.micro_loss_throttle_window_minutes == 30
-    assert settings.trading.micro_cost_slippage_bps == 5
+    assert settings.trading.micro_cost_brokerage_bps == 1
+    assert settings.trading.micro_cost_taxes_bps == 2
+    assert settings.trading.micro_cost_slippage_bps == 2
     assert settings.trading.micro_min_expected_net_profit == 1000
     assert settings.trading.micro_min_target_to_cost_ratio == 1.4
     assert settings.trading.position_reconciliation_enabled is True

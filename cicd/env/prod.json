@@ -45,7 +45,7 @@
   "icici": {
     "api_key": "O6731z39in79bV=1U53K615238Q47GX7",
     "secret_key": "5916$+907W89i85z%Pb66t`286710164",
-    "session_token": "56696876",
+    "session_token": "56719676",
     "static_ip": "80.225.242.6"
   },
   "oracle": {
@@ -156,9 +156,9 @@
     "micro_invalidation_min_hold_seconds": 120,
     "micro_loss_throttle_count": 2,
     "micro_loss_throttle_window_minutes": 30,
-    "micro_cost_brokerage_bps": 3,
-    "micro_cost_taxes_bps": 6,
-    "micro_cost_slippage_bps": 5,
+    "micro_cost_brokerage_bps": 1,
+    "micro_cost_taxes_bps": 2,
+    "micro_cost_slippage_bps": 2,
     "micro_min_expected_net_profit": 1000,
     "micro_min_target_to_cost_ratio": 1.4,
     "position_reconciliation_enabled": true,

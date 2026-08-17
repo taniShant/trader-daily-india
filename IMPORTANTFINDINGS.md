@@ -13,6 +13,7 @@ Implemented on 2026-08-14, pending ECS redeploy and live paper-log verification:
 - Startup position reconciliation now closes stale paper-position snapshots and blocks live entries if open positions exist but live broker reconciliation cannot be proven.
 - Normal market-service startup now skips overnight analysis by default with `run_startup_overnight_analysis=false`, because the ICICI Breeze session key must be refreshed manually each day before ECS is started.
 - Micro entry scans now use fixed-rate scheduling from cycle start. A 90-second scan interval with a 25-second scan sleeps about 65 seconds instead of 90 seconds.
+- Cost-aware entry gating is calibrated to the user's ICICI Direct PRIME 4999 intraday plan: 1 bps brokerage, 2 bps statutory/tax buffer, and 2 bps slippage buffer, for 5 bps total on round-trip turnover.
 
 ## High Priority Findings
 

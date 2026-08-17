@@ -85,9 +85,9 @@ class TradingConfig(BaseModel):
     micro_invalidation_min_hold_seconds: int = Field(default=120, ge=0)
     micro_loss_throttle_count: int = Field(default=2, ge=0)
     micro_loss_throttle_window_minutes: int = Field(default=30, ge=0)
-    micro_cost_brokerage_bps: float = Field(default=3, ge=0)
-    micro_cost_taxes_bps: float = Field(default=6, ge=0)
-    micro_cost_slippage_bps: float = Field(default=5, ge=0)
+    micro_cost_brokerage_bps: float = Field(default=1, ge=0)
+    micro_cost_taxes_bps: float = Field(default=2, ge=0)
+    micro_cost_slippage_bps: float = Field(default=2, ge=0)
     micro_min_expected_net_profit: float = Field(default=0, ge=0)
     micro_min_target_to_cost_ratio: float = Field(default=0, ge=0)
     position_reconciliation_enabled: bool = True

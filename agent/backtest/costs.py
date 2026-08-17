@@ -17,9 +17,9 @@ class TradeCosts:
 
 @dataclass(frozen=True)
 class CostModel:
-    brokerage_bps: Decimal = Decimal("3")
-    taxes_bps: Decimal = Decimal("6")
-    slippage_bps: Decimal = Decimal("5")
+    brokerage_bps: Decimal = Decimal("1")
+    taxes_bps: Decimal = Decimal("2")
+    slippage_bps: Decimal = Decimal("2")
 
     def estimate(self, *, entry_price: Decimal, exit_price: Decimal, quantity: int) -> TradeCosts:
         turnover = (entry_price + exit_price) * Decimal(quantity)

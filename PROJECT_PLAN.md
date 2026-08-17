@@ -1168,6 +1168,17 @@ Test Result: Focused tests passed with 23 tests. CDK synth passed and shows `Mic
 Notes / Next Step: User should run focused tests from VS Code, rebuild/push the trading-bot image, redeploy AgentRuntimeStack, and confirm ECS logs show `Micro Entry Economics` plus `entry_economics_rejected` skip reasons for small-edge opportunities.
 ```
 
+```text
+Date: 2026-08-17
+Work Package: P13-WP07 - PRIME 4999 cost-model calibration
+Status: Implemented
+Files Changed: agent/backtest/costs.py, agent/config.py, cicd/env/prod.json, cicd/cdk/stacks/agent_runtime_stack.py, .env.example, tests/unit/test_config.py, PROJECT_PLAN.md, IMPORTANTFINDINGS.md
+What Changed: Updated the paper/live-readiness cost assumptions for the user's ICICI Direct PRIME 4999 intraday plan. Intraday brokerage is now modeled as 1 bps, statutory/taxes as 2 bps, and slippage as 2 bps, for 5 bps total on round-trip turnover. The cost-aware entry gate still requires expected net profit >= ₹1000 and target-to-cost ratio >= 1.4.
+Test Command: python -m pytest tests/unit/test_config.py tests/unit/test_costs.py tests/unit/test_micro_trading.py -q; bash scripts/verify_cdk_synth.sh; git diff --check
+Test Result: py_compile passed. Focused config/cost/micro tests passed with 25 tests. CDK synth passed. Diff whitespace check passed.
+Notes / Next Step: Rebuild and redeploy trading-bot, then confirm ECS startup logs show `Micro Entry Economics ... cost_bps=5.00`.
+```
+
 ## 14. Plan Change Log
 
 Use this section only when the plan itself changes materially.
