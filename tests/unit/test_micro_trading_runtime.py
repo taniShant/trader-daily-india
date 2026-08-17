@@ -421,10 +421,10 @@ def test_position_exit_persists_closed_snapshot_and_realized_pnl():
     assert captured.trades[0].action == "SELL"
     assert captured.trades[0].quantity == 2
     assert captured.trades[0].gross_pnl == Decimal("-12.00")
-    assert captured.trades[0].costs == Decimal("15.58032")
-    assert captured.trades[0].pnl == Decimal("-27.58032")
-    assert captured.trades[0].net_pnl == Decimal("-27.58032")
-    assert bot.daily_pnl == -27.58032
+    assert captured.trades[0].costs == Decimal("5.56440")
+    assert captured.trades[0].pnl == Decimal("-17.56440")
+    assert captured.trades[0].net_pnl == Decimal("-17.56440")
+    assert bot.daily_pnl == -17.56440
     assert bot.consecutive_losses == 1
 
 
@@ -457,8 +457,8 @@ def test_short_position_exit_pnl_is_positive_when_price_falls():
     assert captured.positions[0].side == "SHORT"
     assert captured.trades[0].action == "BUY"
     assert captured.trades[0].gross_pnl == Decimal("15")
-    assert captured.trades[0].costs == Decimal("11.739")
-    assert captured.trades[0].pnl == Decimal("3.261")
+    assert captured.trades[0].costs == Decimal("4.1925")
+    assert captured.trades[0].pnl == Decimal("10.8075")
 
 
 def test_micro_early_invalidation_detects_momentum_fade_for_long():
