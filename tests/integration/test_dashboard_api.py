@@ -66,6 +66,19 @@ class FakeStore(dashboard.DashboardStore):
                     "exit_reason": "early_invalidation:momentum_fade",
                     "realized_r": Decimal("-0.6"),
                     "holding_seconds": 180,
+                },
+                {
+                    "tradeId": "trade-yesterday-loss",
+                    "timestamp": datetime(2026, 7, 5, 18, 30, tzinfo=timezone.utc).isoformat(),
+                    "date": "2026-07-05",
+                    "stock_symbol": "NTPC",
+                    "action": "SELL",
+                    "price": Decimal("330"),
+                    "quantity": 100,
+                    "pnl": Decimal("-9999"),
+                    "net_pnl": Decimal("-9999"),
+                    "setup": "micro_volume_continuation",
+                    "exit_reason": "holding window expired",
                 }
             ],
             dashboard.MARKET_STATE_TABLE_NAME: [

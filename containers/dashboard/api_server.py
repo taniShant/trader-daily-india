@@ -7,6 +7,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -29,6 +30,7 @@ FILLS_TABLE_NAME = os.environ.get("FILLS_TABLE", "svc-trd-fills-dev")
 POSITIONS_TABLE_NAME = os.environ.get("POSITIONS_TABLE", "svc-trd-positions-dev")
 DASHBOARD_CONTROL_TOKEN = os.environ.get("DASHBOARD_CONTROL_TOKEN")
 PAPER_TRADING = os.environ.get("PAPER_TRADING", "true").lower() in {"1", "true", "yes", "on"}
+MARKET_TIMEZONE = ZoneInfo("Asia/Kolkata")
 
 dashboard_root = Path(__file__).parent
 static_path = dashboard_root / "static"
@@ -244,9 +246,10 @@ async def health_check():
 async def get_status(store: DashboardStore = Depends(get_store)):
     heartbeat = _latest_heartbeat(store.scan(MARKET_STATE_TABLE_NAME))
     reference_time = _parse_time(heartbeat.get("timestamp")) if heartbeat else _now()
-    trades = _recent_items(store.scan(TRADES_TABLE_NAME), "timestamp", days=1, reference_time=reference_time)
+    trades = _market_date_items(store.scan(TRADES_TABLE_NAME), "timestamp", market_date=_market_date(reference_time))
+    trades = [trade for trade in trades if trade.get("tradeId") != "bot_state"]
     positions = [item for item in store.scan(POSITIONS_TABLE_NAME) if str(item.get("status", "OPEN")).upper() == "OPEN"]
-    today_pnl = sum(_decimal(item.get("pnl", item.get("realized_pnl", 0))) for item in trades)
+    today_pnl = sum(_trade_pnl(item) for item in trades)
     risk_usage = _risk_usage(trades, today_pnl)
 
     return _json_safe(
@@ -610,9 +613,31 @@ def _recent_items(
     return [item for item in items if cutoff <= _parse_time(item.get(timestamp_key)) <= anchor]
 
 
+def _market_date_items(items: list[dict[str, Any]], timestamp_key: str, *, market_date: str) -> list[dict[str, Any]]:
+    return [item for item in items if _item_market_date(item, timestamp_key) == market_date]
+
+
+def _item_market_date(item: dict[str, Any], timestamp_key: str) -> str:
+    item_date = item.get("date")
+    if item_date and not str(item_date).startswith(("heartbeat#", "control#")):
+        return str(item_date)[:10]
+    return _market_date(_parse_time(item.get(timestamp_key)))
+
+
+def _market_date(value: datetime | None = None) -> str:
+    reference = value or _now()
+    if reference.tzinfo is None:
+        reference = reference.replace(tzinfo=timezone.utc)
+    return reference.astimezone(MARKET_TIMEZONE).date().isoformat()
+
+
+def _trade_pnl(trade: dict[str, Any]) -> Decimal:
+    return _decimal(trade.get("net_pnl", trade.get("pnl", trade.get("realized_pnl", 0))))
+
+
 def _risk_usage(trades: list[dict[str, Any]], today_pnl: Decimal) -> dict[str, Any]:
-    winning_pnl = sum((_decimal(item.get("pnl")) for item in trades if _decimal(item.get("pnl")) > 0), Decimal("0"))
-    losing_pnl = abs(sum((_decimal(item.get("pnl")) for item in trades if _decimal(item.get("pnl")) < 0), Decimal("0")))
+    winning_pnl = sum((_trade_pnl(item) for item in trades if _trade_pnl(item) > 0), Decimal("0"))
+    losing_pnl = abs(sum((_trade_pnl(item) for item in trades if _trade_pnl(item) < 0), Decimal("0")))
     return {
         "today_profit": winning_pnl,
         "today_loss": losing_pnl,
@@ -625,7 +650,7 @@ def _risk_usage(trades: list[dict[str, Any]], today_pnl: Decimal) -> dict[str, A
 def _win_rate(trades: list[dict[str, Any]]) -> Decimal:
     if not trades:
         return Decimal("0")
-    wins = [trade for trade in trades if _decimal(trade.get("pnl")) > 0]
+    wins = [trade for trade in trades if _trade_pnl(trade) > 0]
     return Decimal(len(wins)) / Decimal(len(trades)) * Decimal("100")
 
 
