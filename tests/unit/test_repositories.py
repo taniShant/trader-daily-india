@@ -213,3 +213,16 @@ def test_pnl_repository_persists_dashboard_trade_event():
     assert table.items[0]["stock_symbol"] == "MARUTI"
     assert table.items[0]["action"] == "BUY"
     assert table.items[0]["price"] == Decimal("13620")
+
+
+def test_pnl_repository_lists_trade_events_for_date():
+    table = FakeTable()
+    table.items = [
+        {"tradeId": "micro-exit-1", "date": "2026-08-18", "pnl": Decimal("-10")},
+        {"tradeId": "micro-exit-2", "date": "2026-08-17", "pnl": Decimal("-20")},
+        {"tradeId": "micro-exit-3", "date": "2026-08-18", "pnl": Decimal("5")},
+    ]
+
+    rows = PnlRepository(table).list_trade_events_for_date("2026-08-18")
+
+    assert [row["tradeId"] for row in rows] == ["micro-exit-1", "micro-exit-3"]

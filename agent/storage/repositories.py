@@ -244,6 +244,18 @@ class PnlRepository:
     def put_trade_event(self, trade: TradeEventRecord) -> None:
         self.table.put_item(Item=decimalize(trade.to_item()))
 
+    def list_trade_events_for_date(self, date: str) -> list[dict[str, Any]]:
+        items: list[dict[str, Any]] = []
+        scan_kwargs: dict[str, Any] = {}
+        while True:
+            response = self.table.scan(**scan_kwargs)
+            items.extend(item for item in response.get("Items", []) if str(item.get("date")) == date)
+            last_key = response.get("LastEvaluatedKey")
+            if not last_key:
+                break
+            scan_kwargs["ExclusiveStartKey"] = last_key
+        return items
+
 
 @dataclass(frozen=True)
 class TradingAuditRepositories:

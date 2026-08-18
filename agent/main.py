@@ -371,6 +371,28 @@ def _parse_recommendation_payload(result: Any) -> Dict[str, Any]:
     return {"action": "HOLD", "confidence": 50, "reasoning": text[:300], "risk_level": "HIGH"}
 
 
+def _decimal_from_any(value: Any) -> Decimal:
+    if value is None:
+        return Decimal("0")
+    return Decimal(str(value))
+
+
+def _parse_datetime_utc(value: Any) -> datetime:
+    if isinstance(value, datetime):
+        parsed = value
+    elif value:
+        try:
+            parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        except ValueError:
+            parsed = datetime.now(timezone.utc)
+    else:
+        parsed = datetime.now(timezone.utc)
+
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
 def _coerce_int(value: Any, default: int) -> int:
     if value is None or value == "":
         return default
@@ -605,6 +627,7 @@ class TradingBot:
         self._update_watchlist()
         self._print_config()
         self._reconcile_positions_on_startup()
+        self._restore_realized_micro_risk_state_on_startup()
         self._record_heartbeat("started")
     
     def _setup_signal_handlers(self):
@@ -935,6 +958,68 @@ class TradingBot:
         except Exception as e:
             print(f"   ⚠️ Failed to close stale paper position snapshot for {symbol}: {e}")
             return False
+
+    def _restore_realized_micro_risk_state_on_startup(self) -> None:
+        today = datetime.now(timezone.utc).date().isoformat()
+        try:
+            rows = self._get_audit_repositories().pnl.list_trade_events_for_date(today)
+        except Exception as e:
+            print(f"⚠️ Startup micro risk-state restore failed: {e}")
+            return
+
+        exit_rows = [row for row in rows if str(row.get("tradeId", "")).startswith("micro-exit-")]
+        if not exit_rows:
+            print("📈 Startup micro risk-state restore: no closed micro exits for today")
+            return
+
+        exit_rows.sort(key=lambda row: str(row.get("timestamp") or row.get("closed_at") or ""))
+        self.daily_pnl = 0.0
+        self.consecutive_losses = 0
+        self._micro_recent_losses = {}
+        self._micro_expectancy = {}
+
+        restored = 0
+        for row in exit_rows:
+            symbol = str(row.get("stock_symbol") or row.get("symbol") or "").upper()
+            pnl = _decimal_from_any(row.get("net_pnl", row.get("pnl", row.get("realized_pnl", 0))))
+            closed_at = _parse_datetime_utc(row.get("timestamp") or row.get("closed_at"))
+            self._restore_realized_micro_exit_row(symbol, row, pnl, closed_at)
+            restored += 1
+
+        self._prune_micro_recent_losses(datetime.now(timezone.utc))
+        print(
+            "📈 Startup micro risk-state restore: "
+            f"{restored} exits, daily_pnl={self.daily_pnl:.2f}, "
+            f"consecutive_losses={self.consecutive_losses}, "
+            f"loss_throttle_symbols={len(self._micro_recent_losses)}"
+        )
+
+    def _restore_realized_micro_exit_row(
+        self,
+        symbol: str,
+        row: dict[str, Any],
+        pnl: Decimal,
+        closed_at: datetime,
+    ) -> None:
+        pnl_float = float(pnl)
+        self.daily_pnl += pnl_float
+        if pnl < 0:
+            self.consecutive_losses += 1
+            if symbol:
+                self._micro_recent_losses.setdefault(symbol, []).append(closed_at)
+        else:
+            self.consecutive_losses = 0
+
+        setup = str(row.get("setup") or "unknown")
+        stats = self._micro_expectancy.setdefault(
+            setup,
+            {"trades": 0, "wins": 0, "losses": 0, "net_pnl": 0.0, "gross_pnl": 0.0},
+        )
+        stats["trades"] += 1
+        stats["wins"] += 1 if pnl > 0 else 0
+        stats["losses"] += 1 if pnl < 0 else 0
+        stats["net_pnl"] += pnl_float
+        stats["gross_pnl"] += float(_decimal_from_any(row.get("gross_pnl", pnl)))
 
     def _active_position_from_snapshot(self, row: dict[str, Any]) -> dict[str, Any]:
         quantity = int(row.get("quantity", 0))
@@ -1630,14 +1715,7 @@ class TradingBot:
         else:
             self.consecutive_losses = 0
 
-        cutoff = closed_at - timedelta(minutes=MICRO_LOSS_THROTTLE_WINDOW_MINUTES)
-        for loss_symbol, losses in list(self._micro_recent_losses.items()):
-            self._micro_recent_losses[loss_symbol] = [
-                loss_at for loss_at in losses
-                if (loss_at.astimezone(timezone.utc) if loss_at.tzinfo else loss_at.replace(tzinfo=timezone.utc)) >= cutoff
-            ]
-            if not self._micro_recent_losses[loss_symbol]:
-                self._micro_recent_losses.pop(loss_symbol, None)
+        self._prune_micro_recent_losses(closed_at)
 
         setup = str(position.get("setup") or "unknown")
         stats = self._micro_expectancy.setdefault(
@@ -1654,6 +1732,16 @@ class TradingBot:
             f"losses={stats['losses']} net_pnl={stats['net_pnl']:.2f} "
             f"daily_pnl={self.daily_pnl:.2f} consecutive_losses={self.consecutive_losses}"
         )
+
+    def _prune_micro_recent_losses(self, reference_time: datetime) -> None:
+        cutoff = reference_time - timedelta(minutes=MICRO_LOSS_THROTTLE_WINDOW_MINUTES)
+        for loss_symbol, losses in list(self._micro_recent_losses.items()):
+            self._micro_recent_losses[loss_symbol] = [
+                loss_at for loss_at in losses
+                if (loss_at.astimezone(timezone.utc) if loss_at.tzinfo else loss_at.replace(tzinfo=timezone.utc)) >= cutoff
+            ]
+            if not self._micro_recent_losses[loss_symbol]:
+                self._micro_recent_losses.pop(loss_symbol, None)
 
     @staticmethod
     def _is_long_position(position: dict[str, Any]) -> bool:

@@ -110,6 +110,69 @@ def test_live_startup_reconciliation_blocks_new_entries_when_broker_cannot_list_
     assert bot._entry_block_reason == "live_position_reconciliation_unavailable"
 
 
+def test_startup_restores_today_micro_risk_state_from_closed_exits():
+    bot = _bot_stub()
+    today = datetime.now(timezone.utc).date().isoformat()
+    recent_loss_time = datetime.now(timezone.utc) - timedelta(minutes=5)
+    older_loss_time = datetime.now(timezone.utc) - timedelta(minutes=45)
+
+    captured = SimpleNamespace(requested_date=None)
+
+    def list_trade_events_for_date(date):
+        captured.requested_date = date
+        return [
+            {
+                "tradeId": "micro-exit-NTPC-old",
+                "date": today,
+                "timestamp": older_loss_time.isoformat(),
+                "stock_symbol": "NTPC",
+                "net_pnl": Decimal("-100"),
+                "gross_pnl": Decimal("-80"),
+                "setup": "micro_volume_continuation",
+            },
+            {
+                "tradeId": "micro-exit-COALINDIA-win",
+                "date": today,
+                "timestamp": (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat(),
+                "stock_symbol": "COALINDIA",
+                "net_pnl": Decimal("50"),
+                "gross_pnl": Decimal("80"),
+                "setup": "micro_volume_continuation",
+            },
+            {
+                "tradeId": "micro-exit-M&M-recent",
+                "date": today,
+                "timestamp": recent_loss_time.isoformat(),
+                "stock_symbol": "M&M",
+                "net_pnl": Decimal("-25"),
+                "gross_pnl": Decimal("-10"),
+                "setup": "micro_volume_continuation",
+            },
+            {
+                "tradeId": "micro-M&M-entry",
+                "date": today,
+                "timestamp": recent_loss_time.isoformat(),
+                "stock_symbol": "M&M",
+                "net_pnl": Decimal("0"),
+            },
+        ]
+
+    bot._audit_repositories = SimpleNamespace(
+        pnl=SimpleNamespace(list_trade_events_for_date=list_trade_events_for_date)
+    )
+
+    bot._restore_realized_micro_risk_state_on_startup()
+
+    assert captured.requested_date == today
+    assert bot.daily_pnl == -75.0
+    assert bot.consecutive_losses == 1
+    assert "NTPC" not in bot._micro_recent_losses
+    assert bot._micro_recent_losses["M&M"] == [recent_loss_time]
+    assert bot._micro_expectancy["micro_volume_continuation"]["trades"] == 3
+    assert bot._micro_expectancy["micro_volume_continuation"]["wins"] == 1
+    assert bot._micro_expectancy["micro_volume_continuation"]["losses"] == 2
+
+
 def test_manual_service_start_skips_overnight_analysis_by_default(monkeypatch):
     bot = _bot_stub()
     bot.paper_trading = True

@@ -337,6 +337,7 @@ This phase addresses the strategic issue found during paper trading: the system 
 | P2 | P13-WP05 | Add symbol/setup throttling from recent losses | Implemented | `agent/main.py`, `agent/micro/engine.py`, `agent/storage/repositories.py`, tests | Tests cover per-symbol throttling after repeated recent losses; runtime records losses from net paper P&L. User VS Code verification pending. | The bot reduces exposure to symbols that are losing in the current session instead of repeating the same weak edge. |
 | P2 | P13-WP06 | Improve opportunity ranking before scan budget | Implemented | `agent/data/symbols.py`, `agent/micro/engine.py`, `agent/main.py`, `cicd/env/prod.json`, tests | Focused runtime tests cover supporting health metadata; CDK synth confirms scan budget and ranking knobs are deployed. User VS Code verification pending. | The 40-stock scan uses prior-cycle health to favor fresh/high-quality symbols and deprioritize unavailable/stale/recent-loss symbols. |
 | P1 | P13-WP07 | Add cost-aware entry economics gate | Implemented | `agent/micro/engine.py`, `agent/micro/models.py`, `agent/config.py`, `agent/main.py`, `cicd/env/prod.json`, `cicd/cdk/stacks/agent_runtime_stack.py`, tests | Focused tests cover rejecting approved micro entries whose expected target profit cannot clear estimated round-trip costs or the notional-scaled expected-profit floor. CDK synth shows `Micro Entry Economics`. User VS Code verification pending. | The bot skips small-edge entries where target profit is too close to brokerage/taxes/slippage, and scales the minimum expected net profit with position size so larger paper/live notional cannot pass on a tiny fixed INR floor. |
+| P1 | P13-WP08 | Restore micro risk state after ECS restart | Implemented | `agent/main.py`, `agent/storage/repositories.py`, `tests/unit/test_micro_trading_runtime.py`, `tests/unit/test_repositories.py` | Focused runtime/storage tests passed locally. User VS Code verification pending. | On startup, the bot loads today's closed micro exits from DynamoDB and rebuilds `daily_pnl`, consecutive-loss count, setup expectancy, and recent per-symbol loss throttle state before writing the first heartbeat. |
 
 ## 8. Testing Strategy
 
@@ -1199,6 +1200,17 @@ What Changed: Added candle-direction features and a confirmation gate for `micro
 Test Command: python -m py_compile agent/main.py agent/config.py agent/micro/setups.py agent/micro/models.py agent/signals/technical.py cicd/cdk/stacks/agent_runtime_stack.py; python -m pytest tests/unit/test_micro_trading.py tests/unit/test_config.py tests/unit/test_micro_trading_runtime.py -q; bash scripts/verify_cdk_synth.sh; git diff --check
 Test Result: py_compile passed. Focused config/micro/runtime tests passed with 43 tests. CDK synth passed and shows `Micro Continuation Confirmation: True` plus `Micro Exceptional Continuation RV: 8`.
 Notes / Next Step: Rebuild and redeploy trading-bot, then confirm ECS startup logs show continuation confirmation enabled. This should reduce late first-spike entries that fade immediately.
+```
+
+```text
+Date: 2026-08-18
+Work Package: P13-WP08 - Restore micro risk state after ECS restart
+Status: Implemented
+Files Changed: agent/main.py, agent/storage/repositories.py, tests/unit/test_micro_trading_runtime.py, tests/unit/test_repositories.py, PROJECT_PLAN.md, IMPORTANTFINDINGS.md
+What Changed: TradingBot startup now loads today's closed `micro-exit-*` trade rows from DynamoDB and rebuilds in-memory `daily_pnl`, consecutive-loss count, setup expectancy, and recent per-symbol loss throttle state before writing the first heartbeat. This prevents ECS redeploy/restart from resetting risk memory while today's paper/live exits still exist in DynamoDB.
+Test Command: python -m py_compile agent/main.py agent/storage/repositories.py; python -m pytest tests/unit/test_micro_trading_runtime.py tests/unit/test_repositories.py -q; git diff --check
+Test Result: py_compile passed. Focused runtime/storage tests passed with 24 tests. Diff check passed.
+Notes / Next Step: Rebuild and redeploy the trading-bot image, then confirm ECS startup logs show `Startup micro risk-state restore` with today's exit count and nonzero `daily_pnl` when applicable.
 ```
 
 ## 14. Plan Change Log

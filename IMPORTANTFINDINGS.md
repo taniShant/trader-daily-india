@@ -46,6 +46,9 @@ Implemented on 2026-08-14, pending ECS redeploy and live paper-log verification:
 0b. First-candle continuation entries were too reactive.
    Paper logs showed many high-volume entries fading within 2-3 minutes and exiting via `early_invalidation:volume_collapse`. P13-WP03 now requires second-candle continuation confirmation for ordinary volume-continuation entries, while preserving an exceptional first-candle path for at least 8x relative volume with controlled VWAP extension.
 
+0c. ECS restart must not reset risk memory.
+   Paper logs on 2026-08-18 showed DynamoDB/dashboard correctly reporting today's losses while the restarted bot heartbeat had `daily_pnl=0.0`. P13-WP08 now restores today's closed micro exits from DynamoDB on startup, rebuilding `daily_pnl`, consecutive-loss count, setup expectancy, and recent per-symbol loss throttle state before the first heartbeat.
+
 1. The current micro entry filters are not obviously wrong.
    The checks for fresh 1-minute candles, relative volume, ATR volatility, VWAP extension, RSI/MACD/trend alignment, confidence, and risk approval are a sensible first paper-trading framework.
 
