@@ -70,6 +70,7 @@ class TradingConfig(BaseModel):
     micro_min_continuation_relative_volume: float = Field(default=3.0, gt=0)
     micro_require_continuation_confirmation: bool = True
     micro_exceptional_continuation_relative_volume: float = Field(default=8.0, gt=0)
+    micro_max_continuation_vwap_extension_atr: float = Field(default=2.0, gt=0)
     micro_max_candle_age_seconds: int = Field(default=180, gt=0)
     micro_max_symbols_per_cycle: int = Field(default=40, gt=0)
     micro_reentry_cooldown_seconds: int = Field(default=600, ge=0)
@@ -93,6 +94,8 @@ class TradingConfig(BaseModel):
     micro_min_expected_net_profit: float = Field(default=0, ge=0)
     micro_min_expected_net_profit_bps: float = Field(default=0, ge=0)
     micro_min_target_to_cost_ratio: float = Field(default=0, ge=0)
+    micro_setup_loss_throttle_count: int = Field(default=2, ge=0)
+    micro_setup_loss_throttle_min_trades: int = Field(default=2, ge=0)
     position_reconciliation_enabled: bool = True
     run_startup_overnight_analysis: bool = False
     paper_trading: bool = True
@@ -262,6 +265,11 @@ def _apply_env_overrides(config: dict) -> dict:
             "micro_exceptional_continuation_relative_volume",
             float,
         ),
+        "MICRO_MAX_CONTINUATION_VWAP_EXTENSION_ATR": (
+            "trading",
+            "micro_max_continuation_vwap_extension_atr",
+            float,
+        ),
         "MICRO_MAX_CANDLE_AGE_SECONDS": ("trading", "micro_max_candle_age_seconds", int),
         "MICRO_MAX_SYMBOLS_PER_CYCLE": ("trading", "micro_max_symbols_per_cycle", int),
         "MICRO_REENTRY_COOLDOWN_SECONDS": ("trading", "micro_reentry_cooldown_seconds", int),
@@ -284,6 +292,8 @@ def _apply_env_overrides(config: dict) -> dict:
         "MICRO_MIN_EXPECTED_NET_PROFIT": ("trading", "micro_min_expected_net_profit", float),
         "MICRO_MIN_EXPECTED_NET_PROFIT_BPS": ("trading", "micro_min_expected_net_profit_bps", float),
         "MICRO_MIN_TARGET_TO_COST_RATIO": ("trading", "micro_min_target_to_cost_ratio", float),
+        "MICRO_SETUP_LOSS_THROTTLE_COUNT": ("trading", "micro_setup_loss_throttle_count", int),
+        "MICRO_SETUP_LOSS_THROTTLE_MIN_TRADES": ("trading", "micro_setup_loss_throttle_min_trades", int),
     }
     for env_name, (section, key, caster) in numeric_env_map.items():
         if os.environ.get(env_name):

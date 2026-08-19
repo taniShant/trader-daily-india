@@ -24,6 +24,7 @@ def test_loads_prod_json_oracle_values_without_env_overrides(monkeypatch):
     assert settings.trading.micro_min_continuation_relative_volume == 1.6
     assert settings.trading.micro_require_continuation_confirmation is True
     assert settings.trading.micro_exceptional_continuation_relative_volume == 8
+    assert settings.trading.micro_max_continuation_vwap_extension_atr == 2
     assert settings.trading.micro_max_candle_age_seconds == 180
     assert settings.trading.micro_reentry_cooldown_seconds == 300
     assert settings.trading.micro_continuation_target_pct == 0.003
@@ -35,10 +36,12 @@ def test_loads_prod_json_oracle_values_without_env_overrides(monkeypatch):
     assert settings.trading.micro_loss_throttle_window_minutes == 30
     assert settings.trading.micro_cost_brokerage_bps == 1
     assert settings.trading.micro_cost_taxes_bps == 2
-    assert settings.trading.micro_cost_slippage_bps == 2
+    assert settings.trading.micro_cost_slippage_bps == 1
     assert settings.trading.micro_min_expected_net_profit == 1000
     assert settings.trading.micro_min_expected_net_profit_bps == 8
     assert settings.trading.micro_min_target_to_cost_ratio == 1.4
+    assert settings.trading.micro_setup_loss_throttle_count == 2
+    assert settings.trading.micro_setup_loss_throttle_min_trades == 2
     assert settings.trading.position_reconciliation_enabled is True
     assert settings.trading.run_startup_overnight_analysis is False
     assert settings.market_symbols.exchange == "NSE"
@@ -61,6 +64,7 @@ def test_environment_overrides_take_precedence(monkeypatch):
     monkeypatch.setenv("MICRO_MIN_CONTINUATION_RELATIVE_VOLUME", "1.7")
     monkeypatch.setenv("MICRO_REQUIRE_CONTINUATION_CONFIRMATION", "false")
     monkeypatch.setenv("MICRO_EXCEPTIONAL_CONTINUATION_RELATIVE_VOLUME", "9.5")
+    monkeypatch.setenv("MICRO_MAX_CONTINUATION_VWAP_EXTENSION_ATR", "1.6")
     monkeypatch.setenv("MICRO_MAX_CANDLE_AGE_SECONDS", "240")
     monkeypatch.setenv("MICRO_REENTRY_COOLDOWN_SECONDS", "180")
     monkeypatch.setenv("MICRO_CONTINUATION_TARGET_PCT", "0.0025")
@@ -74,6 +78,8 @@ def test_environment_overrides_take_precedence(monkeypatch):
     monkeypatch.setenv("MICRO_MIN_EXPECTED_NET_PROFIT", "750")
     monkeypatch.setenv("MICRO_MIN_EXPECTED_NET_PROFIT_BPS", "9")
     monkeypatch.setenv("MICRO_MIN_TARGET_TO_COST_RATIO", "2.2")
+    monkeypatch.setenv("MICRO_SETUP_LOSS_THROTTLE_COUNT", "4")
+    monkeypatch.setenv("MICRO_SETUP_LOSS_THROTTLE_MIN_TRADES", "5")
     monkeypatch.setenv("POSITION_RECONCILIATION_ENABLED", "false")
     monkeypatch.setenv("RUN_STARTUP_OVERNIGHT_ANALYSIS", "true")
     monkeypatch.setenv("TRADES_TABLE", "trades-test")
@@ -94,6 +100,7 @@ def test_environment_overrides_take_precedence(monkeypatch):
     assert settings.trading.micro_min_continuation_relative_volume == 1.7
     assert settings.trading.micro_require_continuation_confirmation is False
     assert settings.trading.micro_exceptional_continuation_relative_volume == 9.5
+    assert settings.trading.micro_max_continuation_vwap_extension_atr == 1.6
     assert settings.trading.micro_max_candle_age_seconds == 240
     assert settings.trading.micro_reentry_cooldown_seconds == 180
     assert settings.trading.micro_continuation_target_pct == 0.0025
@@ -107,6 +114,8 @@ def test_environment_overrides_take_precedence(monkeypatch):
     assert settings.trading.micro_min_expected_net_profit == 750
     assert settings.trading.micro_min_expected_net_profit_bps == 9
     assert settings.trading.micro_min_target_to_cost_ratio == 2.2
+    assert settings.trading.micro_setup_loss_throttle_count == 4
+    assert settings.trading.micro_setup_loss_throttle_min_trades == 5
     assert settings.trading.position_reconciliation_enabled is False
     assert settings.trading.run_startup_overnight_analysis is True
     assert settings.dynamodb.trades_table == "trades-test"

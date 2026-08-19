@@ -249,13 +249,7 @@ class MicroSetupDetector:
 
         latest_up = features.close > latest_open
         previous_up = previous_close > previous_open
-        second_candle_confirmed = latest_up and previous_up and features.close >= previous_close
-        exceptional_first_candle = (
-            latest_up
-            and features.relative_volume >= self.config.exceptional_continuation_relative_volume
-            and extension <= self.config.max_vwap_extension_atr
-        )
-        return second_candle_confirmed or exceptional_first_candle
+        return latest_up and previous_up and features.close >= previous_close
 
     def _bearish_continuation_confirmed(self, features: TechnicalFeatures, extension: float) -> bool:
         if not self.config.require_continuation_confirmation:
@@ -269,13 +263,7 @@ class MicroSetupDetector:
 
         latest_down = features.close < latest_open
         previous_down = previous_close < previous_open
-        second_candle_confirmed = latest_down and previous_down and features.close <= previous_close
-        exceptional_first_candle = (
-            latest_down
-            and features.relative_volume >= self.config.exceptional_continuation_relative_volume
-            and extension <= self.config.max_vwap_extension_atr
-        )
-        return second_candle_confirmed or exceptional_first_candle
+        return latest_down and previous_down and features.close <= previous_close
 
     @staticmethod
     def _volume_bonus(relative_volume: float) -> int:

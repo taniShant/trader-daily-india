@@ -99,6 +99,10 @@ class TradingAgentRuntimeStack(Stack):
             "micro_exceptional_continuation_relative_volume",
             8.0,
         )
+        micro_max_continuation_vwap_extension_atr = trading_config.get(
+            "micro_max_continuation_vwap_extension_atr",
+            2.0,
+        )
         micro_max_candle_age_seconds = trading_config.get("micro_max_candle_age_seconds", 180)
         micro_max_symbols_per_cycle = trading_config.get("micro_max_symbols_per_cycle", 40)
         micro_reentry_cooldown_seconds = trading_config.get("micro_reentry_cooldown_seconds", 600)
@@ -122,6 +126,8 @@ class TradingAgentRuntimeStack(Stack):
         micro_min_expected_net_profit = trading_config.get("micro_min_expected_net_profit", 0)
         micro_min_expected_net_profit_bps = trading_config.get("micro_min_expected_net_profit_bps", 0)
         micro_min_target_to_cost_ratio = trading_config.get("micro_min_target_to_cost_ratio", 0)
+        micro_setup_loss_throttle_count = trading_config.get("micro_setup_loss_throttle_count", 2)
+        micro_setup_loss_throttle_min_trades = trading_config.get("micro_setup_loss_throttle_min_trades", 2)
         position_reconciliation_enabled = trading_config.get("position_reconciliation_enabled", True)
         run_startup_overnight_analysis = trading_config.get("run_startup_overnight_analysis", False)
         
@@ -159,6 +165,7 @@ class TradingAgentRuntimeStack(Stack):
         print(f"   Micro Continuation Min Relative Volume: {micro_min_continuation_relative_volume}")
         print(f"   Micro Continuation Confirmation: {micro_require_continuation_confirmation}")
         print(f"   Micro Exceptional Continuation RV: {micro_exceptional_continuation_relative_volume}")
+        print(f"   Micro Continuation Max VWAP Extension: {micro_max_continuation_vwap_extension_atr} ATR")
         print(f"   Micro Max Candle Age: {micro_max_candle_age_seconds} seconds")
         print(
             "   Micro Setup Brackets: "
@@ -168,6 +175,10 @@ class TradingAgentRuntimeStack(Stack):
         )
         print(f"   Micro Early Exit Enabled: {micro_early_exit_enabled}")
         print(f"   Micro Loss Throttle: {micro_loss_throttle_count} losses / {micro_loss_throttle_window_minutes} minutes")
+        print(
+            "   Micro Setup Loss Throttle: "
+            f"{micro_setup_loss_throttle_count} losses after {micro_setup_loss_throttle_min_trades} trades"
+        )
         print(
             "   Micro Entry Economics: "
             f"min_net=₹{micro_min_expected_net_profit}, "
@@ -249,6 +260,7 @@ class TradingAgentRuntimeStack(Stack):
             "MICRO_MIN_CONTINUATION_RELATIVE_VOLUME": str(micro_min_continuation_relative_volume),
             "MICRO_REQUIRE_CONTINUATION_CONFIRMATION": str(micro_require_continuation_confirmation),
             "MICRO_EXCEPTIONAL_CONTINUATION_RELATIVE_VOLUME": str(micro_exceptional_continuation_relative_volume),
+            "MICRO_MAX_CONTINUATION_VWAP_EXTENSION_ATR": str(micro_max_continuation_vwap_extension_atr),
             "MICRO_MAX_CANDLE_AGE_SECONDS": str(micro_max_candle_age_seconds),
             "MICRO_MAX_SYMBOLS_PER_CYCLE": str(micro_max_symbols_per_cycle),
             "MICRO_REENTRY_COOLDOWN_SECONDS": str(micro_reentry_cooldown_seconds),
@@ -272,6 +284,8 @@ class TradingAgentRuntimeStack(Stack):
             "MICRO_MIN_EXPECTED_NET_PROFIT": str(micro_min_expected_net_profit),
             "MICRO_MIN_EXPECTED_NET_PROFIT_BPS": str(micro_min_expected_net_profit_bps),
             "MICRO_MIN_TARGET_TO_COST_RATIO": str(micro_min_target_to_cost_ratio),
+            "MICRO_SETUP_LOSS_THROTTLE_COUNT": str(micro_setup_loss_throttle_count),
+            "MICRO_SETUP_LOSS_THROTTLE_MIN_TRADES": str(micro_setup_loss_throttle_min_trades),
             "POSITION_RECONCILIATION_ENABLED": str(position_reconciliation_enabled),
             "RUN_STARTUP_OVERNIGHT_ANALYSIS": str(run_startup_overnight_analysis),
             "STATIC_IP": static_ip,

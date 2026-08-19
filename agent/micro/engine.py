@@ -65,6 +65,7 @@ class MicroTradingEngine:
         *,
         risk_state: RiskState | None = None,
         recent_losses: dict[str, list[datetime]] | None = None,
+        setup_expectancy: dict[str, dict[str, Any]] | None = None,
     ) -> list[MicroTradeAttempt]:
         if not self.config.enabled:
             return []
@@ -72,7 +73,12 @@ class MicroTradingEngine:
         attempts: list[MicroTradeAttempt] = []
         for symbol in list(symbols)[: self.config.max_symbols_per_cycle]:
             attempts.append(
-                self.evaluate_symbol(symbol, risk_state=risk_state, recent_losses=recent_losses)
+                self.evaluate_symbol(
+                    symbol,
+                    risk_state=risk_state,
+                    recent_losses=recent_losses,
+                    setup_expectancy=setup_expectancy,
+                )
             )
         return attempts
 
@@ -82,6 +88,7 @@ class MicroTradingEngine:
         *,
         risk_state: RiskState | None = None,
         recent_losses: dict[str, list[datetime]] | None = None,
+        setup_expectancy: dict[str, dict[str, Any]] | None = None,
     ) -> MicroTradeAttempt:
         try:
             payload = self.market_data_provider.get_historical_data(
@@ -105,6 +112,10 @@ class MicroTradingEngine:
 
         if not setup.is_actionable:
             return MicroTradeAttempt(symbol=symbol, setup=setup, skipped_reason="no_actionable_micro_setup")
+
+        setup_throttle_skip = self._setup_expectancy_skip_reason(setup, setup_expectancy)
+        if setup_throttle_skip:
+            return MicroTradeAttempt(symbol=symbol, setup=setup, skipped_reason=setup_throttle_skip)
 
         signal_id = _signal_id(setup.symbol, setup.action)
         plan = self.detector.to_plan(setup, signal_id=signal_id)
@@ -182,6 +193,37 @@ class MicroTradingEngine:
         if age_seconds > self.config.max_candle_age_seconds:
             return f"stale_candle:{int(age_seconds)}s"
         return None
+
+    def _setup_expectancy_skip_reason(
+        self,
+        setup: MicroTradeSetup,
+        setup_expectancy: dict[str, dict[str, Any]] | None,
+    ) -> str | None:
+        if self.config.setup_loss_throttle_count <= 0:
+            return None
+        if not setup_expectancy:
+            return None
+
+        stats = setup_expectancy.get(setup.setup)
+        if not stats:
+            return None
+
+        trades = int(stats.get("trades") or 0)
+        wins = int(stats.get("wins") or 0)
+        losses = int(stats.get("losses") or 0)
+        net_pnl = Decimal(str(stats.get("net_pnl") or 0))
+        min_trades = max(self.config.setup_loss_throttle_min_trades, self.config.setup_loss_throttle_count)
+        if trades < min_trades or losses < self.config.setup_loss_throttle_count or net_pnl >= 0:
+            return None
+
+        win_rate = Decimal(wins) / Decimal(trades) if trades else Decimal("0")
+        if win_rate > Decimal("0.34"):
+            return None
+        return (
+            "setup_loss_throttle_active:"
+            f"{setup.setup}:trades={trades};wins={wins};"
+            f"losses={losses};net_pnl={net_pnl:.2f}"
+        )
 
     def _loss_throttle_skip_reason(
         self,

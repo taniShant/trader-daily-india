@@ -29,7 +29,7 @@ def test_micro_detector_flags_clean_breakout_buy():
             opening_range_low=104.0,
             previous_high=109.0,
             previous_low=106.0,
-            trend_bias="bullish",
+            trend_bias="neutral",
         )
     )
 
@@ -95,7 +95,7 @@ def test_micro_detector_allows_controlled_high_volume_continuation():
         TechnicalFeatures(
             symbol="BAJAJFINSV",
             close=113.0,
-            vwap=110.0,
+            vwap=111.5,
             rsi=68.0,
             macd=2.2,
             macd_signal=1.4,
@@ -134,7 +134,7 @@ def test_micro_detector_rejects_unconfirmed_first_candle_continuation():
             opening_range_low=104.0,
             previous_high=119.0,
             previous_low=106.0,
-            trend_bias="bullish",
+            trend_bias="neutral",
             latest_open=112.0,
             previous_open=112.5,
             previous_close=111.5,
@@ -145,7 +145,7 @@ def test_micro_detector_rejects_unconfirmed_first_candle_continuation():
     assert setup.features["bullish_continuation_confirmed"] is False
 
 
-def test_micro_detector_allows_exceptional_first_candle_continuation():
+def test_micro_detector_rejects_exceptional_first_candle_continuation():
     detector = MicroSetupDetector(MicroTradeConfig(min_confidence=72))
     setup = detector.detect(
         TechnicalFeatures(
@@ -161,16 +161,15 @@ def test_micro_detector_allows_exceptional_first_candle_continuation():
             opening_range_low=104.0,
             previous_high=119.0,
             previous_low=106.0,
-            trend_bias="bullish",
+            trend_bias="neutral",
             latest_open=112.0,
             previous_open=112.5,
             previous_close=111.5,
         )
     )
 
-    assert setup.action == "BUY"
-    assert setup.setup == "micro_volume_continuation"
-    assert setup.features["bullish_continuation_confirmed"] is True
+    assert setup.action == "HOLD"
+    assert setup.features["bullish_continuation_confirmed"] is False
 
 
 def test_micro_detector_rejects_extreme_continuation_extension():
@@ -203,7 +202,7 @@ def test_micro_detector_allows_high_volume_continuation_with_lower_atr():
         TechnicalFeatures(
             symbol="ASIANPAINT",
             close=2785.20,
-            vwap=2776.58,
+            vwap=2780.80,
             rsi=67.11,
             macd=1.8,
             macd_signal=1.2,
@@ -319,7 +318,7 @@ def test_micro_detector_blocks_low_volume_extended_continuation_even_when_thresh
     )
 
     assert setup.action == "HOLD"
-    assert "extended continuation needs stronger relative volume" in " ".join(setup.reasons)
+    assert "continuation extension too stretched" in " ".join(setup.reasons)
 
 
 def test_micro_position_exits_on_target_stop_and_time():
@@ -360,7 +359,7 @@ def test_micro_detector_uses_shorter_continuation_bracket_and_timeout():
         TechnicalFeatures(
             symbol="ASIANPAINT",
             close=2785.20,
-            vwap=2776.58,
+            vwap=2780.80,
             rsi=67.11,
             macd=1.8,
             macd_signal=1.2,
@@ -740,6 +739,74 @@ def test_micro_engine_throttles_symbol_after_recent_losses():
 
     assert attempt.executed is False
     assert attempt.skipped_reason == "recent_loss_throttle_active:MARUTI:2_losses/30m"
+
+
+def test_micro_engine_throttles_losing_setup_for_the_day():
+    class Detector:
+        def detect(self, features):
+            return MicroTradeSetup(
+                symbol="TITAN",
+                action="SELL",
+                confidence=82,
+                setup="micro_volume_continuation",
+                entry_price=Decimal("5053.10"),
+                stop_loss=Decimal("5060.68"),
+                target_price=Decimal("5037.94"),
+                reasons=["test continuation"],
+                features=features.to_dict(),
+            )
+
+        def to_plan(self, setup, signal_id):
+            return MicroSetupDetector().to_plan(setup, signal_id)
+
+    provider = SimpleNamespace(
+        get_historical_data=lambda symbol, days, interval: {
+            "symbol": symbol,
+            "days": days,
+            "interval": interval,
+            "data": [
+                {"timestamp": _fresh_timestamp(2), "open": 5058, "high": 5060, "low": 5050, "close": 5056, "volume": 1000},
+                {"timestamp": _fresh_timestamp(1), "open": 5056, "high": 5057, "low": 5050, "close": 5053.1, "volume": 4000},
+            ],
+        }
+    )
+    engine = MicroTradingEngine(
+        market_data_provider=provider,
+        broker=PaperBroker(),
+        risk_manager=RiskManager(
+            RiskLimits(
+                capital=Decimal("100000000"),
+                max_daily_loss_percent=Decimal("4"),
+                max_position_size_percent=Decimal("10"),
+                min_confidence=70,
+                max_quantity_per_order=5000,
+            )
+        ),
+        config=MicroTradeConfig(
+            enabled=True,
+            max_candle_age_seconds=999999999,
+            setup_loss_throttle_count=2,
+            setup_loss_throttle_min_trades=2,
+        ),
+        detector=Detector(),
+    )
+
+    attempt = engine.scan_once(
+        ["TITAN"],
+        risk_state=RiskState(new_trades_allowed=True),
+        setup_expectancy={
+            "micro_volume_continuation": {
+                "trades": 2,
+                "wins": 0,
+                "losses": 2,
+                "net_pnl": -33424.47,
+            }
+        },
+    )[0]
+
+    assert attempt.executed is False
+    assert attempt.skipped_reason.startswith("setup_loss_throttle_active:micro_volume_continuation:")
+    assert "losses=2" in attempt.skipped_reason
 
 
 def test_micro_engine_exits_existing_position_on_opposite_signal_without_reversing():

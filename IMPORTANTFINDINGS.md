@@ -13,7 +13,7 @@ Implemented on 2026-08-14, pending ECS redeploy and live paper-log verification:
 - Startup position reconciliation now closes stale paper-position snapshots and blocks live entries if open positions exist but live broker reconciliation cannot be proven.
 - Normal market-service startup now skips overnight analysis by default with `run_startup_overnight_analysis=false`, because the ICICI Breeze session key must be refreshed manually each day before ECS is started.
 - Micro entry scans now use fixed-rate scheduling from cycle start. A 90-second scan interval with a 25-second scan sleeps about 65 seconds instead of 90 seconds.
-- Cost-aware entry gating is calibrated to the user's ICICI Direct PRIME 4999 intraday plan: 1 bps brokerage, 2 bps statutory/tax buffer, and 2 bps slippage buffer, for 5 bps total on round-trip turnover.
+- Cost-aware entry gating is calibrated to the user's ICICI Direct PRIME 4999 intraday plan: 1 bps brokerage, 2 bps statutory/tax buffer, and 1 bps slippage buffer, for 4 bps total on round-trip turnover.
 
 ## High Priority Findings
 
@@ -44,7 +44,10 @@ Implemented on 2026-08-14, pending ECS redeploy and live paper-log verification:
    The 2026-08-17 paper run with INR 10 crore capital showed that a fixed INR 1000 expected-net threshold is meaningless for large positions. P13-WP07 now adds `micro_min_expected_net_profit_bps`; production uses 8 bps so the minimum expected net profit scales with entry notional.
 
 0b. First-candle continuation entries were too reactive.
-   Paper logs showed many high-volume entries fading within 2-3 minutes and exiting via `early_invalidation:volume_collapse`. P13-WP03 now requires second-candle continuation confirmation for ordinary volume-continuation entries, while preserving an exceptional first-candle path for at least 8x relative volume with controlled VWAP extension.
+   Paper logs showed many high-volume entries fading within 2-3 minutes and exiting via `early_invalidation:volume_collapse`. P13-WP09 removes the exceptional first-candle continuation shortcut entirely; `micro_volume_continuation` now needs second-candle confirmation and controlled VWAP extension.
+
+0d. Setup-level expectancy must stop repeated weak edges, not only symbols.
+   The 2026-08-19 paper run showed `micro_volume_continuation` losing across multiple symbols. Per-symbol throttling alone would not stop the same setup from moving to the next stock. P13-WP09 adds setup-level loss throttling so a setup family is blocked after repeated same-day losing exits with negative expectancy.
 
 0c. ECS restart must not reset risk memory.
    Paper logs on 2026-08-18 showed DynamoDB/dashboard correctly reporting today's losses while the restarted bot heartbeat had `daily_pnl=0.0`. P13-WP08 now restores today's closed micro exits from DynamoDB on startup, rebuilding `daily_pnl`, consecutive-loss count, setup expectancy, and recent per-symbol loss throttle state before the first heartbeat.

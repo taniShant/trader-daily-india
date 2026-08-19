@@ -91,6 +91,7 @@ MICRO_MIN_RELATIVE_VOLUME = settings.trading.micro_min_relative_volume
 MICRO_MIN_CONTINUATION_RELATIVE_VOLUME = settings.trading.micro_min_continuation_relative_volume
 MICRO_REQUIRE_CONTINUATION_CONFIRMATION = settings.trading.micro_require_continuation_confirmation
 MICRO_EXCEPTIONAL_CONTINUATION_RELATIVE_VOLUME = settings.trading.micro_exceptional_continuation_relative_volume
+MICRO_MAX_CONTINUATION_VWAP_EXTENSION_ATR = settings.trading.micro_max_continuation_vwap_extension_atr
 MICRO_MAX_CANDLE_AGE_SECONDS = settings.trading.micro_max_candle_age_seconds
 MICRO_MAX_SYMBOLS_PER_CYCLE = settings.trading.micro_max_symbols_per_cycle
 MICRO_REENTRY_COOLDOWN_SECONDS = settings.trading.micro_reentry_cooldown_seconds
@@ -114,6 +115,8 @@ MICRO_COST_SLIPPAGE_BPS = settings.trading.micro_cost_slippage_bps
 MICRO_MIN_EXPECTED_NET_PROFIT = settings.trading.micro_min_expected_net_profit
 MICRO_MIN_EXPECTED_NET_PROFIT_BPS = settings.trading.micro_min_expected_net_profit_bps
 MICRO_MIN_TARGET_TO_COST_RATIO = settings.trading.micro_min_target_to_cost_ratio
+MICRO_SETUP_LOSS_THROTTLE_COUNT = settings.trading.micro_setup_loss_throttle_count
+MICRO_SETUP_LOSS_THROTTLE_MIN_TRADES = settings.trading.micro_setup_loss_throttle_min_trades
 POSITION_RECONCILIATION_ENABLED = settings.trading.position_reconciliation_enabled
 RUN_STARTUP_OVERNIGHT_ANALYSIS = settings.trading.run_startup_overnight_analysis
 
@@ -667,6 +670,7 @@ class TradingBot:
             print(f"Micro Continuation Min Relative Volume: {MICRO_MIN_CONTINUATION_RELATIVE_VOLUME:.2f}x")
             print(f"Micro Continuation Confirmation: {MICRO_REQUIRE_CONTINUATION_CONFIRMATION}")
             print(f"Micro Exceptional Continuation RV: {MICRO_EXCEPTIONAL_CONTINUATION_RELATIVE_VOLUME:.2f}x")
+            print(f"Micro Continuation Max VWAP Extension: {MICRO_MAX_CONTINUATION_VWAP_EXTENSION_ATR:.2f} ATR")
             print(f"Micro Max Candle Age: {MICRO_MAX_CANDLE_AGE_SECONDS} seconds")
             print(f"Micro Symbols Per Cycle: {MICRO_MAX_SYMBOLS_PER_CYCLE}")
             print(
@@ -677,6 +681,11 @@ class TradingBot:
             )
             print(f"Micro Early Exit Enabled: {MICRO_EARLY_EXIT_ENABLED}")
             print(f"Micro Loss Throttle: {MICRO_LOSS_THROTTLE_COUNT} losses / {MICRO_LOSS_THROTTLE_WINDOW_MINUTES} minutes")
+            print(
+                "Micro Setup Loss Throttle: "
+                f"{MICRO_SETUP_LOSS_THROTTLE_COUNT} losses after "
+                f"{MICRO_SETUP_LOSS_THROTTLE_MIN_TRADES} trades"
+            )
             print(
                 "Micro Entry Economics: "
                 f"min_net=₹{MICRO_MIN_EXPECTED_NET_PROFIT:.2f}, "
@@ -774,6 +783,7 @@ class TradingBot:
                 min_continuation_relative_volume=MICRO_MIN_CONTINUATION_RELATIVE_VOLUME,
                 require_continuation_confirmation=MICRO_REQUIRE_CONTINUATION_CONFIRMATION,
                 exceptional_continuation_relative_volume=MICRO_EXCEPTIONAL_CONTINUATION_RELATIVE_VOLUME,
+                max_continuation_vwap_extension_atr=MICRO_MAX_CONTINUATION_VWAP_EXTENSION_ATR,
                 max_candle_age_seconds=MICRO_MAX_CANDLE_AGE_SECONDS,
                 max_symbols_per_cycle=MICRO_MAX_SYMBOLS_PER_CYCLE,
                 reentry_cooldown_seconds=MICRO_REENTRY_COOLDOWN_SECONDS,
@@ -794,6 +804,8 @@ class TradingBot:
                 min_expected_net_profit=Decimal(str(MICRO_MIN_EXPECTED_NET_PROFIT)),
                 min_expected_net_profit_bps=Decimal(str(MICRO_MIN_EXPECTED_NET_PROFIT_BPS)),
                 min_target_to_cost_ratio=Decimal(str(MICRO_MIN_TARGET_TO_COST_RATIO)),
+                setup_loss_throttle_count=MICRO_SETUP_LOSS_THROTTLE_COUNT,
+                setup_loss_throttle_min_trades=MICRO_SETUP_LOSS_THROTTLE_MIN_TRADES,
             ),
         )
 
@@ -1872,6 +1884,7 @@ class TradingBot:
                 new_trades_allowed=self._is_new_trade_allowed(),
             ),
             recent_losses=self._micro_recent_losses,
+            setup_expectancy=self._micro_expectancy,
         )
         executed = [attempt for attempt in attempts if attempt.executed]
         actionable = [

@@ -27,7 +27,7 @@ class MicroTradeConfig:
     require_continuation_confirmation: bool = True
     exceptional_continuation_relative_volume: float = 8.0
     extended_continuation_min_relative_volume: float = 2.5
-    max_continuation_vwap_extension_atr: float = 4.0
+    max_continuation_vwap_extension_atr: float = 2.0
     target_pct: Decimal = Decimal("0.004")
     stop_pct: Decimal = Decimal("0.002")
     continuation_target_pct: Decimal = Decimal("0.003")
@@ -49,6 +49,8 @@ class MicroTradeConfig:
     min_expected_net_profit: Decimal = Decimal("0")
     min_expected_net_profit_bps: Decimal = Decimal("0")
     min_target_to_cost_ratio: Decimal = Decimal("0")
+    setup_loss_throttle_count: int = 2
+    setup_loss_throttle_min_trades: int = 2
 
 
 @dataclass(frozen=True)
