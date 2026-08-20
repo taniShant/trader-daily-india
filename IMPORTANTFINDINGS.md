@@ -49,6 +49,9 @@ Implemented on 2026-08-14, pending ECS redeploy and live paper-log verification:
 0d. Setup-level expectancy must stop repeated weak edges, not only symbols.
    The 2026-08-19 paper run showed `micro_volume_continuation` losing across multiple symbols. Per-symbol throttling alone would not stop the same setup from moving to the next stock. P13-WP09 adds setup-level loss throttling so a setup family is blocked after repeated same-day losing exits with negative expectancy.
 
+0e. More opportunity should come from cleaner entries, not looser spike chasing.
+   The 2026-08-20 logs showed the bot rejecting many high-volume stocks because price was already too far from VWAP. P13-WP10 adds `micro_vwap_pullback_continuation`, which waits for an impulse to cool back near VWAP and then resume, increasing possible entries without reopening the first-spike continuation pattern that caused losses.
+
 0c. ECS restart must not reset risk memory.
    Paper logs on 2026-08-18 showed DynamoDB/dashboard correctly reporting today's losses while the restarted bot heartbeat had `daily_pnl=0.0`. P13-WP08 now restores today's closed micro exits from DynamoDB on startup, rebuilding `daily_pnl`, consecutive-loss count, setup expectancy, and recent per-symbol loss throttle state before the first heartbeat.
 

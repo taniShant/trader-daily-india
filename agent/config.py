@@ -71,6 +71,9 @@ class TradingConfig(BaseModel):
     micro_require_continuation_confirmation: bool = True
     micro_exceptional_continuation_relative_volume: float = Field(default=8.0, gt=0)
     micro_max_continuation_vwap_extension_atr: float = Field(default=2.0, gt=0)
+    micro_pullback_min_impulse_extension_atr: float = Field(default=2.0, gt=0)
+    micro_pullback_max_entry_extension_atr: float = Field(default=1.1, gt=0)
+    micro_pullback_min_relative_volume: float = Field(default=1.2, gt=0)
     micro_max_candle_age_seconds: int = Field(default=180, gt=0)
     micro_max_symbols_per_cycle: int = Field(default=40, gt=0)
     micro_reentry_cooldown_seconds: int = Field(default=600, ge=0)
@@ -268,6 +271,21 @@ def _apply_env_overrides(config: dict) -> dict:
         "MICRO_MAX_CONTINUATION_VWAP_EXTENSION_ATR": (
             "trading",
             "micro_max_continuation_vwap_extension_atr",
+            float,
+        ),
+        "MICRO_PULLBACK_MIN_IMPULSE_EXTENSION_ATR": (
+            "trading",
+            "micro_pullback_min_impulse_extension_atr",
+            float,
+        ),
+        "MICRO_PULLBACK_MAX_ENTRY_EXTENSION_ATR": (
+            "trading",
+            "micro_pullback_max_entry_extension_atr",
+            float,
+        ),
+        "MICRO_PULLBACK_MIN_RELATIVE_VOLUME": (
+            "trading",
+            "micro_pullback_min_relative_volume",
             float,
         ),
         "MICRO_MAX_CANDLE_AGE_SECONDS": ("trading", "micro_max_candle_age_seconds", int),

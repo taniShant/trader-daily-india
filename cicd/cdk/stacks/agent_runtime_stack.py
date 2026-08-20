@@ -103,6 +103,18 @@ class TradingAgentRuntimeStack(Stack):
             "micro_max_continuation_vwap_extension_atr",
             2.0,
         )
+        micro_pullback_min_impulse_extension_atr = trading_config.get(
+            "micro_pullback_min_impulse_extension_atr",
+            2.0,
+        )
+        micro_pullback_max_entry_extension_atr = trading_config.get(
+            "micro_pullback_max_entry_extension_atr",
+            1.1,
+        )
+        micro_pullback_min_relative_volume = trading_config.get(
+            "micro_pullback_min_relative_volume",
+            1.2,
+        )
         micro_max_candle_age_seconds = trading_config.get("micro_max_candle_age_seconds", 180)
         micro_max_symbols_per_cycle = trading_config.get("micro_max_symbols_per_cycle", 40)
         micro_reentry_cooldown_seconds = trading_config.get("micro_reentry_cooldown_seconds", 600)
@@ -166,6 +178,12 @@ class TradingAgentRuntimeStack(Stack):
         print(f"   Micro Continuation Confirmation: {micro_require_continuation_confirmation}")
         print(f"   Micro Exceptional Continuation RV: {micro_exceptional_continuation_relative_volume}")
         print(f"   Micro Continuation Max VWAP Extension: {micro_max_continuation_vwap_extension_atr} ATR")
+        print(
+            "   Micro VWAP Pullback: "
+            f"impulse>={micro_pullback_min_impulse_extension_atr} ATR, "
+            f"entry_ext<={micro_pullback_max_entry_extension_atr} ATR, "
+            f"rv>={micro_pullback_min_relative_volume}x"
+        )
         print(f"   Micro Max Candle Age: {micro_max_candle_age_seconds} seconds")
         print(
             "   Micro Setup Brackets: "
@@ -261,6 +279,9 @@ class TradingAgentRuntimeStack(Stack):
             "MICRO_REQUIRE_CONTINUATION_CONFIRMATION": str(micro_require_continuation_confirmation),
             "MICRO_EXCEPTIONAL_CONTINUATION_RELATIVE_VOLUME": str(micro_exceptional_continuation_relative_volume),
             "MICRO_MAX_CONTINUATION_VWAP_EXTENSION_ATR": str(micro_max_continuation_vwap_extension_atr),
+            "MICRO_PULLBACK_MIN_IMPULSE_EXTENSION_ATR": str(micro_pullback_min_impulse_extension_atr),
+            "MICRO_PULLBACK_MAX_ENTRY_EXTENSION_ATR": str(micro_pullback_max_entry_extension_atr),
+            "MICRO_PULLBACK_MIN_RELATIVE_VOLUME": str(micro_pullback_min_relative_volume),
             "MICRO_MAX_CANDLE_AGE_SECONDS": str(micro_max_candle_age_seconds),
             "MICRO_MAX_SYMBOLS_PER_CYCLE": str(micro_max_symbols_per_cycle),
             "MICRO_REENTRY_COOLDOWN_SECONDS": str(micro_reentry_cooldown_seconds),

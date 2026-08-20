@@ -92,6 +92,9 @@ MICRO_MIN_CONTINUATION_RELATIVE_VOLUME = settings.trading.micro_min_continuation
 MICRO_REQUIRE_CONTINUATION_CONFIRMATION = settings.trading.micro_require_continuation_confirmation
 MICRO_EXCEPTIONAL_CONTINUATION_RELATIVE_VOLUME = settings.trading.micro_exceptional_continuation_relative_volume
 MICRO_MAX_CONTINUATION_VWAP_EXTENSION_ATR = settings.trading.micro_max_continuation_vwap_extension_atr
+MICRO_PULLBACK_MIN_IMPULSE_EXTENSION_ATR = settings.trading.micro_pullback_min_impulse_extension_atr
+MICRO_PULLBACK_MAX_ENTRY_EXTENSION_ATR = settings.trading.micro_pullback_max_entry_extension_atr
+MICRO_PULLBACK_MIN_RELATIVE_VOLUME = settings.trading.micro_pullback_min_relative_volume
 MICRO_MAX_CANDLE_AGE_SECONDS = settings.trading.micro_max_candle_age_seconds
 MICRO_MAX_SYMBOLS_PER_CYCLE = settings.trading.micro_max_symbols_per_cycle
 MICRO_REENTRY_COOLDOWN_SECONDS = settings.trading.micro_reentry_cooldown_seconds
@@ -671,6 +674,12 @@ class TradingBot:
             print(f"Micro Continuation Confirmation: {MICRO_REQUIRE_CONTINUATION_CONFIRMATION}")
             print(f"Micro Exceptional Continuation RV: {MICRO_EXCEPTIONAL_CONTINUATION_RELATIVE_VOLUME:.2f}x")
             print(f"Micro Continuation Max VWAP Extension: {MICRO_MAX_CONTINUATION_VWAP_EXTENSION_ATR:.2f} ATR")
+            print(
+                "Micro VWAP Pullback: "
+                f"impulse>={MICRO_PULLBACK_MIN_IMPULSE_EXTENSION_ATR:.2f} ATR, "
+                f"entry_ext<={MICRO_PULLBACK_MAX_ENTRY_EXTENSION_ATR:.2f} ATR, "
+                f"rv>={MICRO_PULLBACK_MIN_RELATIVE_VOLUME:.2f}x"
+            )
             print(f"Micro Max Candle Age: {MICRO_MAX_CANDLE_AGE_SECONDS} seconds")
             print(f"Micro Symbols Per Cycle: {MICRO_MAX_SYMBOLS_PER_CYCLE}")
             print(
@@ -784,6 +793,9 @@ class TradingBot:
                 require_continuation_confirmation=MICRO_REQUIRE_CONTINUATION_CONFIRMATION,
                 exceptional_continuation_relative_volume=MICRO_EXCEPTIONAL_CONTINUATION_RELATIVE_VOLUME,
                 max_continuation_vwap_extension_atr=MICRO_MAX_CONTINUATION_VWAP_EXTENSION_ATR,
+                pullback_min_impulse_extension_atr=MICRO_PULLBACK_MIN_IMPULSE_EXTENSION_ATR,
+                pullback_max_entry_extension_atr=MICRO_PULLBACK_MAX_ENTRY_EXTENSION_ATR,
+                pullback_min_relative_volume=MICRO_PULLBACK_MIN_RELATIVE_VOLUME,
                 max_candle_age_seconds=MICRO_MAX_CANDLE_AGE_SECONDS,
                 max_symbols_per_cycle=MICRO_MAX_SYMBOLS_PER_CYCLE,
                 reentry_cooldown_seconds=MICRO_REENTRY_COOLDOWN_SECONDS,

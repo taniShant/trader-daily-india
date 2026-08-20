@@ -159,7 +159,7 @@ def test_micro_detector_rejects_exceptional_first_candle_continuation():
             relative_volume=8.5,
             opening_range_high=118.0,
             opening_range_low=104.0,
-            previous_high=119.0,
+            previous_high=113.0,
             previous_low=106.0,
             trend_bias="neutral",
             latest_open=112.0,
@@ -170,6 +170,7 @@ def test_micro_detector_rejects_exceptional_first_candle_continuation():
 
     assert setup.action == "HOLD"
     assert setup.features["bullish_continuation_confirmed"] is False
+    assert setup.features["bullish_vwap_pullback_resumed"] is False
 
 
 def test_micro_detector_rejects_extreme_continuation_extension():
@@ -225,6 +226,66 @@ def test_micro_detector_allows_high_volume_continuation_with_lower_atr():
     assert "volatility too low for micro trade" not in " ".join(setup.reasons)
     assert setup.features["atr_ratio"] < detector.config.min_atr_ratio
     assert setup.features["continuation_volatility_ok"] is True
+
+
+def test_micro_detector_allows_bullish_vwap_pullback_continuation():
+    detector = MicroSetupDetector(MicroTradeConfig(min_confidence=72))
+    setup = detector.detect(
+        TechnicalFeatures(
+            symbol="MARUTI",
+            close=101.0,
+            vwap=100.0,
+            rsi=58.0,
+            macd=0.8,
+            macd_signal=0.4,
+            atr=1.2,
+            relative_volume=1.4,
+            opening_range_high=104.0,
+            opening_range_low=96.0,
+            previous_high=103.0,
+            previous_low=99.8,
+            previous_open=102.2,
+            previous_close=100.5,
+            latest_open=100.4,
+            trend_bias="bullish",
+        )
+    )
+
+    assert setup.action == "BUY"
+    assert setup.setup == "micro_vwap_pullback_continuation"
+    assert setup.confidence >= 76
+    assert setup.features["bullish_vwap_pullback_resumed"] is True
+    assert "cooled back near VWAP and resumed" in " ".join(setup.reasons)
+
+
+def test_micro_detector_allows_bearish_vwap_pullback_continuation():
+    detector = MicroSetupDetector(MicroTradeConfig(min_confidence=72))
+    setup = detector.detect(
+        TechnicalFeatures(
+            symbol="TATASTEEL",
+            close=99.0,
+            vwap=100.0,
+            rsi=42.0,
+            macd=-0.8,
+            macd_signal=-0.4,
+            atr=1.2,
+            relative_volume=1.4,
+            opening_range_high=104.0,
+            opening_range_low=96.0,
+            previous_high=100.2,
+            previous_low=97.0,
+            previous_open=97.8,
+            previous_close=99.6,
+            latest_open=99.7,
+            trend_bias="bearish",
+        )
+    )
+
+    assert setup.action == "SELL"
+    assert setup.setup == "micro_vwap_pullback_continuation"
+    assert setup.confidence >= 76
+    assert setup.features["bearish_vwap_pullback_resumed"] is True
+    assert "cooled back near VWAP and resumed" in " ".join(setup.reasons)
 
 
 def test_micro_detector_rejects_volatility_below_continuation_floor():

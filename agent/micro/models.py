@@ -28,6 +28,9 @@ class MicroTradeConfig:
     exceptional_continuation_relative_volume: float = 8.0
     extended_continuation_min_relative_volume: float = 2.5
     max_continuation_vwap_extension_atr: float = 2.0
+    pullback_min_impulse_extension_atr: float = 2.0
+    pullback_max_entry_extension_atr: float = 1.1
+    pullback_min_relative_volume: float = 1.2
     target_pct: Decimal = Decimal("0.004")
     stop_pct: Decimal = Decimal("0.002")
     continuation_target_pct: Decimal = Decimal("0.003")

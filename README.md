@@ -389,7 +389,7 @@ text
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 
-📊 Dashboard ──────► http://trading-dashboard-1234567890.elb.amazonaws.com│
+📊 Dashboard ──────► http://trading-dashboard-1234567890.elb.amazonaws.com
 │                                                                              │
 │   🤖 Trading Bot ─────► Runs 9:15 AM - 3:30 PM IST, every 3 minutes         │
 │                                                                              │

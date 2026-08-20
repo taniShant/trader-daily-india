@@ -25,6 +25,9 @@ def test_loads_prod_json_oracle_values_without_env_overrides(monkeypatch):
     assert settings.trading.micro_require_continuation_confirmation is True
     assert settings.trading.micro_exceptional_continuation_relative_volume == 8
     assert settings.trading.micro_max_continuation_vwap_extension_atr == 2
+    assert settings.trading.micro_pullback_min_impulse_extension_atr == 2
+    assert settings.trading.micro_pullback_max_entry_extension_atr == 1.1
+    assert settings.trading.micro_pullback_min_relative_volume == 1.2
     assert settings.trading.micro_max_candle_age_seconds == 180
     assert settings.trading.micro_reentry_cooldown_seconds == 300
     assert settings.trading.micro_continuation_target_pct == 0.003
@@ -65,6 +68,9 @@ def test_environment_overrides_take_precedence(monkeypatch):
     monkeypatch.setenv("MICRO_REQUIRE_CONTINUATION_CONFIRMATION", "false")
     monkeypatch.setenv("MICRO_EXCEPTIONAL_CONTINUATION_RELATIVE_VOLUME", "9.5")
     monkeypatch.setenv("MICRO_MAX_CONTINUATION_VWAP_EXTENSION_ATR", "1.6")
+    monkeypatch.setenv("MICRO_PULLBACK_MIN_IMPULSE_EXTENSION_ATR", "2.4")
+    monkeypatch.setenv("MICRO_PULLBACK_MAX_ENTRY_EXTENSION_ATR", "0.9")
+    monkeypatch.setenv("MICRO_PULLBACK_MIN_RELATIVE_VOLUME", "1.4")
     monkeypatch.setenv("MICRO_MAX_CANDLE_AGE_SECONDS", "240")
     monkeypatch.setenv("MICRO_REENTRY_COOLDOWN_SECONDS", "180")
     monkeypatch.setenv("MICRO_CONTINUATION_TARGET_PCT", "0.0025")
@@ -101,6 +107,9 @@ def test_environment_overrides_take_precedence(monkeypatch):
     assert settings.trading.micro_require_continuation_confirmation is False
     assert settings.trading.micro_exceptional_continuation_relative_volume == 9.5
     assert settings.trading.micro_max_continuation_vwap_extension_atr == 1.6
+    assert settings.trading.micro_pullback_min_impulse_extension_atr == 2.4
+    assert settings.trading.micro_pullback_max_entry_extension_atr == 0.9
+    assert settings.trading.micro_pullback_min_relative_volume == 1.4
     assert settings.trading.micro_max_candle_age_seconds == 240
     assert settings.trading.micro_reentry_cooldown_seconds == 180
     assert settings.trading.micro_continuation_target_pct == 0.0025

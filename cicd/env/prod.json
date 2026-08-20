@@ -45,7 +45,7 @@
   "icici": {
     "api_key": "O6731z39in79bV=1U53K615238Q47GX7",
     "secret_key": "5916$+907W89i85z%Pb66t`286710164",
-    "session_token": "56747322",
+    "session_token": "56762468",
     "static_ip": "80.225.242.6"
   },
   "oracle": {
@@ -142,6 +142,9 @@
     "micro_require_continuation_confirmation": true,
     "micro_exceptional_continuation_relative_volume": 8,
     "micro_max_continuation_vwap_extension_atr": 2,
+    "micro_pullback_min_impulse_extension_atr": 2,
+    "micro_pullback_max_entry_extension_atr": 1.1,
+    "micro_pullback_min_relative_volume": 1.2,
     "micro_max_candle_age_seconds": 180,
     "micro_max_symbols_per_cycle": 40,
     "micro_reentry_cooldown_seconds": 300,

@@ -22,6 +22,7 @@ class MicroSetupDetector:
         extension = abs(features.close - features.vwap) / float(atr) if atr > 0 else 99.0
         extension_ok = extension <= self.config.max_vwap_extension_atr
         continuation_extension_ok = extension <= self.config.max_continuation_vwap_extension_atr
+        pullback_extension_ok = extension <= self.config.pullback_max_entry_extension_atr
         normal_volatility_ok = self.config.min_atr_ratio <= atr_ratio <= self.config.max_atr_ratio
         continuation_volatility_ok = (
             self.config.min_continuation_atr_ratio <= atr_ratio <= self.config.max_atr_ratio
@@ -32,6 +33,8 @@ class MicroSetupDetector:
         )
         bullish_confirmation = self._bullish_continuation_confirmed(features, extension)
         bearish_confirmation = self._bearish_continuation_confirmed(features, extension)
+        bullish_pullback = self._bullish_vwap_pullback_resumed(features, atr, extension)
+        bearish_pullback = self._bearish_vwap_pullback_resumed(features, atr, extension)
 
         if atr_ratio < self.config.min_continuation_atr_ratio:
             reasons.append(
@@ -60,6 +63,8 @@ class MicroSetupDetector:
             reasons.append("price not overextended versus VWAP")
         else:
             reasons.append("price overextended versus VWAP")
+        if pullback_extension_ok and not extension_ok:
+            reasons.append("price has pulled back near VWAP")
         if not continuation_extension_ok:
             reasons.append(
                 f"continuation extension too stretched {extension:.2f} ATR"
@@ -116,6 +121,22 @@ class MicroSetupDetector:
             and 22 <= features.rsi <= 45
             and bearish_confirmation
         )
+        bullish_pullback_continuation = (
+            bullish_pullback
+            and features.close > features.vwap
+            and features.macd >= features.macd_signal
+            and features.trend_bias in {"bullish", "neutral"}
+            and features.relative_volume >= self.config.pullback_min_relative_volume
+            and 45 <= features.rsi <= 72
+        )
+        bearish_pullback_continuation = (
+            bearish_pullback
+            and features.close < features.vwap
+            and features.macd <= features.macd_signal
+            and features.trend_bias in {"bearish", "neutral"}
+            and features.relative_volume >= self.config.pullback_min_relative_volume
+            and 28 <= features.rsi <= 55
+        )
 
         tradable = (
             normal_volatility_ok
@@ -126,6 +147,11 @@ class MicroSetupDetector:
             continuation_volatility_ok
             and continuation_extension_ok
             and extended_continuation_volume_ok
+        )
+        pullback_tradable = (
+            normal_volatility_ok
+            and pullback_extension_ok
+            and features.relative_volume >= self.config.pullback_min_relative_volume
         )
 
         if tradable and bullish_orb:
@@ -150,6 +176,16 @@ class MicroSetupDetector:
             confidence = 72
             reasons.append("continuation volatility accepted for high relative volume")
             reasons.append("high-volume bearish continuation with controlled VWAP extension")
+        elif pullback_tradable and bullish_pullback_continuation:
+            action = "BUY"
+            setup = "micro_vwap_pullback_continuation"
+            confidence = 76
+            reasons.append("bullish impulse cooled back near VWAP and resumed")
+        elif pullback_tradable and bearish_pullback_continuation:
+            action = "SELL"
+            setup = "micro_vwap_pullback_continuation"
+            confidence = 76
+            reasons.append("bearish impulse cooled back near VWAP and resumed")
         elif tradable and bullish_vwap:
             action = "BUY"
             setup = "micro_vwap_momentum"
@@ -176,6 +212,9 @@ class MicroSetupDetector:
             "continuation_volatility_ok": continuation_volatility_ok,
             "vwap_extension_ok": extension_ok,
             "continuation_extension_ok": continuation_extension_ok,
+            "pullback_extension_ok": pullback_extension_ok,
+            "bullish_vwap_pullback_resumed": bullish_pullback,
+            "bearish_vwap_pullback_resumed": bearish_pullback,
             "bullish_continuation_confirmed": bullish_confirmation,
             "bearish_continuation_confirmed": bearish_confirmation,
         }
@@ -222,7 +261,7 @@ class MicroSetupDetector:
     def _bracket_for_setup(self, setup: str) -> tuple[Decimal, Decimal]:
         if setup == "micro_volume_continuation":
             return self.config.continuation_target_pct, self.config.continuation_stop_pct
-        if setup in {"micro_vwap_momentum", "micro_vwap_rejection"}:
+        if setup in {"micro_vwap_momentum", "micro_vwap_rejection", "micro_vwap_pullback_continuation"}:
             return self.config.vwap_target_pct, self.config.vwap_stop_pct
         if setup in {"micro_opening_range_breakout", "micro_opening_range_breakdown"}:
             return self.config.opening_range_target_pct, self.config.opening_range_stop_pct
@@ -231,7 +270,7 @@ class MicroSetupDetector:
     def _max_hold_minutes(self, setup: str) -> int:
         if setup == "micro_volume_continuation":
             return self.config.continuation_max_hold_minutes
-        if setup in {"micro_vwap_momentum", "micro_vwap_rejection"}:
+        if setup in {"micro_vwap_momentum", "micro_vwap_rejection", "micro_vwap_pullback_continuation"}:
             return self.config.vwap_max_hold_minutes
         if setup in {"micro_opening_range_breakout", "micro_opening_range_breakdown"}:
             return self.config.opening_range_max_hold_minutes
@@ -264,6 +303,44 @@ class MicroSetupDetector:
         latest_down = features.close < latest_open
         previous_down = previous_close < previous_open
         return latest_down and previous_down and features.close <= previous_close
+
+    def _bullish_vwap_pullback_resumed(
+        self,
+        features: TechnicalFeatures,
+        atr: Decimal,
+        extension: float,
+    ) -> bool:
+        if atr <= 0 or features.latest_open is None or features.previous_close is None:
+            return False
+
+        impulse_extension = (features.previous_high - features.vwap) / float(atr)
+        previous_pullback_extension = abs(features.previous_close - features.vwap) / float(atr)
+        latest_resumed = features.close > features.latest_open and features.close > features.previous_close
+        return (
+            impulse_extension >= self.config.pullback_min_impulse_extension_atr
+            and previous_pullback_extension <= self.config.pullback_max_entry_extension_atr
+            and extension <= self.config.pullback_max_entry_extension_atr
+            and latest_resumed
+        )
+
+    def _bearish_vwap_pullback_resumed(
+        self,
+        features: TechnicalFeatures,
+        atr: Decimal,
+        extension: float,
+    ) -> bool:
+        if atr <= 0 or features.latest_open is None or features.previous_close is None:
+            return False
+
+        impulse_extension = (features.vwap - features.previous_low) / float(atr)
+        previous_pullback_extension = abs(features.previous_close - features.vwap) / float(atr)
+        latest_resumed = features.close < features.latest_open and features.close < features.previous_close
+        return (
+            impulse_extension >= self.config.pullback_min_impulse_extension_atr
+            and previous_pullback_extension <= self.config.pullback_max_entry_extension_atr
+            and extension <= self.config.pullback_max_entry_extension_atr
+            and latest_resumed
+        )
 
     @staticmethod
     def _volume_bonus(relative_volume: float) -> int:
