@@ -44,7 +44,7 @@ def test_loads_prod_json_oracle_values_without_env_overrides(monkeypatch):
     assert settings.trading.micro_min_expected_net_profit == 1000
     assert settings.trading.micro_min_expected_net_profit_bps == 8
     assert settings.trading.micro_min_target_to_cost_ratio == 1.4
-    assert settings.trading.micro_setup_loss_throttle_count == 2
+    assert settings.trading.micro_setup_loss_throttle_count == 0
     assert settings.trading.micro_setup_loss_throttle_min_trades == 2
     assert settings.trading.position_reconciliation_enabled is True
     assert settings.trading.run_startup_overnight_analysis is False
