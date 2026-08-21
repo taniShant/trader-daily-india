@@ -90,6 +90,7 @@ MICRO_MIN_CONFIDENCE = settings.trading.micro_min_confidence
 MICRO_MIN_RELATIVE_VOLUME = settings.trading.micro_min_relative_volume
 MICRO_MIN_CONTINUATION_RELATIVE_VOLUME = settings.trading.micro_min_continuation_relative_volume
 MICRO_REQUIRE_CONTINUATION_CONFIRMATION = settings.trading.micro_require_continuation_confirmation
+MICRO_CONTINUATION_MIN_FOLLOW_THROUGH_ATR = settings.trading.micro_continuation_min_follow_through_atr
 MICRO_EXCEPTIONAL_CONTINUATION_RELATIVE_VOLUME = settings.trading.micro_exceptional_continuation_relative_volume
 MICRO_MAX_CONTINUATION_VWAP_EXTENSION_ATR = settings.trading.micro_max_continuation_vwap_extension_atr
 MICRO_PULLBACK_MIN_IMPULSE_EXTENSION_ATR = settings.trading.micro_pullback_min_impulse_extension_atr
@@ -672,6 +673,7 @@ class TradingBot:
             print(f"Micro Min Relative Volume: {MICRO_MIN_RELATIVE_VOLUME:.2f}x")
             print(f"Micro Continuation Min Relative Volume: {MICRO_MIN_CONTINUATION_RELATIVE_VOLUME:.2f}x")
             print(f"Micro Continuation Confirmation: {MICRO_REQUIRE_CONTINUATION_CONFIRMATION}")
+            print(f"Micro Continuation Min Follow-through: {MICRO_CONTINUATION_MIN_FOLLOW_THROUGH_ATR:.2f} ATR")
             print(f"Micro Exceptional Continuation RV: {MICRO_EXCEPTIONAL_CONTINUATION_RELATIVE_VOLUME:.2f}x")
             print(f"Micro Continuation Max VWAP Extension: {MICRO_MAX_CONTINUATION_VWAP_EXTENSION_ATR:.2f} ATR")
             print(
@@ -791,6 +793,7 @@ class TradingBot:
                 min_relative_volume=MICRO_MIN_RELATIVE_VOLUME,
                 min_continuation_relative_volume=MICRO_MIN_CONTINUATION_RELATIVE_VOLUME,
                 require_continuation_confirmation=MICRO_REQUIRE_CONTINUATION_CONFIRMATION,
+                continuation_min_follow_through_atr=MICRO_CONTINUATION_MIN_FOLLOW_THROUGH_ATR,
                 exceptional_continuation_relative_volume=MICRO_EXCEPTIONAL_CONTINUATION_RELATIVE_VOLUME,
                 max_continuation_vwap_extension_atr=MICRO_MAX_CONTINUATION_VWAP_EXTENSION_ATR,
                 pullback_min_impulse_extension_atr=MICRO_PULLBACK_MIN_IMPULSE_EXTENSION_ATR,

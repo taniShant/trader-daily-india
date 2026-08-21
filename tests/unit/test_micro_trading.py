@@ -103,7 +103,7 @@ def test_micro_detector_allows_controlled_high_volume_continuation():
             relative_volume=3.1,
             opening_range_high=118.0,
             opening_range_low=104.0,
-            previous_high=119.0,
+            previous_high=112.8,
             previous_low=106.0,
             trend_bias="bullish",
             latest_open=112.0,
@@ -115,7 +115,7 @@ def test_micro_detector_allows_controlled_high_volume_continuation():
     assert setup.action == "BUY"
     assert setup.setup == "micro_volume_continuation"
     assert setup.confidence >= 82
-    assert "controlled VWAP extension" in " ".join(setup.reasons)
+    assert "broke prior high" in " ".join(setup.reasons)
 
 
 def test_micro_detector_rejects_unconfirmed_first_candle_continuation():
@@ -211,7 +211,7 @@ def test_micro_detector_allows_high_volume_continuation_with_lower_atr():
             relative_volume=3.58,
             opening_range_high=2790.0,
             opening_range_low=2760.0,
-            previous_high=2795.0,
+            previous_high=2784.8,
             previous_low=2755.0,
             trend_bias="bullish",
             latest_open=2783.0,
@@ -339,12 +339,12 @@ def test_micro_detector_uses_configured_continuation_volume_threshold():
             relative_volume=1.8,
             opening_range_high=14240.0,
             opening_range_low=14060.0,
-            previous_high=14250.0,
+            previous_high=14118.0,
             previous_low=14080.0,
             trend_bias="bullish",
             latest_open=14110.0,
             previous_open=14090.0,
-            previous_close=14115.0,
+            previous_close=14116.0,
         )
     )
 
@@ -428,7 +428,7 @@ def test_micro_detector_uses_shorter_continuation_bracket_and_timeout():
             relative_volume=3.58,
             opening_range_high=2790.0,
             opening_range_low=2760.0,
-            previous_high=2795.0,
+            previous_high=2784.8,
             previous_low=2755.0,
             trend_bias="bullish",
             latest_open=2783.0,

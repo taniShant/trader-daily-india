@@ -69,6 +69,7 @@ class TradingConfig(BaseModel):
     micro_min_relative_volume: float = Field(default=1.5, gt=0)
     micro_min_continuation_relative_volume: float = Field(default=3.0, gt=0)
     micro_require_continuation_confirmation: bool = True
+    micro_continuation_min_follow_through_atr: float = Field(default=0.2, ge=0)
     micro_exceptional_continuation_relative_volume: float = Field(default=8.0, gt=0)
     micro_max_continuation_vwap_extension_atr: float = Field(default=2.0, gt=0)
     micro_pullback_min_impulse_extension_atr: float = Field(default=2.0, gt=0)
@@ -266,6 +267,11 @@ def _apply_env_overrides(config: dict) -> dict:
         "MICRO_EXCEPTIONAL_CONTINUATION_RELATIVE_VOLUME": (
             "trading",
             "micro_exceptional_continuation_relative_volume",
+            float,
+        ),
+        "MICRO_CONTINUATION_MIN_FOLLOW_THROUGH_ATR": (
+            "trading",
+            "micro_continuation_min_follow_through_atr",
             float,
         ),
         "MICRO_MAX_CONTINUATION_VWAP_EXTENSION_ATR": (

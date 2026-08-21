@@ -31,8 +31,8 @@ class MicroSetupDetector:
             extension <= self.config.max_vwap_extension_atr
             or features.relative_volume >= self.config.extended_continuation_min_relative_volume
         )
-        bullish_confirmation = self._bullish_continuation_confirmed(features, extension)
-        bearish_confirmation = self._bearish_continuation_confirmed(features, extension)
+        bullish_confirmation = self._bullish_continuation_confirmed(features, atr, extension)
+        bearish_confirmation = self._bearish_continuation_confirmed(features, atr, extension)
         bullish_pullback = self._bullish_vwap_pullback_resumed(features, atr, extension)
         bearish_pullback = self._bearish_vwap_pullback_resumed(features, atr, extension)
 
@@ -164,18 +164,6 @@ class MicroSetupDetector:
             setup = "micro_opening_range_breakdown"
             confidence = 80
             reasons.append("price broke opening range and previous low below VWAP")
-        elif continuation_tradable and bullish_continuation:
-            action = "BUY"
-            setup = "micro_volume_continuation"
-            confidence = 72
-            reasons.append("continuation volatility accepted for high relative volume")
-            reasons.append("high-volume bullish continuation with controlled VWAP extension")
-        elif continuation_tradable and bearish_continuation:
-            action = "SELL"
-            setup = "micro_volume_continuation"
-            confidence = 72
-            reasons.append("continuation volatility accepted for high relative volume")
-            reasons.append("high-volume bearish continuation with controlled VWAP extension")
         elif pullback_tradable and bullish_pullback_continuation:
             action = "BUY"
             setup = "micro_vwap_pullback_continuation"
@@ -186,6 +174,18 @@ class MicroSetupDetector:
             setup = "micro_vwap_pullback_continuation"
             confidence = 76
             reasons.append("bearish impulse cooled back near VWAP and resumed")
+        elif continuation_tradable and bullish_continuation:
+            action = "BUY"
+            setup = "micro_volume_continuation"
+            confidence = 72
+            reasons.append("continuation volatility accepted for high relative volume")
+            reasons.append("second-candle bullish continuation broke prior high")
+        elif continuation_tradable and bearish_continuation:
+            action = "SELL"
+            setup = "micro_volume_continuation"
+            confidence = 72
+            reasons.append("continuation volatility accepted for high relative volume")
+            reasons.append("second-candle bearish continuation broke prior low")
         elif tradable and bullish_vwap:
             action = "BUY"
             setup = "micro_vwap_momentum"
@@ -276,33 +276,57 @@ class MicroSetupDetector:
             return self.config.opening_range_max_hold_minutes
         return self.config.max_hold_minutes
 
-    def _bullish_continuation_confirmed(self, features: TechnicalFeatures, extension: float) -> bool:
+    def _bullish_continuation_confirmed(
+        self,
+        features: TechnicalFeatures,
+        atr: Decimal,
+        extension: float,
+    ) -> bool:
         if not self.config.require_continuation_confirmation:
             return True
 
         latest_open = features.latest_open
         previous_open = features.previous_open
         previous_close = features.previous_close
-        if latest_open is None or previous_open is None or previous_close is None:
+        if latest_open is None or previous_open is None or previous_close is None or atr <= 0:
             return False
 
         latest_up = features.close > latest_open
         previous_up = previous_close > previous_open
-        return latest_up and previous_up and features.close >= previous_close
+        broke_previous_high = features.close > features.previous_high
+        follow_through_atr = (features.close - previous_close) / float(atr)
+        return (
+            latest_up
+            and previous_up
+            and broke_previous_high
+            and follow_through_atr >= self.config.continuation_min_follow_through_atr
+        )
 
-    def _bearish_continuation_confirmed(self, features: TechnicalFeatures, extension: float) -> bool:
+    def _bearish_continuation_confirmed(
+        self,
+        features: TechnicalFeatures,
+        atr: Decimal,
+        extension: float,
+    ) -> bool:
         if not self.config.require_continuation_confirmation:
             return True
 
         latest_open = features.latest_open
         previous_open = features.previous_open
         previous_close = features.previous_close
-        if latest_open is None or previous_open is None or previous_close is None:
+        if latest_open is None or previous_open is None or previous_close is None or atr <= 0:
             return False
 
         latest_down = features.close < latest_open
         previous_down = previous_close < previous_open
-        return latest_down and previous_down and features.close <= previous_close
+        broke_previous_low = features.close < features.previous_low
+        follow_through_atr = (previous_close - features.close) / float(atr)
+        return (
+            latest_down
+            and previous_down
+            and broke_previous_low
+            and follow_through_atr >= self.config.continuation_min_follow_through_atr
+        )
 
     def _bullish_vwap_pullback_resumed(
         self,

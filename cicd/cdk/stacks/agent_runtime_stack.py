@@ -95,6 +95,10 @@ class TradingAgentRuntimeStack(Stack):
             "micro_require_continuation_confirmation",
             True,
         )
+        micro_continuation_min_follow_through_atr = trading_config.get(
+            "micro_continuation_min_follow_through_atr",
+            0.2,
+        )
         micro_exceptional_continuation_relative_volume = trading_config.get(
             "micro_exceptional_continuation_relative_volume",
             8.0,
@@ -176,6 +180,7 @@ class TradingAgentRuntimeStack(Stack):
         print(f"   Micro Min Relative Volume: {micro_min_relative_volume}")
         print(f"   Micro Continuation Min Relative Volume: {micro_min_continuation_relative_volume}")
         print(f"   Micro Continuation Confirmation: {micro_require_continuation_confirmation}")
+        print(f"   Micro Continuation Min Follow-through: {micro_continuation_min_follow_through_atr} ATR")
         print(f"   Micro Exceptional Continuation RV: {micro_exceptional_continuation_relative_volume}")
         print(f"   Micro Continuation Max VWAP Extension: {micro_max_continuation_vwap_extension_atr} ATR")
         print(
@@ -277,6 +282,7 @@ class TradingAgentRuntimeStack(Stack):
             "MICRO_MIN_RELATIVE_VOLUME": str(micro_min_relative_volume),
             "MICRO_MIN_CONTINUATION_RELATIVE_VOLUME": str(micro_min_continuation_relative_volume),
             "MICRO_REQUIRE_CONTINUATION_CONFIRMATION": str(micro_require_continuation_confirmation),
+            "MICRO_CONTINUATION_MIN_FOLLOW_THROUGH_ATR": str(micro_continuation_min_follow_through_atr),
             "MICRO_EXCEPTIONAL_CONTINUATION_RELATIVE_VOLUME": str(micro_exceptional_continuation_relative_volume),
             "MICRO_MAX_CONTINUATION_VWAP_EXTENSION_ATR": str(micro_max_continuation_vwap_extension_atr),
             "MICRO_PULLBACK_MIN_IMPULSE_EXTENSION_ATR": str(micro_pullback_min_impulse_extension_atr),

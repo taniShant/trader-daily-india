@@ -21,8 +21,9 @@ def test_loads_prod_json_oracle_values_without_env_overrides(monkeypatch):
     assert settings.trading.market_closed_poll_seconds == 60
     assert settings.trading.micro_exit_check_interval_seconds == 30
     assert settings.trading.micro_min_relative_volume == 1.2
-    assert settings.trading.micro_min_continuation_relative_volume == 1.6
+    assert settings.trading.micro_min_continuation_relative_volume == 2.2
     assert settings.trading.micro_require_continuation_confirmation is True
+    assert settings.trading.micro_continuation_min_follow_through_atr == 0.25
     assert settings.trading.micro_exceptional_continuation_relative_volume == 8
     assert settings.trading.micro_max_continuation_vwap_extension_atr == 2
     assert settings.trading.micro_pullback_min_impulse_extension_atr == 2

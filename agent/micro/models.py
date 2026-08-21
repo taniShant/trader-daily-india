@@ -25,6 +25,7 @@ class MicroTradeConfig:
     min_continuation_atr_ratio: float = 0.0008
     min_continuation_relative_volume: float = 3.0
     require_continuation_confirmation: bool = True
+    continuation_min_follow_through_atr: float = 0.2
     exceptional_continuation_relative_volume: float = 8.0
     extended_continuation_min_relative_volume: float = 2.5
     max_continuation_vwap_extension_atr: float = 2.0
