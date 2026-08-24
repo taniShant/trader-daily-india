@@ -90,7 +90,9 @@ def test_micro_detector_rejects_stretched_high_volume_continuation():
 
 
 def test_micro_detector_allows_controlled_high_volume_continuation():
-    detector = MicroSetupDetector(MicroTradeConfig(min_confidence=72))
+    detector = MicroSetupDetector(
+        MicroTradeConfig(min_confidence=72, volume_continuation_enabled=True)
+    )
     setup = detector.detect(
         TechnicalFeatures(
             symbol="BAJAJFINSV",
@@ -116,6 +118,34 @@ def test_micro_detector_allows_controlled_high_volume_continuation():
     assert setup.setup == "micro_volume_continuation"
     assert setup.confidence >= 82
     assert "broke prior high" in " ".join(setup.reasons)
+
+
+def test_micro_detector_disables_volume_continuation_by_default():
+    detector = MicroSetupDetector(MicroTradeConfig(min_confidence=72))
+    setup = detector.detect(
+        TechnicalFeatures(
+            symbol="BAJAJFINSV",
+            close=113.0,
+            vwap=111.5,
+            rsi=68.0,
+            macd=2.2,
+            macd_signal=1.4,
+            atr=1.0,
+            relative_volume=3.1,
+            opening_range_high=118.0,
+            opening_range_low=104.0,
+            previous_high=112.8,
+            previous_low=106.0,
+            trend_bias="bullish",
+            latest_open=112.0,
+            previous_open=111.0,
+            previous_close=112.5,
+        )
+    )
+
+    assert setup.action == "HOLD"
+    assert setup.setup == "micro_monitor"
+    assert "micro_volume_continuation disabled" in setup.reasons
 
 
 def test_micro_detector_rejects_unconfirmed_first_candle_continuation():
@@ -198,7 +228,9 @@ def test_micro_detector_rejects_extreme_continuation_extension():
 
 
 def test_micro_detector_allows_high_volume_continuation_with_lower_atr():
-    detector = MicroSetupDetector(MicroTradeConfig(min_confidence=72))
+    detector = MicroSetupDetector(
+        MicroTradeConfig(min_confidence=72, volume_continuation_enabled=True)
+    )
     setup = detector.detect(
         TechnicalFeatures(
             symbol="ASIANPAINT",
@@ -324,6 +356,7 @@ def test_micro_detector_uses_configured_continuation_volume_threshold():
         MicroTradeConfig(
             min_confidence=72,
             min_relative_volume=1.2,
+            volume_continuation_enabled=True,
             min_continuation_relative_volume=1.6,
         )
     )
@@ -415,7 +448,9 @@ def test_micro_position_exits_on_target_stop_and_time():
 
 
 def test_micro_detector_uses_shorter_continuation_bracket_and_timeout():
-    detector = MicroSetupDetector(MicroTradeConfig(min_confidence=72))
+    detector = MicroSetupDetector(
+        MicroTradeConfig(min_confidence=72, volume_continuation_enabled=True)
+    )
     setup = detector.detect(
         TechnicalFeatures(
             symbol="ASIANPAINT",

@@ -21,6 +21,7 @@ def test_loads_prod_json_oracle_values_without_env_overrides(monkeypatch):
     assert settings.trading.market_closed_poll_seconds == 60
     assert settings.trading.micro_exit_check_interval_seconds == 30
     assert settings.trading.micro_min_relative_volume == 1.2
+    assert settings.trading.micro_volume_continuation_enabled is False
     assert settings.trading.micro_min_continuation_relative_volume == 2.2
     assert settings.trading.micro_require_continuation_confirmation is True
     assert settings.trading.micro_continuation_min_follow_through_atr == 0.25
@@ -44,7 +45,7 @@ def test_loads_prod_json_oracle_values_without_env_overrides(monkeypatch):
     assert settings.trading.micro_min_expected_net_profit == 1000
     assert settings.trading.micro_min_expected_net_profit_bps == 8
     assert settings.trading.micro_min_target_to_cost_ratio == 1.4
-    assert settings.trading.micro_setup_loss_throttle_count == 0
+    assert settings.trading.micro_setup_loss_throttle_count == 2
     assert settings.trading.micro_setup_loss_throttle_min_trades == 2
     assert settings.trading.position_reconciliation_enabled is True
     assert settings.trading.run_startup_overnight_analysis is False
@@ -65,6 +66,7 @@ def test_environment_overrides_take_precedence(monkeypatch):
     monkeypatch.setenv("MAX_QUANTITY_PER_ORDER", "250")
     monkeypatch.setenv("MARKET_CLOSED_POLL_SECONDS", "45")
     monkeypatch.setenv("MICRO_EXIT_CHECK_INTERVAL_SECONDS", "20")
+    monkeypatch.setenv("MICRO_VOLUME_CONTINUATION_ENABLED", "true")
     monkeypatch.setenv("MICRO_MIN_CONTINUATION_RELATIVE_VOLUME", "1.7")
     monkeypatch.setenv("MICRO_REQUIRE_CONTINUATION_CONFIRMATION", "false")
     monkeypatch.setenv("MICRO_EXCEPTIONAL_CONTINUATION_RELATIVE_VOLUME", "9.5")
@@ -104,6 +106,7 @@ def test_environment_overrides_take_precedence(monkeypatch):
     assert settings.trading.max_quantity_per_order == 250
     assert settings.trading.market_closed_poll_seconds == 45
     assert settings.trading.micro_exit_check_interval_seconds == 20
+    assert settings.trading.micro_volume_continuation_enabled is True
     assert settings.trading.micro_min_continuation_relative_volume == 1.7
     assert settings.trading.micro_require_continuation_confirmation is False
     assert settings.trading.micro_exceptional_continuation_relative_volume == 9.5

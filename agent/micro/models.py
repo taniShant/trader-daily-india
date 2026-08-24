@@ -18,6 +18,7 @@ class MicroTradeConfig:
     max_hold_minutes: int = 10
     min_confidence: int = 72
     min_relative_volume: float = 1.8
+    volume_continuation_enabled: bool = False
     min_atr_ratio: float = 0.0015
     max_atr_ratio: float = 0.025
     max_vwap_extension_atr: float = 2.0

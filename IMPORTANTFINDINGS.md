@@ -8,6 +8,8 @@ These findings capture the current state of the Indian intraday paper-trading sy
 
 Implemented on 2026-08-14, pending ECS redeploy and live paper-log verification:
 
+- Corrective hardening on 2026-08-24 filters intraday indicators to the latest 09:15-15:30 IST session, makes the EventBridge market-open task restore the singleton ECS service, disables the loss-making `micro_volume_continuation` setup, and restores setup-level throttling to two losses after two trades. These changes passed the full local verification gate and remain pending deployment/runtime verification.
+
 - Market-open startup sleep no longer uses a fixed one-hour sleep; it polls up to `market_closed_poll_seconds`, currently 60 seconds.
 - Micro position exits now have a separate monitor loop controlled by `micro_exit_check_interval_seconds`, currently 30 seconds.
 - Startup position reconciliation now closes stale paper-position snapshots and blocks live entries if open positions exist but live broker reconciliation cannot be proven.

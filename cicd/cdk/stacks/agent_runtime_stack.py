@@ -87,6 +87,10 @@ class TradingAgentRuntimeStack(Stack):
         micro_max_hold_minutes = trading_config.get("micro_max_hold_minutes", 10)
         micro_min_confidence = trading_config.get("micro_min_confidence", 72)
         micro_min_relative_volume = trading_config.get("micro_min_relative_volume", 1.5)
+        micro_volume_continuation_enabled = trading_config.get(
+            "micro_volume_continuation_enabled",
+            False,
+        )
         micro_min_continuation_relative_volume = trading_config.get(
             "micro_min_continuation_relative_volume",
             3.0,
@@ -178,6 +182,7 @@ class TradingAgentRuntimeStack(Stack):
         print(f"   Micro Exit Check Interval: {micro_exit_check_interval_seconds} seconds")
         print(f"   Micro Symbols Per Cycle: {micro_max_symbols_per_cycle}")
         print(f"   Micro Min Relative Volume: {micro_min_relative_volume}")
+        print(f"   Micro Volume Continuation Enabled: {micro_volume_continuation_enabled}")
         print(f"   Micro Continuation Min Relative Volume: {micro_min_continuation_relative_volume}")
         print(f"   Micro Continuation Confirmation: {micro_require_continuation_confirmation}")
         print(f"   Micro Continuation Min Follow-through: {micro_continuation_min_follow_through_atr} ATR")
@@ -262,6 +267,8 @@ class TradingAgentRuntimeStack(Stack):
         trading_env = {
             "AWS_REGION": self.region,
             "ENVIRONMENT": environment,
+            "ECS_CLUSTER_NAME": cluster.cluster_name,
+            "ECS_TRADING_SERVICE_NAME": f"trading-bot-{environment}",
             "PAPER_TRADING": str(paper_trading),
             "CAPITAL": str(capital),
             "ANALYSIS_INTERVAL_SECONDS": str(analysis_interval),
@@ -280,6 +287,7 @@ class TradingAgentRuntimeStack(Stack):
             "MICRO_MAX_HOLD_MINUTES": str(micro_max_hold_minutes),
             "MICRO_MIN_CONFIDENCE": str(micro_min_confidence),
             "MICRO_MIN_RELATIVE_VOLUME": str(micro_min_relative_volume),
+            "MICRO_VOLUME_CONTINUATION_ENABLED": str(micro_volume_continuation_enabled),
             "MICRO_MIN_CONTINUATION_RELATIVE_VOLUME": str(micro_min_continuation_relative_volume),
             "MICRO_REQUIRE_CONTINUATION_CONFIRMATION": str(micro_require_continuation_confirmation),
             "MICRO_CONTINUATION_MIN_FOLLOW_THROUGH_ATR": str(micro_continuation_min_follow_through_atr),
@@ -405,6 +413,20 @@ class TradingAgentRuntimeStack(Stack):
             security_groups=[ecs_security_group],
             service_name=f"trading-bot-{environment}"
         )
+
+        # The market-open one-shot task must be able to restore the singleton
+        # service after an operator scales it to zero outside market hours.
+        market_open_service_policy = iam.Policy(
+            self,
+            "MarketOpenServiceStartupPolicy",
+            statements=[
+                iam.PolicyStatement(
+                    actions=["ecs:UpdateService", "ecs:DescribeServices"],
+                    resources=[trading_service.service_arn],
+                )
+            ],
+        )
+        market_open_service_policy.attach_to_role(self.agent_role)
 
         # A live trading bot must remain singleton unless a leader-lock is added.
         # Do not add task autoscaling here; multiple active tasks could place duplicate orders.

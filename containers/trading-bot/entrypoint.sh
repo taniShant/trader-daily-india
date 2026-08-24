@@ -110,17 +110,33 @@ action = os.environ.get('SCHEDULED_ACTION', '').strip().lower()
 print(f'Scheduled action: {action}')
 
 try:
-    from agent.main import TradingBot
+    if action == 'market_open':
+        import boto3
 
-    bot = TradingBot()
+        cluster = os.environ.get('ECS_CLUSTER_NAME', '').strip()
+        service = os.environ.get('ECS_TRADING_SERVICE_NAME', '').strip()
+        if not cluster or not service:
+            raise RuntimeError('ECS_CLUSTER_NAME and ECS_TRADING_SERVICE_NAME are required')
+        response = boto3.client(
+            'ecs',
+            region_name=os.environ.get('AWS_REGION'),
+        ).update_service(
+            cluster=cluster,
+            service=service,
+            desiredCount=1,
+        )
+        desired = response.get('service', {}).get('desiredCount')
+        print(f'Market-open service startup requested: {cluster}/{service} desired_count={desired}')
+    else:
+        from agent.main import TradingBot
+
+        bot = TradingBot()
 
     if action == 'overnight_analysis':
         bot._run_overnight_analysis()
-    elif action == 'market_open':
-        print('Market-open scheduled checkpoint completed. Singleton trading service remains authoritative.')
     elif action == 'square_off':
         bot._square_off_all()
-    else:
+    elif action != 'market_open':
         print(f'Unsupported scheduled action: {action}')
         sys.exit(2)
 

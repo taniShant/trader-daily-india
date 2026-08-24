@@ -67,6 +67,7 @@ class TradingConfig(BaseModel):
     micro_max_hold_minutes: int = Field(default=10, gt=0)
     micro_min_confidence: int = Field(default=72, ge=0, le=100)
     micro_min_relative_volume: float = Field(default=1.5, gt=0)
+    micro_volume_continuation_enabled: bool = False
     micro_min_continuation_relative_volume: float = Field(default=3.0, gt=0)
     micro_require_continuation_confirmation: bool = True
     micro_continuation_min_follow_through_atr: float = Field(default=0.2, ge=0)
@@ -330,6 +331,10 @@ def _apply_env_overrides(config: dict) -> dict:
     config["trading"]["micro_trading_enabled"] = _env_bool(
         "MICRO_TRADING_ENABLED",
         bool(config["trading"].get("micro_trading_enabled", False)),
+    )
+    config["trading"]["micro_volume_continuation_enabled"] = _env_bool(
+        "MICRO_VOLUME_CONTINUATION_ENABLED",
+        bool(config["trading"].get("micro_volume_continuation_enabled", False)),
     )
     config["trading"]["micro_early_exit_enabled"] = _env_bool(
         "MICRO_EARLY_EXIT_ENABLED",

@@ -1237,6 +1237,17 @@ Test Result: py_compile passed. Focused runtime/storage tests passed with 24 tes
 Notes / Next Step: Rebuild and redeploy the trading-bot image, then confirm ECS startup logs show `Startup micro risk-state restore` with today's exit count and nonzero `daily_pnl` when applicable.
 ```
 
+```text
+Date: 2026-08-24
+Work Package: P12/P13 corrective hardening - session isolation, service startup, and losing-setup shutdown
+Status: Implemented
+Files Changed: agent/signals/technical.py, agent/config.py, agent/main.py, agent/micro/models.py, agent/micro/setups.py, cicd/cdk/stacks/agent_runtime_stack.py, cicd/env/prod.json, containers/trading-bot/entrypoint.sh, .env.example, tests/.env.example, tests/unit/test_technical_features.py, tests/unit/test_micro_trading.py, tests/unit/test_config.py, tests/unit/test_eventbridge_schedules.py
+What Changed: Intraday features now retain only the latest regular NSE session in IST before calculating opening range, VWAP, volume, RSI, MACD, and ATR. The EventBridge market-open task now scales the singleton trading service to desired count one. Production disables micro_volume_continuation with a dedicated kill switch that cannot fall through as another setup, and restores setup-level throttling to two losses after two trades.
+Test Command: make verify
+Test Result: Passed locally. Full pytest: 343 passed, 2 existing UTC deprecation warnings. CDK synth passed and shows Micro Volume Continuation Enabled: False and Micro Setup Loss Throttle: 2 losses after 2 trades.
+Notes / Next Step: Rebuild/push and redeploy the trading-bot image and AgentRuntimeStack. Verify the next market-open task logs a service startup request and ECS startup prints the disabled continuation flag plus restored throttle.
+```
+
 ## 14. Plan Change Log
 
 Use this section only when the plan itself changes materially.

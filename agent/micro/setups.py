@@ -175,17 +175,23 @@ class MicroSetupDetector:
             confidence = 76
             reasons.append("bearish impulse cooled back near VWAP and resumed")
         elif continuation_tradable and bullish_continuation:
-            action = "BUY"
-            setup = "micro_volume_continuation"
-            confidence = 72
-            reasons.append("continuation volatility accepted for high relative volume")
-            reasons.append("second-candle bullish continuation broke prior high")
+            if self.config.volume_continuation_enabled:
+                action = "BUY"
+                setup = "micro_volume_continuation"
+                confidence = 72
+                reasons.append("continuation volatility accepted for high relative volume")
+                reasons.append("second-candle bullish continuation broke prior high")
+            else:
+                reasons.append("micro_volume_continuation disabled")
         elif continuation_tradable and bearish_continuation:
-            action = "SELL"
-            setup = "micro_volume_continuation"
-            confidence = 72
-            reasons.append("continuation volatility accepted for high relative volume")
-            reasons.append("second-candle bearish continuation broke prior low")
+            if self.config.volume_continuation_enabled:
+                action = "SELL"
+                setup = "micro_volume_continuation"
+                confidence = 72
+                reasons.append("continuation volatility accepted for high relative volume")
+                reasons.append("second-candle bearish continuation broke prior low")
+            else:
+                reasons.append("micro_volume_continuation disabled")
         elif tradable and bullish_vwap:
             action = "BUY"
             setup = "micro_vwap_momentum"

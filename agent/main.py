@@ -88,6 +88,7 @@ MICRO_EXIT_CHECK_INTERVAL_SECONDS = settings.trading.micro_exit_check_interval_s
 MICRO_MAX_HOLD_MINUTES = settings.trading.micro_max_hold_minutes
 MICRO_MIN_CONFIDENCE = settings.trading.micro_min_confidence
 MICRO_MIN_RELATIVE_VOLUME = settings.trading.micro_min_relative_volume
+MICRO_VOLUME_CONTINUATION_ENABLED = settings.trading.micro_volume_continuation_enabled
 MICRO_MIN_CONTINUATION_RELATIVE_VOLUME = settings.trading.micro_min_continuation_relative_volume
 MICRO_REQUIRE_CONTINUATION_CONFIRMATION = settings.trading.micro_require_continuation_confirmation
 MICRO_CONTINUATION_MIN_FOLLOW_THROUGH_ATR = settings.trading.micro_continuation_min_follow_through_atr
@@ -671,6 +672,7 @@ class TradingBot:
             print(f"Micro Max Hold: {MICRO_MAX_HOLD_MINUTES} minutes")
             print(f"Micro Min Confidence: {MICRO_MIN_CONFIDENCE}%")
             print(f"Micro Min Relative Volume: {MICRO_MIN_RELATIVE_VOLUME:.2f}x")
+            print(f"Micro Volume Continuation Enabled: {MICRO_VOLUME_CONTINUATION_ENABLED}")
             print(f"Micro Continuation Min Relative Volume: {MICRO_MIN_CONTINUATION_RELATIVE_VOLUME:.2f}x")
             print(f"Micro Continuation Confirmation: {MICRO_REQUIRE_CONTINUATION_CONFIRMATION}")
             print(f"Micro Continuation Min Follow-through: {MICRO_CONTINUATION_MIN_FOLLOW_THROUGH_ATR:.2f} ATR")
@@ -791,6 +793,7 @@ class TradingBot:
                 max_hold_minutes=MICRO_MAX_HOLD_MINUTES,
                 min_confidence=MICRO_MIN_CONFIDENCE,
                 min_relative_volume=MICRO_MIN_RELATIVE_VOLUME,
+                volume_continuation_enabled=MICRO_VOLUME_CONTINUATION_ENABLED,
                 min_continuation_relative_volume=MICRO_MIN_CONTINUATION_RELATIVE_VOLUME,
                 require_continuation_confirmation=MICRO_REQUIRE_CONTINUATION_CONFIRMATION,
                 continuation_min_follow_through_atr=MICRO_CONTINUATION_MIN_FOLLOW_THROUGH_ATR,

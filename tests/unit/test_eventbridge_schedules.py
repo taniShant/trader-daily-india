@@ -91,5 +91,44 @@ def test_trading_entrypoint_exits_after_scheduled_action_instead_of_main_loop():
     assert 'if [ -n "$SCHEDULED_ACTION" ]; then' in entrypoint
     assert "bot._run_overnight_analysis()" in entrypoint
     assert "bot._square_off_all()" in entrypoint
+    assert ".update_service(" in entrypoint
+    assert "desiredCount=1" in entrypoint
+    assert "ECS_CLUSTER_NAME" in entrypoint
+    assert "ECS_TRADING_SERVICE_NAME" in entrypoint
     assert "Scheduled action completed" in entrypoint
     assert "Starting main trading loop" in entrypoint
+
+
+def test_market_open_task_can_start_the_singleton_service():
+    template = agent_runtime_template()
+    task_definitions = [
+        resource["Properties"]
+        for resource in template["Resources"].values()
+        if resource.get("Type") == "AWS::ECS::TaskDefinition"
+    ]
+    trading_task = next(
+        task
+        for task in task_definitions
+        if task["ContainerDefinitions"][0]["Name"] == "TradingBotContainer"
+    )
+    environment = {
+        item["Name"]: item["Value"]
+        for item in trading_task["ContainerDefinitions"][0]["Environment"]
+    }
+
+    assert "Ref" in environment["ECS_CLUSTER_NAME"]
+    assert environment["ECS_TRADING_SERVICE_NAME"] == "trading-bot-prod"
+    assert environment["MICRO_VOLUME_CONTINUATION_ENABLED"] == "False"
+    assert environment["MICRO_SETUP_LOSS_THROTTLE_COUNT"] == "2"
+
+    policies = [
+        statement
+        for resource in template["Resources"].values()
+        if resource.get("Type") == "AWS::IAM::Policy"
+        for statement in resource["Properties"]["PolicyDocument"]["Statement"]
+    ]
+    assert any(
+        "ecs:UpdateService" in statement.get("Action", [])
+        or statement.get("Action") == "ecs:UpdateService"
+        for statement in policies
+    )

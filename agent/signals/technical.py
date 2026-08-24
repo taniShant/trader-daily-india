@@ -1,13 +1,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, time, timezone
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
 from agent.contracts.market import OHLCVBar
 from agent.data.market_data import bars_to_dataframe
+
+
+INDIA_TZ = ZoneInfo("Asia/Kolkata")
+MARKET_OPEN = time(9, 15)
+MARKET_CLOSE = time(15, 30)
 
 
 @dataclass(frozen=True)
@@ -40,6 +46,7 @@ class TechnicalFeatures:
 
 def compute_technical_features(payload_or_bars: dict[str, Any] | list[OHLCVBar]) -> TechnicalFeatures:
     df = bars_to_dataframe(payload_or_bars).copy()
+    df = _latest_ist_market_session(df)
     if df.empty or len(df) < 2:
         raise ValueError("at least two OHLCV bars are required")
 
@@ -83,6 +90,59 @@ def compute_technical_features(payload_or_bars: dict[str, Any] | list[OHLCVBar])
         latest_timestamp=_latest_timestamp(latest),
         latest_source=str(latest.get("source")) if latest.get("source") is not None else None,
     )
+
+
+def _latest_ist_market_session(df):
+    """Keep only the latest bar date's regular NSE session in IST.
+
+    Breeze's ``days=1`` range can include the preceding trading session. Using
+    the whole response would contaminate intraday VWAP, relative volume and the
+    opening range with yesterday's bars. Selecting by the latest bar date also
+    keeps historical replay deterministic instead of depending on wall-clock
+    time.
+    """
+    import pandas as pd
+
+    if df.empty:
+        return df
+    if "timestamp" not in df.columns:
+        raise ValueError("OHLCV bars require timestamps for IST session filtering")
+
+    timestamps = df["timestamp"].map(_timestamp_in_ist)
+    valid = timestamps.notna()
+    if not valid.any():
+        raise ValueError("OHLCV bars contain no valid timestamps")
+
+    local_times = timestamps.map(lambda value: None if pd.isna(value) else value.time())
+    regular_hours = valid & local_times.map(
+        lambda value: value is not None and MARKET_OPEN <= value <= MARKET_CLOSE
+    )
+    if not regular_hours.any():
+        raise ValueError("OHLCV bars contain no regular-session IST candles")
+
+    latest_session_date = max(value.date() for value in timestamps[regular_hours])
+    same_session = regular_hours & timestamps.map(
+        lambda value: not pd.isna(value) and value.date() == latest_session_date
+    )
+    session = df.loc[same_session].copy()
+    session["timestamp"] = timestamps.loc[same_session].map(
+        lambda value: value.astimezone(timezone.utc)
+    )
+    return session.sort_values("timestamp").reset_index(drop=True)
+
+
+def _timestamp_in_ist(value):
+    import pandas as pd
+
+    try:
+        parsed = pd.Timestamp(value)
+    except (TypeError, ValueError):
+        return pd.NaT
+    if pd.isna(parsed):
+        return pd.NaT
+    if parsed.tzinfo is None:
+        return parsed.tz_localize(INDIA_TZ).to_pydatetime()
+    return parsed.tz_convert(INDIA_TZ).to_pydatetime()
 
 
 def _symbol_from_payload(payload_or_bars: dict[str, Any] | list[OHLCVBar], df) -> str:
